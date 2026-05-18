@@ -1051,9 +1051,14 @@ function renderExtras() {
             html += '<div style="font-size:11px;color:#888;margin-top:2px">&#10003; ' + e.veces_si + ' aceptados &nbsp; &#10005; ' + e.veces_no + ' rechazados</div>';
             html += '</div>';
             html += '<div style="display:flex;gap:6px">';
-            html += '<button onclick="abrirFormExtra(' + e.id + ')" style="background:none;border:none;color:#8b1a2a;cursor:pointer;font-size:18px">&#9998;</button>';
-            html += '<button onclick="eliminarExtra(' + e.id + ')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:18px">&#128465;</button>';
+            html += '<button onclick="abrirFormExtra(' + e.id + ')" style="background:none;border:none;color:#8b1a2a;cursor:pointer;font-size:18px" title="Editar">&#9998;</button>';
+            html += '<button onclick="eliminarExtra(' + e.id + ')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:18px" title="Eliminar">&#128465;</button>';
             html += '</div></div>';
+            // Botones de email
+            html += '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">';
+            html += '<button onclick="enviarBienvenida(' + e.id + ',\'' + (e.nombre||'') + '\')" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;flex:1">&#128231; Bienvenida</button>';
+            html += '<button onclick="abrirExtrasConFecha(S.dia)" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;flex:1">&#128197; Ver servicios</button>';
+            html += '</div>';
             // Calificaciones
             html += '<div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px">';
             var aspects = [{k:'actitud',l:'Actitud'},{k:'capacidad',l:'Capacidad'},{k:'rigor',l:'Rigor/Puntualidad'},{k:'conocimientos',l:'Conocimientos'},{k:'aspecto',l:'Aspecto'}];
@@ -1127,13 +1132,17 @@ function cargarExtrasDia() {
       html += '</div>';
       
       // Acciones
+      html += '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">';
       if (necesarios > 0) {
-        html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
-        html += '<button class="btn btn-primary" style="font-size:13px" onclick="convocarExtras()">&#128231; Convocar extras</button>';
-        html += '<button class="btn btn-secondary" style="font-size:13px" onclick="recordatorioExtras()">&#128276; Recordatorio</button>';
+        html += '<div style="display:flex;gap:8px">';
+        html += '<button class="btn btn-primary" style="font-size:13px;flex:1" onclick="convocarExtras()">&#128231; Convocar extras</button>';
+        html += '<button class="btn btn-secondary" style="font-size:13px;flex:1" onclick="recordatorioExtras()">&#128276; Recordatorio</button>';
         html += '</div>';
-        html += '<button class="btn btn-secondary" style="font-size:13px;margin-bottom:12px" onclick="asignarExtraManual()">+ Asignar manualmente</button>';
+        html += '<button class="btn btn-secondary" style="font-size:13px" onclick="asignarExtraManual()">&#43; Asignar manualmente</button>';
+      } else {
+        html += '<div style="text-align:center;font-size:12px;color:#aaa;padding:8px">No se necesitan extras para este dia</div>';
       }
+      html += '</div>';
       
       // Confirmados
       if (confirmados.length) {
@@ -1199,6 +1208,17 @@ function convocarExtras() {
         alert(d.msg);
       }
     });
+}
+
+function enviarBienvenida(id, nombre) {
+  if (!confirm('Enviar email de bienvenida y normas a ' + nombre + '?')) return;
+  fetch('/api/extras/' + id + '/bienvenida', {method:'POST'})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(res.ok) alert('Email de bienvenida enviado correctamente a ' + nombre);
+      else alert('Error: ' + (res.msg || 'No se pudo enviar'));
+    })
+    .catch(function(){ alert('Error al enviar el email. Revisa la configuracion SMTP.'); });
 }
 
 function recordatorioExtras() {
