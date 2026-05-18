@@ -1634,7 +1634,7 @@ var presupReserva = null;
 var presupId = null;
 
 function abrirPresupuesto() {
-  var r = S.reservas ? S.reservas.find(function(x){return x.id===S.detalleId;}) : null;
+  var r = S.ordenReserva || null;
   if (!r) { alert('No se pudo cargar la reserva'); return; }
   presupReserva = r;
   presupId = null;
