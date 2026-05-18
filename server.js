@@ -1034,6 +1034,24 @@ function programarRecordatorios() {
 
 
 // ─── API PRESUPUESTOS ─────────────────────────────────────────────────────────
+// Migrar tabla presupuestos para añadir firmas si no existen
+try { db.exec("ALTER TABLE presupuestos ADD COLUMN firma_restaurante TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE presupuestos ADD COLUMN firma_cliente TEXT"); } catch(e) {}
+
+// Nuevo endpoint: guardar firmas
+app.post('/api/presupuestos/:id/firmas', (req, res) => {
+  const { firma_restaurante, firma_cliente } = req.body;
+  db.prepare('UPDATE presupuestos SET firma_restaurante=?, firma_cliente=? WHERE id=?')
+    .run(firma_restaurante||null, firma_cliente||null, req.params.id);
+  res.json({ ok: true });
+});
+
+// Nuevo endpoint: obtener presupuestos de una reserva
+app.get('/api/presupuestos/reserva/:id', (req, res) => {
+  const rows = db.prepare('SELECT * FROM presupuestos WHERE reserva_id = ? ORDER BY created_at DESC').all(req.params.id);
+  res.json(rows);
+});
+
 app.get('/api/presupuesto/siguiente', (req, res) => {
   const anio = new Date().getFullYear();
   const row = db.prepare("SELECT COUNT(*) as n FROM presupuestos WHERE numero LIKE ?").get('%/' + String(anio).slice(-2));
@@ -1134,11 +1152,26 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
   const destinatarios = ['oscar@donfadrique.com'];
   if (emailCliente) destinatarios.unshift(emailCliente);
 
+  // Adjuntar firmas si existen
+  const firmasHtml = (presup.firma_restaurante || presup.firma_cliente) ? `
+    <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div style="text-align:center">
+        <p style="font-size:10px;color:#888;letter-spacing:1px;margin-bottom:8px">FIRMA DEL RESTAURANTE</p>
+        ${presup.firma_restaurante ? `<img src="${presup.firma_restaurante}" style="max-width:200px;border-bottom:1px solid #333">` : '<div style="height:60px;border-bottom:1px solid #ccc"></div>'}
+        <p style="font-size:11px;margin-top:4px">${presup.firmante || 'Don Fadrique'}</p>
+      </div>
+      <div style="text-align:center">
+        <p style="font-size:10px;color:#888;letter-spacing:1px;margin-bottom:8px">FIRMA DEL CLIENTE</p>
+        ${presup.firma_cliente ? `<img src="${presup.firma_cliente}" style="max-width:200px;border-bottom:1px solid #333">` : '<div style="height:60px;border-bottom:1px solid #ccc"></div>'}
+        <p style="font-size:11px;margin-top:4px">${presup.cliente}</p>
+      </div>
+    </div>` : '';
+
   await transporter.sendMail({
     from: `"Don Fadrique" <${cfg.email_smtp}>`,
     to: destinatarios.join(', '),
     subject: `Presupuesto Nº ${presup.numero} - ${presup.cliente}`,
-    html
+    html: html.replace('</div></body></html>', firmasHtml + '</div></body></html>')
   });
 }
 
