@@ -63,11 +63,35 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
 .cal-day.otro-mes{color:#ccc}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 
-.alerta-extras{background:#fff8e1;border-left:4px solid #b8965a;border-radius:8px;padding:12px 14px;margin:8px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
-.alerta-extras-txt{font-size:13px;color:#5d4037}
-.alerta-extras-btn{background:#b8965a;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;margin-left:8px}
-.alerta-cancel{background:#fce4e4;border-left:4px solid #842029;border-radius:8px;padding:12px 14px;margin:4px 14px;display:flex;justify-content:space-between;align-items:center}
-.alerta-cancel-txt{font-size:13px;color:#842029}
+/* ── ALERTAS ─────────────────────────────────────────── */
+.alertas-wrap{padding:0 14px;margin-top:6px}
+.alerta-card{border-radius:12px;margin-bottom:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.alerta-card-header{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.alerta-card-icon{font-size:22px;flex-shrink:0}
+.alerta-card-title{font-size:13px;font-weight:700;flex:1}
+.alerta-card-body{padding:0 14px 12px 14px;font-size:12px;line-height:1.7;opacity:.85}
+.alerta-card-footer{display:flex;gap:8px;padding:10px 14px;border-top:1px solid rgba(0,0,0,.06)}
+.alerta-card-btn{flex:1;padding:10px 0;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.3px}
+.alerta-card-btn-primary{color:#fff}
+.alerta-card-btn-secondary{background:rgba(0,0,0,.06);color:#555}
+/* Convocatoria (naranja dorado) */
+.alerta-conv{background:linear-gradient(135deg,#fffbf0,#fff8e1)}
+.alerta-conv .alerta-card-header{background:linear-gradient(135deg,#b8965a,#a07840);color:#fff}
+.alerta-conv .alerta-card-btn-primary{background:linear-gradient(135deg,#b8965a,#a07840)}
+/* Cancelacion (rojo) */
+.alerta-cancel-card{background:linear-gradient(135deg,#fff5f5,#fce4e4)}
+.alerta-cancel-card .alerta-card-header{background:linear-gradient(135deg,#842029,#6b1520);color:#fff}
+.alerta-cancel-card .alerta-card-btn-primary{background:linear-gradient(135deg,#842029,#6b1520)}
+/* Extras necesarios (azul oscuro) */
+.alerta-extras-card{background:linear-gradient(135deg,#f0f4ff,#e8eeff)}
+.alerta-extras-card .alerta-card-header{background:linear-gradient(135deg,#2c3e7a,#1e2d5a);color:#fff}
+.alerta-extras-card .alerta-card-btn-primary{background:linear-gradient(135deg,#2c3e7a,#1e2d5a)}
+/* Compat antiguos */
+.alerta-extras{display:none}
+.alerta-extras-txt{display:none}
+.alerta-extras-btn{display:none}
+.alerta-cancel{display:none}
+.alerta-cancel-txt{display:none}
 
 @media print {
   .no-print { display: none !important; }
@@ -1338,8 +1362,9 @@ function comprobarAlertasExtras() {
       alertas.forEach(function(a){
         var diff = Math.round((new Date(a.fecha+'T12:00:00') - new Date()) / (1000*60*60*24));
         var cuando = diff === 0 ? 'Hoy' : diff === 1 ? 'Manana' : 'En ' + diff + ' dias';
-        html += '<div class="alerta-extras" onclick="abrirExtrasConFecha(&quot;' + a.fecha + '&quot;)">';
-        html += '<div class="alerta-extras-txt">&#9888; <strong>' + cuando + ' (' + fmtFechaCorta(a.fecha) + ')</strong><br>';
+        html += '<div class="alerta-card alerta-extras-card">';
+        html += '<div class="alerta-card-header"><span class="alerta-card-icon">&#128101;</span><span class="alerta-card-title">&#9888; ' + cuando + ' · ' + fmtFechaCorta(a.fecha) + '</span></div>';
+        html += '<div class="alerta-card-body" style="display:none">'; // spacer
         html += a.pax + ' personas reservadas &middot; Necesitas ' + a.necesarios + ' extras</div>';
         html += '<button class="alerta-extras-btn" onclick="event.stopPropagation();abrirExtrasConFecha(&quot;' + a.fecha + '&quot;)">Ver extras</button>';
         html += '</div>';
@@ -1360,9 +1385,10 @@ function comprobarAvisosCancelacion() {
       var html = cont.innerHTML;
       avisos.forEach(function(a, idx){
         var fecha = fmtFechaCorta(a.fecha);
-        html += '<div class="alerta-cancel">';
-        html += '<div class="alerta-cancel-txt">&#128680; <strong>' + a.extra + '</strong> ha cancelado el servicio del ' + fecha + ' (menos de 7 dias). Necesita cobertura.</div>';
-        html += '<button onclick="descartarAviso(' + idx + ')" style="background:none;border:none;color:#842029;cursor:pointer;font-size:18px;margin-left:8px">&#10005;</button>';
+        html += '<div class="alerta-card alerta-cancel-card">';
+        html += '<div class="alerta-card-header"><span class="alerta-card-icon">&#128680;</span><span class="alerta-card-title">Cancelacion con menos de 7 dias</span></div>';
+        html += '<div class="alerta-card-body"><strong>' + a.extra + '</strong> ha cancelado su plaza para el servicio del <strong>' + fecha + '</strong>. Es necesario buscar cobertura.</div>';
+        html += '<div class="alerta-card-footer"><button class="alerta-card-btn alerta-card-btn-secondary" onclick="descartarAviso(' + idx + ')">Descartar</button><button class="alerta-card-btn alerta-card-btn-primary" onclick="abrirExtrasConFecha(''+a.fecha+'')">Ver extras</button></div>';
         html += '</div>';
       });
       cont.innerHTML = html;
@@ -1382,26 +1408,44 @@ function comprobarAlertasConvocatoria() {
       alertas.forEach(function(a){
         var fecha = fmtFechaCorta(a.fecha);
         var dias = a.diasRestantes;
-        var txtDias = dias <= 0 ? 'HOY' : dias === 1 ? 'manana' : 'en ' + dias + ' dias';
-        var html = '<div class="alerta-extras" onclick="confirmarConvocatoria('' + a.fecha + '', ' + a.necesarios + ')">';
-        html += '<div class="alerta-extras-txt">&#128101; Convocatoria pendiente para el <strong>' + fecha + '</strong> (' + txtDias + '). Se necesitan <strong>' + a.necesarios + ' extras</strong>. Pulsa para enviar los emails.</div>';
-        html += '<button class="alerta-extras-btn">Enviar</button>';
+        var urgencia = dias <= 0 ? '&#128308; HOY' : dias <= 3 ? '&#128992; ' + dias + ' dias' : '&#128994; ' + dias + ' dias';
+        var html = '<div class="alerta-card alerta-conv">';
+        html += '<div class="alerta-card-header"><span class="alerta-card-icon">&#128101;</span><span class="alerta-card-title">Convocatoria de personal pendiente &nbsp; ' + urgencia + '</span></div>';
+        html += '<div class="alerta-card-body">';
+        html += 'Servicio del <strong>' + fecha + '</strong> · Se necesitan <strong>' + a.necesarios + ' extras</strong><br>';
+        html += 'Se enviara email al triple de extras (' + (a.necesarios*3) + ' personas) para asegurar respuestas.<br>';
+        html += 'Solo entraran los primeros en confirmar.';
         html += '</div>';
+        html += '<div class="alerta-card-footer">';
+        html += '<button class="alerta-card-btn alerta-card-btn-secondary" onclick="cancelarConvocatoria('' + a.fecha + '')">Cancelar</button>';
+        html += '<button class="alerta-card-btn alerta-card-btn-primary" onclick="confirmarConvocatoria('' + a.fecha + '',' + a.necesarios + ')">&#9993; Enviar emails</button>';
+        html += '</div></div>';
         cont.innerHTML = html + cont.innerHTML;
       });
     });
 }
 
 function confirmarConvocatoria(fecha, necesarios) {
-  var fechaFmt = fmtFechaCorta(fecha);
-  if(!confirm('¿Enviar emails de convocatoria a los extras para el ' + fechaFmt + '?\n\nSe necesitan ' + necesarios + ' extras. Se contactara al triple (' + (necesarios*3) + ' personas) para asegurar respuestas.')) return;
   fetch('/api/extras/enviar-convocatoria/' + fecha, {method:'POST'})
     .then(function(r){return r.json();})
     .then(function(res){
-      alert('Emails enviados: ' + res.enviados + '\n\nLos extras confirmarán su disponibilidad mediante los botones del email.');
+      var cont = document.getElementById('home-alertas');
+      // Mostrar confirmacion visual
+      var ok = document.createElement('div');
+      ok.className = 'alerta-card alerta-conv';
+      ok.innerHTML = '<div class="alerta-card-header"><span class="alerta-card-icon">&#10003;</span><span class="alerta-card-title">Emails enviados correctamente</span></div><div class="alerta-card-body">Se han enviado <strong>' + res.enviados + ' emails</strong> de convocatoria. Los extras confirmaran su disponibilidad pulsando los botones del email.</div>';
+      cont.insertBefore(ok, cont.firstChild);
+      setTimeout(function(){ if(ok.parentNode) ok.parentNode.removeChild(ok); }, 5000);
       comprobarAlertasConvocatoria();
     })
-    .catch(function(){ alert('Error al enviar los emails. Revisa la configuracion SMTP.'); });
+    .catch(function(){
+      alert('Error al enviar los emails. Revisa la configuracion SMTP en Ajustes.');
+    });
+}
+
+function cancelarConvocatoria(fecha) {
+  fetch('/api/alertas-convocatoria/' + fecha, {method:'DELETE'})
+    .then(function(){ comprobarAlertasConvocatoria(); });
 }
 
 function abrirExtrasConFecha(fecha) {
