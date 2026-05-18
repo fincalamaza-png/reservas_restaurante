@@ -1211,21 +1211,46 @@ function convocarExtras() {
 }
 
 function convocarExtraManual(id, nombre) {
-  var fecha = prompt('Fecha del servicio (YYYY-MM-DD):', S.dia || new Date().toISOString().slice(0,10));
-  if (!fecha) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { alert('Formato incorrecto. Usa YYYY-MM-DD'); return; }
-  if (!confirm('Convocar a ' + nombre + ' para el ' + fmtFechaCorta(fecha) + '?')) return;
-  fetch('/api/extras/asignar', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({extra_id: id, fecha: fecha})
-  })
-  .then(function(r){return r.json();})
-  .then(function(res){
-    if(res.ok) alert('Email de convocatoria enviado a ' + nombre + ' para el ' + fmtFechaCorta(fecha));
-    else alert('Error: ' + (res.msg || 'No se pudo convocar'));
-  })
-  .catch(function(){ alert('Error al convocar. Revisa la configuracion SMTP.'); });
+  // Crear modal con selector de fecha
+  var hoy = new Date().toISOString().slice(0,10);
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.2)">'
+    + '<div style="font-family:Georgia,serif;font-size:18px;color:#b8965a;margin-bottom:4px">Don Fadrique</div>'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:16px">Convocar a ' + nombre + '</div>'
+    + '<div style="font-size:13px;color:#666;margin-bottom:8px">Selecciona la fecha del servicio:</div>'
+    + '<input type="date" id="conv-fecha" value="' + hoy + '" min="' + hoy + '" style="width:100%;padding:12px;border:2px solid #b8965a;border-radius:8px;font-size:16px;box-sizing:border-box;margin-bottom:16px">'
+    + '<div style="display:flex;gap:8px">'
+    + '<button id="conv-cancel" style="flex:1;padding:12px;border:1.5px solid #ccc;background:#fff;border-radius:8px;font-size:14px;cursor:pointer;color:#555">Cancelar</button>'
+    + '<button id="conv-ok" style="flex:1;padding:12px;border:none;background:#b8965a;color:#fff;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Convocar</button>'
+    + '</div></div>';
+  document.body.appendChild(overlay);
+  document.getElementById('conv-cancel').onclick = function() { document.body.removeChild(overlay); };
+  overlay.onclick = function(ev) { if(ev.target===overlay) document.body.removeChild(overlay); };
+  document.getElementById('conv-ok').onclick = function() {
+    var fecha = document.getElementById('conv-fecha').value;
+    if (!fecha) { alert('Selecciona una fecha'); return; }
+    document.body.removeChild(overlay);
+    fetch('/api/extras/asignar', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({extra_id: id, fecha: fecha})
+    })
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(res.ok) {
+        // Confirmacion visual
+        var ok = document.createElement('div');
+        ok.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#0f5132;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+        ok.textContent = '✓ Convocatoria enviada a ' + nombre;
+        document.body.appendChild(ok);
+        setTimeout(function(){ if(ok.parentNode) ok.parentNode.removeChild(ok); }, 3500);
+      } else {
+        alert('Error: ' + (res.msg || 'No se pudo convocar'));
+      }
+    })
+    .catch(function(){ alert('Error al convocar. Revisa la configuracion SMTP.'); });
+  };
 }
 
 function enviarBienvenida(id, nombre) {
