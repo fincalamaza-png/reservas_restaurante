@@ -370,6 +370,13 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
             <option value="Manuel Sanchez Monje">Manuel Sánchez Monje</option>
           </select>
         </div>
+        <div class="field"><label>Forma de pago</label>
+          <select id="p-pago" style="width:100%;padding:10px;border:1.5px solid #d0cac2;border-radius:8px;font-size:13px">
+            <option value="1">Transferencia / Tarjeta / Bizum / Efectivo — en las 24h siguientes al evento</option>
+            <option value="2">Transferencia / Tarjeta / Bizum / Efectivo — 3 días antes del banquete</option>
+            <option value="3">50% 10 días antes del banquete + 50% en las 24h siguientes — Transferencia / Tarjeta / Bizum / Efectivo</option>
+          </select>
+        </div>
         <div class="field"><label>Observaciones</label><textarea id="p-obs" style="width:100%;padding:10px;border:1.5px solid #d0cac2;border-radius:8px;font-size:13px;min-height:60px;font-family:inherit;resize:vertical"></textarea></div>
       </div>
       <div class="card" style="margin-bottom:10px">
@@ -1725,6 +1732,8 @@ function guardarPresupuesto(enviar) {
   var firmante = document.getElementById('p-firmante').value;
   var obs = document.getElementById('p-obs').value;
   var numero = document.getElementById('p-numero').value;
+  var pagoOpt = document.getElementById('p-pago');
+  var pagoTexto = pagoOpt ? pagoOpt.options[pagoOpt.selectedIndex].text : '';
   var sub = presupLineas.reduce(function(s,l){return s+(l.qty||0)*(l.precio||0);},0);
   var iva = sub * 0.10;
   var tot = sub + iva;
@@ -1736,7 +1745,7 @@ function guardarPresupuesto(enviar) {
     fecha_evento: r.fecha, salon: r.salon, pax: r.pax,
     tipo_evento: r.tipo_evento, firmante: firmante,
     lineas: presupLineas, subtotal: sub, iva: iva, total: tot,
-    obs: obs, email_cliente: enviar ? r.email : null
+    obs: obs, pago: pagoTexto, email_cliente: enviar ? r.email : null
   };
 
   var url = presupId ? '/api/presupuestos' : '/api/presupuestos';
@@ -1772,6 +1781,8 @@ function imprimirPresupuesto() {
   var firmante = document.getElementById('p-firmante').value;
   var obs = document.getElementById('p-obs').value;
   var numero = document.getElementById('p-numero').value;
+  var pagoOpt = document.getElementById('p-pago');
+  var pagoTexto = pagoOpt ? pagoOpt.options[pagoOpt.selectedIndex].text : '';
   var sub = presupLineas.reduce(function(s,l){return s+(l.qty||0)*(l.precio||0);},0);
   var iva = sub*0.10; var tot = sub+iva;
   var firmaRest = obtenerFirma('restaurante');
@@ -1799,7 +1810,23 @@ function imprimirPresupuesto() {
   html += '<tr><td style="color:#888">IVA (10%)</td><td style="text-align:right;color:#888">'+iva.toFixed(2)+' €</td></tr>';
   html += '<tr class="total-row"><td>TOTAL</td><td style="text-align:right">'+tot.toFixed(2)+' €</td></tr></table>';
   if (obs) html += '<div class="presup-obs"><strong>Observaciones:</strong> '+obs+'</div>';
-  html += '<div class="presup-conds">Este presupuesto tiene una validez de 30 dias desde su fecha de emision. Los precios indicados no incluyen IVA (10%). El pago se realizara segun las condiciones acordadas con el restaurante.</div>';
+  var pagoOpt = document.getElementById('p-pago');
+  var pagoSel = pagoOpt ? pagoOpt.selectedIndex : 0;
+  var pagosTextos = [
+    'Transferencia bancaria, tarjeta, Bizum o efectivo en las 24 horas siguientes al evento.',
+    'Transferencia bancaria, tarjeta, Bizum o efectivo 3 días antes del banquete.',
+    '50% mediante transferencia bancaria, tarjeta, Bizum o efectivo 10 días antes del banquete. 50% restante mediante transferencia bancaria, tarjeta, Bizum o efectivo en las 24 horas siguientes al banquete.'
+  ];
+  var pagoTextoImp = pagosTextos[pagoSel] || pagosTextos[0];
+  html += '<div class="presup-conds">';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:10px;font-family:sans-serif;margin-bottom:8px">';
+  html += '<tr><td style="padding:3px 8px;font-weight:700;color:#333;white-space:nowrap;width:1%">Empresa:</td><td style="padding:3px 8px">NIMANSANMON S.L.</td>';
+  html += '<td style="padding:3px 8px;font-weight:700;color:#333;white-space:nowrap;width:1%">CIF:</td><td style="padding:3px 8px">B37297223</td></tr>';
+  html += '<tr><td style="padding:3px 8px;font-weight:700;color:#333">Forma de pago:</td><td style="padding:3px 8px" colspan="3">' + pagoTextoImp + '</td></tr>';
+  html += '<tr><td style="padding:3px 8px;font-weight:700;color:#333">Comensales:</td><td style="padding:3px 8px" colspan="3">El número de comensales facturados será el indicado 7 días antes del banquete.</td></tr>';
+  html += '<tr><td style="padding:3px 8px;font-weight:700;color:#333">Validez:</td><td style="padding:3px 8px" colspan="3">Este presupuesto tiene una validez de 30 días desde su fecha de emisión.</td></tr>';
+  html += '<tr><td style="padding:3px 8px;font-weight:700;color:#333">IVA:</td><td style="padding:3px 8px" colspan="3">Los precios indicados no incluyen IVA (10%).</td></tr>';
+  html += '</table></div>';
   html += '<div class="presup-divider2"></div>';
   html += '<div class="presup-firmas">';
   html += '<div class="presup-firma-box"><div class="f-label">Firma del restaurante</div>';

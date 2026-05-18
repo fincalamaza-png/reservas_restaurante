@@ -1037,6 +1037,7 @@ function programarRecordatorios() {
 // Migrar tabla presupuestos para añadir firmas si no existen
 try { db.exec("ALTER TABLE presupuestos ADD COLUMN firma_restaurante TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE presupuestos ADD COLUMN firma_cliente TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE presupuestos ADD COLUMN pago TEXT"); } catch(e) {}
 
 // Nuevo endpoint: guardar firmas
 app.post('/api/presupuestos/:id/firmas', (req, res) => {
@@ -1069,6 +1070,8 @@ app.post('/api/presupuestos', async (req, res) => {
     INSERT INTO presupuestos (numero, reserva_id, cliente, fecha_evento, salon, pax, tipo_evento, firmante, lineas, subtotal, iva, total, obs, enviado)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
   `).run(d.numero, d.reserva_id||null, d.cliente, d.fecha_evento, d.salon, d.pax, d.tipo_evento, d.firmante, JSON.stringify(d.lineas), d.subtotal, d.iva, d.total, d.obs||'');
+  // Guardar forma de pago si se incluye
+  if (d.pago) db.prepare('UPDATE presupuestos SET pago=? WHERE id=?').run(d.pago, result.lastInsertRowid);
 
   const presup = db.prepare('SELECT * FROM presupuestos WHERE id = ?').get(result.lastInsertRowid);
 
@@ -1143,9 +1146,15 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
     </table>
     <p style="font-size:10px;color:#888;text-align:right">* IVA 10% no incluido en los precios anteriores</p>
     ${presup.obs ? `<p style="font-size:13px;color:#444;margin-top:16px"><strong>Observaciones:</strong> ${presup.obs}</p>` : ''}
-    <p style="font-size:13px;color:#444;margin-top:20px">Firmado por: <strong>${presup.firmante}</strong></p>
+    <div style="background:#f9f9f7;border-radius:8px;padding:14px 16px;margin-top:16px;font-size:12px;color:#555;line-height:1.8">
+      <p style="margin:0 0 4px 0"><strong>Empresa:</strong> NIMANSANMON S.L. &nbsp;·&nbsp; <strong>CIF:</strong> B37297223</p>
+      ${presup.pago ? `<p style="margin:0 0 4px 0"><strong>Forma de pago:</strong> ${presup.pago}</p>` : ''}
+      <p style="margin:0 0 4px 0"><strong>Comensales:</strong> El número de comensales facturados será el indicado 7 días antes del banquete.</p>
+      <p style="margin:0">Este presupuesto tiene una validez de 30 días. Los precios indicados no incluyen IVA (10%).</p>
+    </div>
+    <p style="font-size:13px;color:#444;margin-top:16px">Firmado por: <strong>${presup.firmante}</strong></p>
     <hr style="border:none;border-top:1px solid #e0dcd6;margin:20px 0">
-    <p style="font-size:12px;color:#888">Restaurante Don Fadrique · Alba de Tormes · ${cfg.tel_rest}</p>
+    <p style="font-size:12px;color:#888">Restaurante Don Fadrique · NIMANSANMON S.L. · CIF: B37297223 · Alba de Tormes · ${cfg.tel_rest}</p>
   </div>
 </div></body></html>`;
 
