@@ -1658,9 +1658,7 @@ function abrirPresupuesto() {
         document.getElementById('p-numero').value = p.numero || '';
         document.getElementById('p-firmante').value = p.firmante || 'Nicolas Sanchez Monje';
         document.getElementById('p-obs').value = p.obs || '';
-        // Cargar firmas si existen
-        if (p.firma_restaurante) dibujarFirmaEnCanvas('restaurante', p.firma_restaurante);
-        if (p.firma_cliente) dibujarFirmaEnCanvas('cliente', p.firma_cliente);
+        // firmas se cargan en el setTimeout de abajo
       } else {
         // Nuevo presupuesto — numero automatico
         fetch('/api/presupuesto/siguiente').then(function(res){return res.json();}).then(function(d){
@@ -1676,13 +1674,18 @@ function abrirPresupuesto() {
       document.getElementById('presup-firmante-label').textContent = document.getElementById('p-firmante').options[0].text;
       document.getElementById('presup-cliente-label').textContent = r.nombre;
       document.getElementById('presup-titulo').textContent = 'Presupuesto - ' + r.nombre;
-      // Limpiar firmas siempre al abrir
-      limpiarFirma('restaurante');
-      limpiarFirma('cliente');
       renderLineasPresup();
-      iniciarFirma('restaurante');
-      iniciarFirma('cliente');
       irA('p-presup');
+      // Limpiar e iniciar firmas DESPUES de que el DOM sea visible
+      setTimeout(function() {
+        limpiarFirma('restaurante');
+        limpiarFirma('cliente');
+        iniciarFirma('restaurante');
+        iniciarFirma('cliente');
+        // Cargar firmas guardadas si existen
+        if (presups.length && presups[0].firma_restaurante) dibujarFirmaEnCanvas('restaurante', presups[0].firma_restaurante);
+        if (presups.length && presups[0].firma_cliente) dibujarFirmaEnCanvas('cliente', presups[0].firma_cliente);
+      }, 100);
     });
 }
 
