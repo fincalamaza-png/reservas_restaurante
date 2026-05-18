@@ -272,6 +272,31 @@ async function enviarEmailCliente(r, tipo) {
 }
 
 // ─── EMAIL EXTRA ──────────────────────────────────────────────────
+
+// Bloque de cabecera comun para emails de extras
+function emailHeader(titulo, subtitulo, color) {
+  color = color || '#b8965a';
+  return `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
+  <div style="background:${color};padding:28px 24px;text-align:center">
+    <div style="font-family:Georgia,serif;font-size:26px;color:#fff;letter-spacing:3px;margin-bottom:4px">Don Fadrique</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.75);letter-spacing:1px">RESTAURANTE · PALACIO CONDE DE ALDANA</div>
+    ${titulo ? `<div style="margin-top:14px;font-size:17px;font-weight:700;color:#fff;letter-spacing:1px">${titulo}</div>` : ''}
+    ${subtitulo ? `<div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:4px">${subtitulo}</div>` : ''}
+  </div>
+  <div style="background:#fff;padding:28px 24px;border:1px solid #e0dcd6;border-top:none">`;
+}
+
+function emailFooter(cfg) {
+  return `
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid #f0ede8;text-align:center">
+      <p style="font-size:11px;color:#aaa;margin:0">Restaurante Don Fadrique · Palacio Conde de Aldana</p>
+      <p style="font-size:11px;color:#aaa;margin:4px 0">${cfg.tel_rest || ''} · ${cfg.email_rest || ''}</p>
+    </div>
+  </div>
+</div></body></html>`;
+}
+
 async function enviarEmailExtra(extra, asignacion, tipo) {
   const cfg = getConfig();
   if (!cfg.email_smtp || !cfg.email_pass) return { ok: false, msg: 'SMTP no configurado' };
@@ -282,123 +307,164 @@ async function enviarEmailExtra(extra, asignacion, tipo) {
     auth: { user: cfg.email_smtp, pass: cfg.email_pass }
   });
 
-  const fecha = new Date(asignacion.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   const baseUrl = `http://reservas.palaciocondealdana.com`;
+  const fechaStr = asignacion && asignacion.fecha
+    ? new Date(asignacion.fecha + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+
   let html = '';
 
-  if (tipo === 'convocatoria') {
-    html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,sans-serif">
-<div style="max-width:520px;margin:0 auto">
-  <div style="background:#b8965a;padding:24px;text-align:center;border-radius:8px 8px 0 0">
-    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;letter-spacing:3px">Don Fadrique</div>
-    <div style="font-size:11px;color:#e8c8cc;margin-top:8px">Personal de refuerzo</div>
-  </div>
-  <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
-    <p style="font-size:15px">Hola <strong>${extra.nombre}</strong>,</p>
-    <p style="font-size:13px;color:#444;line-height:1.7">Te necesitamos para un servicio en el Restaurante Don Fadrique.</p>
-    <div style="background:#f9f9f7;border-radius:8px;padding:16px;margin:16px 0">
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><td style="color:#888;padding:5px 0;width:38%">Fecha</td><td style="padding:5px 0"><strong>${fecha}</strong></td></tr>
-        <tr><td style="color:#888;padding:5px 0">Hora de presentacion</td><td style="padding:5px 0"><strong>${asignacion.hora_convocatoria || '---'}</strong></td></tr>
-      </table>
+  // ── BIENVENIDA / OPERATIVA ─────────────────────────────────────
+  if (tipo === 'bienvenida') {
+    html = emailHeader('Bienvenido/a al equipo', 'Carta de incorporacion y normas de servicio', '#1a1a2e') + `
+    <p style="font-size:15px;margin-bottom:6px">Estimado/a <strong>${extra.nombre} ${extra.apellidos || ''}</strong>,</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Es un placer contar contigo como personal de refuerzo en el <strong>Restaurante Don Fadrique</strong>. Queremos que conozcas nuestra forma de trabajar para que tu incorporacion sea lo mas satisfactoria posible para ti y para el equipo.</p>
+
+    <div style="background:#f9f9f7;border-left:4px solid #b8965a;border-radius:0 8px 8px 0;padding:16px 20px;margin:20px 0">
+      <p style="font-size:13px;font-weight:700;color:#b8965a;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:1px">&#9733; Criterios de seleccion</p>
+      <p style="font-size:13px;color:#444;line-height:1.8;margin:0">Los servicios se asignan atendiendo a criterios objetivos de valoracion: <strong>actitud</strong>, <strong>capacidad de trabajo</strong>, <strong>respeto por los horarios</strong>, <strong>relacion con los compañeros</strong> y <strong>buen hacer en los servicios</strong>. Todos teneis las mismas oportunidades, y vuestra trayectoria es lo que determina vuestra posicion en la lista de convocatoria.</p>
     </div>
-    <p style="font-size:13px;color:#444"><strong>Por favor, indica si puedes asistir:</strong></p>
-    <div style="text-align:center;margin:20px 0">
-      <a href="${baseUrl}/api/extras/respuesta/${asignacion.id}/si" style="display:inline-block;background:#0f5132;color:#fff;padding:12px 30px;border-radius:8px;text-decoration:none;font-weight:600;margin-right:10px">SI, PUEDO IR</a>
-      <a href="${baseUrl}/api/extras/respuesta/${asignacion.id}/no" style="display:inline-block;background:#842029;color:#fff;padding:12px 30px;border-radius:8px;text-decoration:none;font-weight:600">NO PUEDO IR</a>
+
+    <div style="background:#f9f9f7;border-left:4px solid #b8965a;border-radius:0 8px 8px 0;padding:16px 20px;margin:20px 0">
+      <p style="font-size:13px;font-weight:700;color:#b8965a;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:1px">&#128203; Como funciona el sistema</p>
+      <p style="font-size:13px;color:#444;line-height:1.8;margin:0">Cuando haya un servicio que requiera personal de refuerzo, recibireis un email de convocatoria con la fecha y hora de presentacion. <strong>El primero en confirmar asegura su plaza.</strong> Una vez confirmado, sois responsables de asistir o de encontrar un sustituto si surgiese algun imprevisto. Si rechazais tres servicios consecutivos sin causa justificada, pasareis temporalmente al final de la lista de convocatoria.</p>
     </div>
-    <p style="font-size:12px;color:#888;margin-top:16px">El primero en confirmar asegura su plaza. Una vez confirmado el servicio, eres responsable de buscar un companero que te cubra en caso de no poder asistir.</p>
-  </div>
-</div></body></html>`;
+
+    <div style="background:#fff3cd;border-left:4px solid #856404;border-radius:0 8px 8px 0;padding:16px 20px;margin:20px 0">
+      <p style="font-size:13px;font-weight:700;color:#856404;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:1px">&#9888; Normas durante el servicio</p>
+      <ul style="font-size:13px;color:#444;line-height:2;margin:0;padding-left:18px">
+        <li><strong>Movil:</strong> queda totalmente prohibido el uso del telefono movil durante el servicio.</li>
+        <li><strong>Tabaco:</strong> no esta permitido fumar en ningun momento mientras se este de servicio.</li>
+        <li><strong>Alcohol:</strong> esta absolutamente prohibido consumir alcohol durante la prestacion del servicio.</li>
+        <li><strong>Puntualidad:</strong> la hora de presentacion indicada en la convocatoria es la hora maxima de llegada, no la de salida del domicilio.</li>
+        <li><strong>Imagen:</strong> se exige uniformidad correcta y cuidado personal acorde con la imagen del restaurante.</li>
+      </ul>
+    </div>
+
+    <div style="background:#fce4e4;border-left:4px solid #842029;border-radius:0 8px 8px 0;padding:16px 20px;margin:20px 0">
+      <p style="font-size:13px;font-weight:700;color:#842029;margin:0 0 8px 0;text-transform:uppercase;letter-spacing:1px">&#9888;&#65039; Aviso importante sobre seguridad</p>
+      <p style="font-size:13px;color:#5a0000;line-height:1.8;margin:0"><strong>Desde el año 2026, cualquier hurto o robo detectado en el establecimiento, independientemente de su cuantia, sera denunciado de inmediato ante la Guardia Civil.</strong> El restaurante cuenta con sistemas de seguridad activos. Esta medida aplica a todo el personal, sin excepcion.</p>
+    </div>
+
+    <p style="font-size:13px;color:#444;line-height:1.8">Si tienes cualquier duda, no dudes en ponerte en contacto con nosotros. Estamos seguros de que tu incorporacion sera una experiencia positiva para todos.</p>
+    <p style="font-size:13px;color:#444">Un cordial saludo,<br><strong>Direccion · Restaurante Don Fadrique</strong></p>
+    ${emailFooter(cfg)}`;
   }
 
+  // ── CONVOCATORIA ───────────────────────────────────────────────
+  if (tipo === 'convocatoria') {
+    html = emailHeader('Convocatoria de servicio', fechaStr, '#b8965a') + `
+    <p style="font-size:15px;margin-bottom:6px">Hola <strong>${extra.nombre}</strong>,</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Necesitamos personal de refuerzo para el siguiente servicio y contamos contigo. Por favor, confirma tu disponibilidad lo antes posible.</p>
+
+    <div style="background:#f9f9f7;border-radius:8px;padding:16px 20px;margin:20px 0;border:1px solid #e8e0d6">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr><td style="color:#888;padding:6px 0;width:42%">Fecha del servicio</td><td style="padding:6px 0"><strong>${fechaStr}</strong></td></tr>
+        <tr style="border-top:1px solid #f0ede8"><td style="color:#888;padding:6px 0">Hora de presentacion</td><td style="padding:6px 0"><strong>${asignacion.hora_convocatoria || '---'}</strong></td></tr>
+        <tr style="border-top:1px solid #f0ede8"><td style="color:#888;padding:6px 0">Lugar</td><td style="padding:6px 0"><strong>Restaurante Don Fadrique · Palacio Conde de Aldana</strong></td></tr>
+      </table>
+    </div>
+
+    <p style="font-size:13px;color:#444;font-weight:600;text-align:center;margin:20px 0 8px 0">&#128071; Indica tu disponibilidad pulsando uno de los botones:</p>
+    <div style="text-align:center;margin:16px 0">
+      <a href="${baseUrl}/api/extras/respuesta/${asignacion.id}/si" style="display:inline-block;background:#0f5132;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-right:12px;letter-spacing:.5px">&#10003;&nbsp; SI, PUEDO IR</a>
+      <a href="${baseUrl}/api/extras/respuesta/${asignacion.id}/no" style="display:inline-block;background:#842029;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:.5px">&#10007;&nbsp; NO PUEDO IR</a>
+    </div>
+
+    <div style="background:#fff8e1;border-radius:8px;padding:12px 16px;margin-top:20px;border:1px solid #ffe082">
+      <p style="font-size:12px;color:#555;margin:0;line-height:1.7"><strong>Recuerda:</strong> el primero en confirmar asegura su plaza. Una vez confirmado, eres responsable de asistir o de gestionar tu sustitucion con antelacion suficiente.</p>
+    </div>
+    ${emailFooter(cfg)}`;
+  }
+
+  // ── CONFIRMACION ───────────────────────────────────────────────
   if (tipo === 'confirmacion') {
     const eventoFechaDate = new Date(asignacion.fecha + 'T12:00:00');
     const hoyNow = new Date();
     const diasParaEvento = Math.round((eventoFechaDate - hoyNow) / (1000*60*60*24));
     const puedeAnular = diasParaEvento >= 7;
     const cancelUrl = `${baseUrl}/api/extras/respuesta/${asignacion.id}/no`;
-    
-    html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,sans-serif">
-<div style="max-width:520px;margin:0 auto">
-  <div style="background:#0f5132;padding:24px;text-align:center;border-radius:8px 8px 0 0">
-    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;letter-spacing:3px">Servicio Confirmado</div>
-    <div style="font-size:11px;color:#a8d5bc;margin-top:8px">Don Fadrique · Personal de refuerzo</div>
-  </div>
-  <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
-    <p style="font-size:15px">Hola <strong>${extra.nombre}</strong>,</p>
-    <p style="font-size:13px;color:#444;line-height:1.7">Tu plaza esta <strong>confirmada</strong> para el siguiente servicio:</p>
-    <div style="background:#f9f9f7;border-radius:8px;padding:16px;margin:16px 0">
+
+    html = emailHeader('Plaza Confirmada', 'Tu servicio esta reservado', '#0f5132') + `
+    <p style="font-size:15px;margin-bottom:6px">Hola <strong>${extra.nombre}</strong>,</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Tu plaza esta <strong>confirmada</strong> para el siguiente servicio. Apunta los datos:</p>
+
+    <div style="background:#f0f7f3;border-radius:8px;padding:16px 20px;margin:20px 0;border:1px solid #a8d5bc">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><td style="color:#888;padding:5px 0;width:38%">Fecha</td><td style="padding:5px 0"><strong>${fecha}</strong></td></tr>
-        <tr><td style="color:#888;padding:5px 0">Hora presentacion</td><td style="padding:5px 0"><strong>${asignacion.hora_convocatoria || '---'}</strong></td></tr>
+        <tr><td style="color:#555;padding:6px 0;width:42%">Fecha</td><td style="padding:6px 0"><strong>${fechaStr}</strong></td></tr>
+        <tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Hora de presentacion</td><td style="padding:6px 0"><strong>${asignacion.hora_convocatoria || '---'}</strong></td></tr>
+        <tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Lugar</td><td style="padding:6px 0"><strong>Restaurante Don Fadrique · Palacio Conde de Aldana</strong></td></tr>
       </table>
     </div>
-    <p style="font-size:13px;color:#842029;font-weight:600">IMPORTANTE: En caso de no poder asistir, es tu responsabilidad encontrar un companero que te cubra y comunicarlo al restaurante.</p>
-    ${puedeAnular ? `<div style="text-align:center;margin:16px 0"><a href="${cancelUrl}" style="display:inline-block;background:#842029;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:13px">Cancelar mi plaza</a><p style="font-size:11px;color:#888;margin-top:6px">Puedes cancelar hasta 7 dias antes del servicio</p></div>` : '<p style="font-size:12px;color:#888">Han pasado los 7 dias para cancelar libremente. Si no puedes asistir, debes buscar un companero.</p>'}
-    <p style="font-size:13px;color:#444">Contacto: ${cfg.tel_rest}</p>
-  </div>
-</div></body></html>`;
+
+    <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;margin:16px 0;border:1px solid #ffe082">
+      <p style="font-size:12px;color:#555;margin:0;line-height:1.7"><strong>Recuerda durante el servicio:</strong> prohibido el uso del movil, fumar y consumir alcohol. Puntualidad obligatoria en la hora de presentacion.</p>
+    </div>
+
+    <p style="font-size:13px;color:#842029;font-weight:600">En caso de no poder asistir, es tu responsabilidad encontrar un companero que te cubra y comunicarlo al restaurante con la maxima antelacion posible.</p>
+
+    ${puedeAnular
+      ? `<div style="text-align:center;margin:20px 0"><a href="${cancelUrl}" style="display:inline-block;background:#842029;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">Cancelar mi plaza</a><p style="font-size:11px;color:#888;margin-top:6px">Puedes cancelar hasta 7 dias antes del servicio</p></div>`
+      : `<p style="font-size:12px;color:#888;text-align:center">Han pasado los 7 dias para cancelar libremente. Si no puedes asistir, debes gestionar tu sustitucion directamente.</p>`
+    }
+    ${emailFooter(cfg)}`;
   }
 
+  // ── LISTA DE ESPERA ────────────────────────────────────────────
   if (tipo === 'espera') {
-    html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,sans-serif">
-<div style="max-width:520px;margin:0 auto">
-  <div style="background:#856404;padding:24px;text-align:center;border-radius:8px 8px 0 0">
-    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;letter-spacing:3px">Lista de Espera</div>
-    <div style="font-size:11px;color:#ffe69c;margin-top:8px">Don Fadrique · Personal de refuerzo</div>
-  </div>
-  <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
-    <p style="font-size:15px">Hola <strong>${extra.nombre}</strong>,</p>
-    <p style="font-size:13px;color:#444;line-height:1.7">Gracias por confirmar tu disponibilidad. Te informamos que para el servicio del <strong>${fecha}</strong> ya se ha completado el equipo. Quedas en lista de espera por si hubiera alguna baja. Te avisaremos si finalmente te necesitamos.</p>
-    <p style="font-size:13px;color:#444">Gracias por tu colaboracion.</p>
-  </div>
-</div></body></html>`;
+    html = emailHeader('Lista de Espera', 'El equipo esta completo por ahora', '#856404') + `
+    <p style="font-size:15px;margin-bottom:6px">Hola <strong>${extra.nombre}</strong>,</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Gracias por confirmar tu disponibilidad para el servicio del <strong>${fechaStr}</strong>. El equipo ya esta completo en este momento, por lo que quedas en <strong>lista de espera</strong>.</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Si se produce alguna baja, seremos en contacto contigo de inmediato. Tu disponibilidad queda registrada y la tenemos en cuenta.</p>
+    <p style="font-size:13px;color:#444">Muchas gracias por tu colaboracion.</p>
+    ${emailFooter(cfg)}`;
   }
 
+  // ── RECORDATORIO ───────────────────────────────────────────────
   if (tipo === 'recordatorio') {
-    html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,sans-serif">
-<div style="max-width:520px;margin:0 auto">
-  <div style="background:#b8965a;padding:24px;text-align:center;border-radius:8px 8px 0 0">
-    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;letter-spacing:3px">Recordatorio de Servicio</div>
-  </div>
-  <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
-    <p style="font-size:15px">Hola <strong>${extra.nombre}</strong>,</p>
-    <p style="font-size:13px;color:#444;line-height:1.7">Te recordamos que hoy tienes servicio en el Restaurante Don Fadrique. Tu hora de presentacion es las <strong>${asignacion.hora_convocatoria || '---'}</strong>.</p>
-    <p style="font-size:13px;color:#842029;font-weight:600">Recuerda: si no puedes asistir, es tu responsabilidad buscar un companero que te cubra.</p>
+    html = emailHeader('Recordatorio de Servicio', 'Hoy tienes servicio en Don Fadrique', '#b8965a') + `
+    <p style="font-size:15px;margin-bottom:6px">Hola <strong>${extra.nombre}</strong>,</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Te recordamos que <strong>hoy</strong> tienes servicio en el Restaurante Don Fadrique.</p>
+
+    <div style="background:#f9f9f7;border-radius:8px;padding:16px 20px;margin:20px 0;border:1px solid #e8e0d6">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr><td style="color:#888;padding:6px 0;width:42%">Hora de presentacion</td><td style="padding:6px 0"><strong style="font-size:16px">${asignacion.hora_convocatoria || '---'}</strong></td></tr>
+        <tr style="border-top:1px solid #f0ede8"><td style="color:#888;padding:6px 0">Lugar</td><td style="padding:6px 0"><strong>Restaurante Don Fadrique · Palacio Conde de Aldana</strong></td></tr>
+      </table>
+    </div>
+
+    <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;margin:16px 0;border:1px solid #ffe082">
+      <p style="font-size:12px;color:#555;margin:0;line-height:1.7"><strong>Recuerda:</strong> prohibido el uso del movil, fumar y consumir alcohol durante el servicio. La puntualidad es obligatoria.</p>
+    </div>
+
+    <p style="font-size:13px;color:#842029;font-weight:600">Si por algun imprevisto no puedes asistir, comunica lo antes posible al restaurante y busca un companero que te cubra.</p>
     <p style="font-size:13px;color:#444">Contacto: ${cfg.tel_rest}</p>
-  </div>
-</div></body></html>`;
+    ${emailFooter(cfg)}`;
   }
 
+  // ── NO HAY PLAZA (desplazado por asignacion manual) ────────────
   if (tipo === 'no_hay_plaza') {
-    html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,sans-serif">
-<div style="max-width:520px;margin:0 auto">
-  <div style="background:#555;padding:24px;text-align:center;border-radius:8px 8px 0 0">
-    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;letter-spacing:3px">Don Fadrique</div>
-    <div style="font-size:11px;color:#ccc;margin-top:8px">Personal de refuerzo</div>
-  </div>
-  <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
-    <p style="font-size:15px">Hola <strong>${extra.nombre}</strong>,</p>
-    <p style="font-size:13px;color:#444;line-height:1.7">Sintiendolo mucho, el servicio del <strong>${fecha}</strong> no admite mas personal. El equipo ya esta completo.</p>
-    <p style="font-size:13px;color:#444">Muchas gracias por tu disponibilidad y esperamos contar contigo en proximas ocasiones.</p>
-    <p style="font-size:13px;color:#444">Un saludo,<br><strong>Restaurante Don Fadrique</strong></p>
-  </div>
-</div></body></html>`;
+    html = emailHeader('Servicio Completo', null, '#5a5a5a') + `
+    <p style="font-size:15px;margin-bottom:6px">Hola <strong>${extra.nombre}</strong>,</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Sintiendolo mucho, te informamos de que el servicio del <strong>${fechaStr}</strong> no puede admitir mas personal. El equipo ya esta completo y no hay posibilidad de incorporar a nadie mas.</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Queremos agradecerte sinceramente tu disponibilidad y la rapidez con la que has respondido. Tu actitud es exactamente la que valoramos y tenemos en cuenta para futuros servicios.</p>
+    <p style="font-size:13px;color:#444">Esperamos contar contigo muy pronto.<br><br>Un cordial saludo,<br><strong>Direccion · Restaurante Don Fadrique</strong></p>
+    ${emailFooter(cfg)}`;
   }
 
   if (!html) return { ok: false, msg: 'Tipo desconocido' };
 
   const asuntos = {
-    convocatoria: 'Necesitamos tu ayuda - Don Fadrique',
-    confirmacion: 'Servicio confirmado - Don Fadrique',
-    espera: 'Lista de espera - Don Fadrique',
+    bienvenida:   'Bienvenido/a al equipo - Don Fadrique',
+    convocatoria: 'Convocatoria de servicio - Don Fadrique',
+    confirmacion: 'Plaza confirmada - Don Fadrique',
+    espera:       'Lista de espera - Don Fadrique',
     recordatorio: 'Recordatorio de servicio hoy - Don Fadrique',
     no_hay_plaza: 'Servicio completo - Don Fadrique'
   };
 
   await transporter.sendMail({
-    from: `"Don Fadrique" <${cfg.email_smtp}>`,
+    from: `"Restaurante Don Fadrique" <${cfg.email_smtp}>`,
     to: extra.email,
     subject: asuntos[tipo] || 'Don Fadrique',
     html
@@ -504,7 +570,7 @@ app.get('/api/extras', (req, res) => {
   res.json(extras.map(e => ({ ...e, puntuacion: puntuacionExtra(e) })));
 });
 
-app.post('/api/extras', (req, res) => {
+app.post('/api/extras', async (req, res) => {
   const d = req.body;
   const result = db.prepare(`
     INSERT INTO extras (nombre,apellidos,dni,tel,email,actitud,capacidad,rigor,conocimientos,aspecto)
@@ -514,6 +580,12 @@ app.post('/api/extras', (req, res) => {
     d.actitud||3, d.capacidad||3, d.rigor||3, d.conocimientos||3, d.aspecto||3
   );
   const extra = db.prepare('SELECT * FROM extras WHERE id = ?').get(result.lastInsertRowid);
+
+  // Enviar email de bienvenida con operativa
+  if (extra.email) {
+    enviarEmailExtra(extra, { fecha: new Date().toISOString().slice(0,10) }, 'bienvenida').catch(e => console.error('Error email bienvenida:', e.message));
+  }
+
   res.json({ ...extra, puntuacion: puntuacionExtra(extra) });
 });
 
@@ -536,6 +608,14 @@ app.put('/api/extras/:id', (req, res) => {
 app.delete('/api/extras/:id', (req, res) => {
   db.prepare('UPDATE extras SET activo = 0 WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
+});
+
+// Reenviar email de bienvenida/operativa a un extra
+app.post('/api/extras/:id/bienvenida', async (req, res) => {
+  const extra = db.prepare('SELECT * FROM extras WHERE id = ?').get(req.params.id);
+  if (!extra) return res.json({ ok: false, msg: 'Extra no encontrado' });
+  const result = await enviarEmailExtra(extra, { fecha: new Date().toISOString().slice(0,10) }, 'bienvenida').catch(e => ({ ok: false, msg: e.message }));
+  res.json(result);
 });
 
 // Stats extras - veces que ha dicho si/no
