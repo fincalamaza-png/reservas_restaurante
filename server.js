@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── BASE DE DATOS ────────────────────────────────────────────────
-const db = new Database('/data/reservas.db');
+const db = new Database(process.env.DB_PATH || '/data/reservas.db');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS reservas (
