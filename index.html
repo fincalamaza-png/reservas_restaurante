@@ -1673,8 +1673,12 @@ function abrirPresupuesto() {
       document.getElementById('p-firmante').onchange = function() {
         document.getElementById('presup-firmante-label').textContent = this.options[this.selectedIndex].text;
       };
+      document.getElementById('presup-firmante-label').textContent = document.getElementById('p-firmante').options[0].text;
       document.getElementById('presup-cliente-label').textContent = r.nombre;
       document.getElementById('presup-titulo').textContent = 'Presupuesto - ' + r.nombre;
+      // Limpiar firmas siempre al abrir
+      limpiarFirma('restaurante');
+      limpiarFirma('cliente');
       renderLineasPresup();
       iniciarFirma('restaurante');
       iniciarFirma('cliente');
