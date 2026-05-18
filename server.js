@@ -172,6 +172,50 @@ function extrasNecesarios(fecha) {
   return extrasEventos + extrasCarta;
 }
 
+// Convocar automaticamente extras cuando se crea/actualiza una reserva
+async function autoConvocar(fecha) {
+  const necesarios = extrasNecesarios(fecha);
+  if (necesarios === 0) return;
+
+  const horaConv = calcHoraConvocatoria(fecha);
+  const cfg = getConfig();
+
+  // Cuantos confirmados hay ya
+  const confirmados = db.prepare("SELECT COUNT(*) as n FROM extras_reservas WHERE fecha = ? AND estado = 'confirmado'").get(fecha);
+  if (confirmados.n >= necesarios) return; // Ya hay suficientes
+
+  // Cuantos convocados ya hay (para no volver a convocar los mismos)
+  const yaConvocados = db.prepare("SELECT extra_id FROM extras_reservas WHERE fecha = ?").all(fecha).map(r => r.extra_id);
+
+  // Cuantos mas necesitamos convocar (triple para asegurar respuestas)
+  const faltanConvocar = (necesarios * 3) - yaConvocados.length;
+  if (faltanConvocar <= 0) return;
+
+  // Extras ordenados por puntuacion, penalizados al final, excluyendo ya convocados
+  const placeholders = yaConvocados.length ? yaConvocados.map(() => '?').join(',') : '0';
+  const extras = db.prepare(`
+    SELECT * FROM extras WHERE activo = 1 AND id NOT IN (${placeholders})
+    ORDER BY penalizado ASC, (actitud+capacidad+rigor+conocimientos+aspecto) DESC
+    LIMIT ?
+  `).all(...yaConvocados, faltanConvocar);
+
+  for (const extra of extras) {
+    const result = db.prepare(`
+      INSERT INTO extras_reservas (extra_id, reserva_id, fecha, estado, hora_convocatoria)
+      VALUES (?, null, ?, 'convocado', ?)
+    `).run(extra.id, fecha, horaConv);
+
+    const asignacion = db.prepare('SELECT * FROM extras_reservas WHERE id = ?').get(result.lastInsertRowid);
+
+    if (extra.email && cfg.email_smtp && cfg.email_pass) {
+      try {
+        await enviarEmailExtra(extra, asignacion, 'convocatoria');
+        db.prepare('UPDATE extras_reservas SET conv_env = 1 WHERE id = ?').run(asignacion.id);
+      } catch (e) { console.error('Error email autoconvocatoria:', e.message); }
+    }
+  }
+}
+
 // ─── EMAIL CLIENTE ────────────────────────────────────────────────
 async function enviarEmailCliente(r, tipo) {
   const cfg = getConfig();
@@ -327,13 +371,30 @@ async function enviarEmailExtra(extra, asignacion, tipo) {
 </div></body></html>`;
   }
 
+  if (tipo === 'no_hay_plaza') {
+    html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,sans-serif">
+<div style="max-width:520px;margin:0 auto">
+  <div style="background:#555;padding:24px;text-align:center;border-radius:8px 8px 0 0">
+    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;letter-spacing:3px">Don Fadrique</div>
+    <div style="font-size:11px;color:#ccc;margin-top:8px">Personal de refuerzo</div>
+  </div>
+  <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
+    <p style="font-size:15px">Hola <strong>${extra.nombre}</strong>,</p>
+    <p style="font-size:13px;color:#444;line-height:1.7">Sintiendolo mucho, el servicio del <strong>${fecha}</strong> no admite mas personal. El equipo ya esta completo.</p>
+    <p style="font-size:13px;color:#444">Muchas gracias por tu disponibilidad y esperamos contar contigo en proximas ocasiones.</p>
+    <p style="font-size:13px;color:#444">Un saludo,<br><strong>Restaurante Don Fadrique</strong></p>
+  </div>
+</div></body></html>`;
+  }
+
   if (!html) return { ok: false, msg: 'Tipo desconocido' };
 
   const asuntos = {
     convocatoria: 'Necesitamos tu ayuda - Don Fadrique',
     confirmacion: 'Servicio confirmado - Don Fadrique',
     espera: 'Lista de espera - Don Fadrique',
-    recordatorio: 'Recordatorio de servicio hoy - Don Fadrique'
+    recordatorio: 'Recordatorio de servicio hoy - Don Fadrique',
+    no_hay_plaza: 'Servicio completo - Don Fadrique'
   };
 
   await transporter.sendMail({
@@ -387,6 +448,9 @@ app.post('/api/reservas', (req, res) => {
     }).catch(() => {});
   }
 
+  // Autoconvocar extras si se necesitan
+  autoConvocar(nueva.fecha).catch(e => console.error('autoConvocar error:', e.message));
+
   res.json(nueva);
 });
 
@@ -408,7 +472,12 @@ app.put('/api/reservas/:id', (req, res) => {
     parseBool(d.fianza), d.fianza_imp||null, d.menus_detalle||null,
     req.params.id
   );
-  res.json(rowToObj(db.prepare('SELECT * FROM reservas WHERE id = ?').get(req.params.id)));
+  const actualizada = rowToObj(db.prepare('SELECT * FROM reservas WHERE id = ?').get(req.params.id));
+
+  // Autoconvocar extras si se necesitan (por si cambio el pax o la fecha)
+  autoConvocar(actualizada.fecha).catch(e => console.error('autoConvocar error:', e.message));
+
+  res.json(actualizada);
 });
 
 app.delete('/api/reservas/:id', (req, res) => {
@@ -652,13 +721,14 @@ app.post('/api/extras/asignar', async (req, res) => {
   if (!extra) return res.json({ ok: false, msg: 'Extra no encontrado' });
 
   const horaConv = calcHoraConvocatoria(fecha) || req.body.hora_convocatoria;
+  const necesarios = extrasNecesarios(fecha);
+  const cfg = getConfig();
 
   // Si ya tiene asignacion, actualizarla
   const yaAsig = db.prepare('SELECT * FROM extras_reservas WHERE extra_id = ? AND fecha = ?').get(extra_id, fecha);
   let asigId;
 
   if (yaAsig) {
-    // Estaba en espera o convocado - actualizar a confirmado manual
     db.prepare("UPDATE extras_reservas SET estado = 'confirmado', manual = 1, hora_convocatoria = ? WHERE id = ?")
       .run(horaConv, yaAsig.id);
     asigId = yaAsig.id;
@@ -672,12 +742,41 @@ app.post('/api/extras/asignar', async (req, res) => {
 
   const asig = db.prepare('SELECT * FROM extras_reservas WHERE id = ?').get(asigId);
 
-  // Enviar confirmacion al extra
+  // Enviar confirmacion al extra manual
   if (extra.email) {
     await enviarEmailExtra(extra, asig, 'confirmacion').catch(() => {});
   }
 
-  // Avisar a los que dijeron SI y estan en espera
+  // Ver cuantos confirmados hay ahora
+  const totalConfirmados = db.prepare("SELECT COUNT(*) as n FROM extras_reservas WHERE fecha = ? AND estado = 'confirmado'").get(fecha).n;
+
+  // Si hay mas confirmados de los necesarios, desplazar al ultimo confirmado NO manual
+  if (necesarios > 0 && totalConfirmados > necesarios) {
+    // Buscar el ultimo confirmado no-manual (el de menor puntuacion, no manual)
+    const ultimo = db.prepare(`
+      SELECT er.*, e.nombre, e.email,
+      (e.actitud+e.capacidad+e.rigor+e.conocimientos+e.aspecto) as pts
+      FROM extras_reservas er
+      JOIN extras e ON e.id = er.extra_id
+      WHERE er.fecha = ? AND er.estado = 'confirmado' AND (er.manual = 0 OR er.manual IS NULL) AND er.id != ?
+      ORDER BY pts ASC, er.created_at DESC
+      LIMIT 1
+    `).get(fecha, asigId);
+
+    if (ultimo) {
+      // Quitarlo y mandarle mail de no_hay_plaza
+      db.prepare("UPDATE extras_reservas SET estado = 'no_hay_plaza' WHERE id = ?").run(ultimo.id);
+      if (ultimo.email) {
+        await enviarEmailExtra(
+          { nombre: ultimo.nombre, email: ultimo.email },
+          { ...ultimo, hora_convocatoria: horaConv },
+          'no_hay_plaza'
+        ).catch(() => {});
+      }
+    }
+  }
+
+  // Avisar a los que estaban en espera
   const enEspera = db.prepare(`
     SELECT er.*, e.nombre, e.email FROM extras_reservas er 
     JOIN extras e ON e.id = er.extra_id 
