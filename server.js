@@ -149,6 +149,15 @@ function calcHoraConvocatoria(fecha) {
 }
 
 // Cuantos extras se necesitan para un dia
+// Calcula extras con margen: solo sube si sobran MAS de 6 personas del multiplo
+// Ej: 126 pax / 12 = 10.5 -> sobran 6 -> 10 extras. 127 pax -> sobran 7 -> 11 extras
+function calcExtras(pax, ratio) {
+  if (pax <= 0) return 0;
+  const base = Math.floor(pax / ratio);
+  const resto = pax % ratio;
+  return resto > 6 ? base + 1 : base;
+}
+
 function extrasNecesarios(fecha) {
   const reservas = db.prepare(
     "SELECT pax, tipo, tipo_evento FROM reservas WHERE fecha = ? AND estado != 'cancelada'"
@@ -159,15 +168,15 @@ function extrasNecesarios(fecha) {
   for (const r of reservas) {
     const pax = r.pax || 0;
     if (r.tipo === 'carta') {
-      // Carta: 1 extra por cada 12 comensales, solo a partir de 22
-      if (pax >= 22) total += Math.ceil(pax / 12);
+      // Carta: 1 extra por cada 12 comensales, solo a partir de 22, margen de 6
+      if (pax >= 22) total += calcExtras(pax, 12);
     } else if (r.tipo === 'evento') {
       if (r.tipo_evento === 'turista') {
-        // Grupo turista: 1 extra por cada 15 comensales
-        if (pax > 0) total += Math.ceil(pax / 15);
+        // Grupo turista: 1 extra por cada 15 comensales, margen de 6
+        total += calcExtras(pax, 15);
       } else {
-        // Boda, comunion, grupo familiar: 1 extra por cada 12 comensales
-        if (pax > 0) total += Math.ceil(pax / 12);
+        // Boda, comunion, grupo familiar: 1 extra por cada 12 comensales, margen de 6
+        total += calcExtras(pax, 12);
       }
     }
   }
@@ -175,26 +184,27 @@ function extrasNecesarios(fecha) {
   return total;
 }
 
-// Convocar automaticamente extras cuando se crea/actualiza una reserva
+// Preparar convocatoria: registra extras pendientes de convocar
+// NO envia emails - el usuario confirma desde la app antes de enviar
+// Se llama al crear/modificar reserva. Los emails se envian:
+//   - Al momento si el evento es en menos de 10 dias
+//   - 10 dias antes si el evento es mas lejano (via cron)
 async function autoConvocar(fecha) {
   const necesarios = extrasNecesarios(fecha);
   if (necesarios === 0) return;
 
   const horaConv = calcHoraConvocatoria(fecha);
-  const cfg = getConfig();
 
   // Cuantos confirmados hay ya
   const confirmados = db.prepare("SELECT COUNT(*) as n FROM extras_reservas WHERE fecha = ? AND estado = 'confirmado'").get(fecha);
-  if (confirmados.n >= necesarios) return; // Ya hay suficientes
+  if (confirmados.n >= necesarios) return;
 
-  // Cuantos convocados ya hay (para no volver a convocar los mismos)
+  // Cuantos convocados ya hay
   const yaConvocados = db.prepare("SELECT extra_id FROM extras_reservas WHERE fecha = ?").all(fecha).map(r => r.extra_id);
 
-  // Cuantos mas necesitamos convocar (triple para asegurar respuestas)
   const faltanConvocar = (necesarios * 3) - yaConvocados.length;
   if (faltanConvocar <= 0) return;
 
-  // Extras ordenados por puntuacion, penalizados al final, excluyendo ya convocados
   const placeholders = yaConvocados.length ? yaConvocados.map(() => '?').join(',') : '0';
   const extras = db.prepare(`
     SELECT * FROM extras WHERE activo = 1 AND id NOT IN (${placeholders})
@@ -202,21 +212,70 @@ async function autoConvocar(fecha) {
     LIMIT ?
   `).all(...yaConvocados, faltanConvocar);
 
+  // Registrar como pendientes de convocatoria (sin enviar email aun)
   for (const extra of extras) {
-    const result = db.prepare(`
-      INSERT INTO extras_reservas (extra_id, reserva_id, fecha, estado, hora_convocatoria)
-      VALUES (?, null, ?, 'convocado', ?)
+    db.prepare(`
+      INSERT OR IGNORE INTO extras_reservas (extra_id, reserva_id, fecha, estado, hora_convocatoria)
+      VALUES (?, null, ?, 'pendiente_conv', ?)
     `).run(extra.id, fecha, horaConv);
+  }
 
-    const asignacion = db.prepare('SELECT * FROM extras_reservas WHERE id = ?').get(result.lastInsertRowid);
+  // Calcular dias hasta el evento
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+  const eventoDate = new Date(fecha + 'T00:00:00');
+  const diasRestantes = Math.round((eventoDate - hoy) / (1000*60*60*24));
 
-    if (extra.email && cfg.email_smtp && cfg.email_pass) {
-      try {
-        await enviarEmailExtra(extra, asignacion, 'convocatoria');
-        db.prepare('UPDATE extras_reservas SET conv_env = 1 WHERE id = ?').run(asignacion.id);
-      } catch (e) { console.error('Error email autoconvocatoria:', e.message); }
+  // Si el evento es en menos de 10 dias, avisar al restaurante para confirmar envio
+  // Guardar alerta de convocatoria pendiente
+  const pendientes = db.prepare("SELECT COUNT(*) as n FROM extras_reservas WHERE fecha = ? AND estado = 'pendiente_conv'").get(fecha);
+  if (pendientes.n > 0) {
+    db.prepare("INSERT OR IGNORE INTO config (clave, valor) VALUES ('alertas_conv', '[]')").run();
+    const alertas = JSON.parse(db.prepare("SELECT valor FROM config WHERE clave = 'alertas_conv'").get()?.valor || '[]');
+    // Evitar duplicados para la misma fecha
+    const yaExiste = alertas.find(a => a.fecha === fecha);
+    if (!yaExiste) {
+      alertas.push({
+        fecha,
+        necesarios,
+        pendientes: pendientes.n,
+        diasRestantes,
+        horaConv,
+        ts: new Date().toISOString()
+      });
+      db.prepare("UPDATE config SET valor = ? WHERE clave = 'alertas_conv'").run(JSON.stringify(alertas));
     }
   }
+}
+
+// Enviar emails de convocatoria para una fecha (llamado desde la app tras confirmacion del usuario)
+async function enviarConvocatoria(fecha) {
+  const cfg = getConfig();
+  const pendientes = db.prepare(`
+    SELECT er.*, e.nombre, e.email FROM extras_reservas er
+    JOIN extras e ON e.id = er.extra_id
+    WHERE er.fecha = ? AND er.estado = 'pendiente_conv' AND e.email != ''
+  `).all(fecha);
+
+  let enviados = 0;
+  for (const p of pendientes) {
+    const extra = db.prepare('SELECT * FROM extras WHERE id = ?').get(p.extra_id);
+    if (extra && extra.email && cfg.email_smtp && cfg.email_pass) {
+      try {
+        const asig = db.prepare('SELECT * FROM extras_reservas WHERE id = ?').get(p.id);
+        await enviarEmailExtra(extra, asig, 'convocatoria');
+        db.prepare("UPDATE extras_reservas SET estado = 'convocado', conv_env = 1 WHERE id = ?").run(p.id);
+        enviados++;
+      } catch (e) { console.error('Error envio convocatoria:', e.message); }
+    }
+  }
+
+  // Limpiar alerta
+  const alertas = JSON.parse(db.prepare("SELECT valor FROM config WHERE clave = 'alertas_conv'").get()?.valor || '[]');
+  const nuevasAlertas = alertas.filter(a => a.fecha !== fecha);
+  db.prepare("UPDATE config SET valor = ? WHERE clave = 'alertas_conv'").run(JSON.stringify(nuevasAlertas));
+
+  return enviados;
 }
 
 // ─── EMAIL CLIENTE ────────────────────────────────────────────────
@@ -1083,6 +1142,33 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
   });
 }
 
+// ─── API ALERTAS CONVOCATORIA ────────────────────────────────────────────────
+// Ver alertas de convocatorias pendientes de confirmar
+app.get('/api/alertas-convocatoria', (req, res) => {
+  db.prepare("INSERT OR IGNORE INTO config (clave, valor) VALUES ('alertas_conv', '[]')").run();
+  const row = db.prepare("SELECT valor FROM config WHERE clave = 'alertas_conv'").get();
+  res.json(JSON.parse(row?.valor || '[]'));
+});
+
+// Confirmar y enviar convocatoria para una fecha
+app.post('/api/extras/enviar-convocatoria/:fecha', async (req, res) => {
+  const { fecha } = req.params;
+  const enviados = await enviarConvocatoria(fecha).catch(e => { console.error(e); return 0; });
+  res.json({ ok: true, enviados });
+});
+
+// Cancelar convocatoria pendiente (no enviar)
+app.delete('/api/alertas-convocatoria/:fecha', (req, res) => {
+  const { fecha } = req.params;
+  // Eliminar pendientes
+  db.prepare("DELETE FROM extras_reservas WHERE fecha = ? AND estado = 'pendiente_conv'").run(fecha);
+  // Limpiar alerta
+  const row = db.prepare("SELECT valor FROM config WHERE clave = 'alertas_conv'").get();
+  const alertas = JSON.parse(row?.valor || '[]').filter(a => a.fecha !== fecha);
+  db.prepare("UPDATE config SET valor = ? WHERE clave = 'alertas_conv'").run(JSON.stringify(alertas));
+  res.json({ ok: true });
+});
+
 // ─── API AVISOS CANCELACION ───────────────────────────────────────────────────
 app.get('/api/avisos-cancelacion', (req, res) => {
   db.prepare("INSERT OR IGNORE INTO config (clave, valor) VALUES ('avisos_cancelacion', '[]')").run();
@@ -1098,6 +1184,30 @@ app.delete('/api/avisos-cancelacion/:idx', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── CRON 10 DIAS ANTES ──────────────────────────────────────────────────────
+function programarConvocatorias10Dias() {
+  // Revisar cada hora si hay eventos en exactamente 10 dias que necesiten convocatoria
+  setInterval(async () => {
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
+    const en10dias = new Date(hoy);
+    en10dias.setDate(en10dias.getDate() + 10);
+    const fechaStr = en10dias.toISOString().slice(0,10);
+
+    // Ver si hay reservas ese dia que necesiten extras
+    const necesarios = extrasNecesarios(fechaStr);
+    if (necesarios === 0) return;
+
+    // Ver si ya hay pendientes o convocados para ese dia
+    const yaHay = db.prepare("SELECT COUNT(*) as n FROM extras_reservas WHERE fecha = ? AND estado IN ('pendiente_conv','convocado','confirmado')").get(fechaStr);
+    if (yaHay.n > 0) return;
+
+    // Crear convocatoria pendiente
+    await autoConvocar(fechaStr).catch(e => console.error('cron10dias error:', e.message));
+    console.log(`[Cron 10 dias] Convocatoria pendiente creada para ${fechaStr}`);
+  }, 60 * 60 * 1000); // cada hora
+}
+
 // ─── CATCH-ALL ────────────────────────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
@@ -1106,4 +1216,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Don Fadrique corriendo en puerto ${PORT}`);
   programarRecordatorios();
+  programarConvocatorias10Dias();
 });

@@ -1347,6 +1347,7 @@ function comprobarAlertasExtras() {
       document.getElementById('home-alertas').innerHTML = html;
       // Comprobar avisos de cancelacion tardia
       comprobarAvisosCancelacion();
+      comprobarAlertasConvocatoria();
     });
 }
 
@@ -1371,6 +1372,36 @@ function comprobarAvisosCancelacion() {
 function descartarAviso(idx) {
   fetch('/api/avisos-cancelacion/' + idx, {method:'DELETE'})
     .then(function(){comprobarAvisosCancelacion();});
+}
+
+function comprobarAlertasConvocatoria() {
+  fetch('/api/alertas-convocatoria')
+    .then(function(r){return r.json();})
+    .then(function(alertas){
+      var cont = document.getElementById('home-alertas');
+      alertas.forEach(function(a){
+        var fecha = fmtFechaCorta(a.fecha);
+        var dias = a.diasRestantes;
+        var txtDias = dias <= 0 ? 'HOY' : dias === 1 ? 'manana' : 'en ' + dias + ' dias';
+        var html = '<div class="alerta-extras" onclick="confirmarConvocatoria('' + a.fecha + '', ' + a.necesarios + ')">';
+        html += '<div class="alerta-extras-txt">&#128101; Convocatoria pendiente para el <strong>' + fecha + '</strong> (' + txtDias + '). Se necesitan <strong>' + a.necesarios + ' extras</strong>. Pulsa para enviar los emails.</div>';
+        html += '<button class="alerta-extras-btn">Enviar</button>';
+        html += '</div>';
+        cont.innerHTML = html + cont.innerHTML;
+      });
+    });
+}
+
+function confirmarConvocatoria(fecha, necesarios) {
+  var fechaFmt = fmtFechaCorta(fecha);
+  if(!confirm('¿Enviar emails de convocatoria a los extras para el ' + fechaFmt + '?\n\nSe necesitan ' + necesarios + ' extras. Se contactara al triple (' + (necesarios*3) + ' personas) para asegurar respuestas.')) return;
+  fetch('/api/extras/enviar-convocatoria/' + fecha, {method:'POST'})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      alert('Emails enviados: ' + res.enviados + '\n\nLos extras confirmarán su disponibilidad mediante los botones del email.');
+      comprobarAlertasConvocatoria();
+    })
+    .catch(function(){ alert('Error al enviar los emails. Revisa la configuracion SMTP.'); });
 }
 
 function abrirExtrasConFecha(fecha) {
