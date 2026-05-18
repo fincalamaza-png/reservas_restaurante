@@ -1054,11 +1054,6 @@ function renderExtras() {
             html += '<button onclick="abrirFormExtra(' + e.id + ')" style="background:none;border:none;color:#8b1a2a;cursor:pointer;font-size:18px" title="Editar">&#9998;</button>';
             html += '<button onclick="eliminarExtra(' + e.id + ')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:18px" title="Eliminar">&#128465;</button>';
             html += '</div></div>';
-            // Botones de email
-            html += '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">';
-            html += '<button onclick="enviarBienvenida(' + e.id + ',\'' + (e.nombre||'') + '\')" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;flex:1">&#128231; Bienvenida</button>';
-            html += '<button onclick="abrirExtrasConFecha(S.dia)" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;flex:1">&#128197; Ver servicios</button>';
-            html += '</div>';
             // Calificaciones
             html += '<div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px">';
             var aspects = [{k:'actitud',l:'Actitud'},{k:'capacidad',l:'Capacidad'},{k:'rigor',l:'Rigor/Puntualidad'},{k:'conocimientos',l:'Conocimientos'},{k:'aspecto',l:'Aspecto'}];
@@ -1067,6 +1062,11 @@ function renderExtras() {
               var bar = '<div style="height:4px;border-radius:2px;background:#e0dcd6;margin-top:2px"><div style="height:4px;border-radius:2px;background:#8b1a2a;width:' + (v/5*100) + '%"></div></div>';
               html += '<div style="font-size:11px;color:#666">' + a.l + ': <strong>' + v.toFixed(1) + '</strong>' + bar + '</div>';
             });
+            html += '</div>';
+            // Botones de accion
+            html += '<div style="display:flex;gap:8px;margin-top:12px">';
+            html += '<button onclick="enviarBienvenida(' + e.id + ',\'' + (e.nombre||'') + '\')" class="btn btn-secondary" style="font-size:12px;flex:1">&#128231; Enviar bienvenida</button>';
+            html += '<button onclick="convocarExtraManual(' + e.id + ',\'' + (e.nombre+' '+(e.apellidos||'')).trim() + '\')" class="btn btn-secondary" style="font-size:12px;flex:1">&#128197; Convocar</button>';
             html += '</div>';
             html += '</div>';
           });
@@ -1208,6 +1208,24 @@ function convocarExtras() {
         alert(d.msg);
       }
     });
+}
+
+function convocarExtraManual(id, nombre) {
+  var fecha = prompt('Fecha del servicio (YYYY-MM-DD):', S.dia || new Date().toISOString().slice(0,10));
+  if (!fecha) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { alert('Formato incorrecto. Usa YYYY-MM-DD'); return; }
+  if (!confirm('Convocar a ' + nombre + ' para el ' + fmtFechaCorta(fecha) + '?')) return;
+  fetch('/api/extras/asignar', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({extra_id: id, fecha: fecha})
+  })
+  .then(function(r){return r.json();})
+  .then(function(res){
+    if(res.ok) alert('Email de convocatoria enviado a ' + nombre + ' para el ' + fmtFechaCorta(fecha));
+    else alert('Error: ' + (res.msg || 'No se pudo convocar'));
+  })
+  .catch(function(){ alert('Error al convocar. Revisa la configuracion SMTP.'); });
 }
 
 function enviarBienvenida(id, nombre) {
