@@ -1680,14 +1680,23 @@ function renderLineasPresup() {
   presupLineas.forEach(function(l, i) {
     var tot = ((l.qty||0)*(l.precio||0)).toFixed(2);
     html += '<div style="display:grid;grid-template-columns:1fr 50px 80px 70px 30px;gap:6px;margin-bottom:8px;align-items:center">';
-    html += '<input type="text" value="' + (l.desc||'') + '" placeholder="Concepto" onchange="presupLineas['+i+'].desc=this.value;recalcPresup()" style="padding:8px;border:1.5px solid #d0cac2;border-radius:6px;font-size:13px;font-family:inherit">';
-    html += '<input type="number" value="' + (l.qty||1) + '" min="1" oninput="presupLineas['+i+'].qty=parseFloat(this.value)||0;recalcPresup()" style="padding:8px;border:1.5px solid #d0cac2;border-radius:6px;font-size:13px;text-align:center">';
-    html += '<input type="number" value="' + (l.precio||0) + '" step="0.01" placeholder="€" oninput="presupLineas['+i+'].precio=parseFloat(this.value)||0;recalcPresup()" style="padding:8px;border:1.5px solid #d0cac2;border-radius:6px;font-size:13px;text-align:right">';
-    html += '<div style="font-size:13px;font-weight:600;text-align:right;padding:0 4px">' + tot + ' €</div>';
+    html += '<input type="text" value="' + (l.desc||'') + '" placeholder="Concepto" oninput="presupLineas['+i+'].desc=this.value" style="padding:8px;border:1.5px solid #d0cac2;border-radius:6px;font-size:13px;font-family:inherit">';
+    html += '<input type="number" value="' + (l.qty||1) + '" min="1" id="qty-'+i+'" oninput="presupLineas['+i+'].qty=parseFloat(this.value)||0;actualizarLineaPresup('+i+')" style="padding:8px;border:1.5px solid #d0cac2;border-radius:6px;font-size:13px;text-align:center">';
+    html += '<input type="number" value="' + (l.precio||0) + '" step="0.01" placeholder="€" id="precio-'+i+'" oninput="presupLineas['+i+'].precio=parseFloat(this.value)||0;actualizarLineaPresup('+i+')" style="padding:8px;border:1.5px solid #d0cac2;border-radius:6px;font-size:13px;text-align:right">';
+    html += '<div id="tot-'+i+'" style="font-size:13px;font-weight:600;text-align:right;padding:0 4px;color:#b8965a">' + tot + ' €</div>';
     html += '<button onclick="eliminarLineaPresup('+i+')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:18px">&#10005;</button>';
     html += '</div>';
   });
   document.getElementById('presup-lineas').innerHTML = html;
+  recalcPresup();
+}
+
+function actualizarLineaPresup(i) {
+  var qty = presupLineas[i].qty || 0;
+  var precio = presupLineas[i].precio || 0;
+  var tot = (qty * precio).toFixed(2);
+  var el = document.getElementById('tot-' + i);
+  if (el) el.textContent = tot + ' €';
   recalcPresup();
 }
 
