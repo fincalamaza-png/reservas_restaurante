@@ -151,25 +151,28 @@ function calcHoraConvocatoria(fecha) {
 // Cuantos extras se necesitan para un dia
 function extrasNecesarios(fecha) {
   const reservas = db.prepare(
-    "SELECT pax, tipo FROM reservas WHERE fecha = ? AND estado != 'cancelada'"
+    "SELECT pax, tipo, tipo_evento FROM reservas WHERE fecha = ? AND estado != 'cancelada'"
   ).all(fecha);
 
-  // Separar comensales por tipo
-  const paxEventos = reservas
-    .filter(r => r.tipo === 'evento')
-    .reduce((s, r) => s + (r.pax || 0), 0);
+  let total = 0;
 
-  const paxCarta = reservas
-    .filter(r => r.tipo === 'carta')
-    .reduce((s, r) => s + (r.pax || 0), 0);
+  for (const r of reservas) {
+    const pax = r.pax || 0;
+    if (r.tipo === 'carta') {
+      // Carta: 1 extra por cada 12 comensales, solo a partir de 22
+      if (pax >= 22) total += Math.ceil(pax / 12);
+    } else if (r.tipo === 'evento') {
+      if (r.tipo_evento === 'turista') {
+        // Grupo turista: 1 extra por cada 15 comensales
+        if (pax > 0) total += Math.ceil(pax / 15);
+      } else {
+        // Boda, comunion, grupo familiar: 1 extra por cada 12 comensales
+        if (pax > 0) total += Math.ceil(pax / 12);
+      }
+    }
+  }
 
-  // Eventos: 1 extra por cada 12 comensales (sin minimo)
-  const extrasEventos = paxEventos > 0 ? Math.ceil(paxEventos / 12) : 0;
-
-  // Carta: 1 extra por cada 12 comensales, solo a partir de 24
-  const extrasCarta = paxCarta >= 24 ? Math.ceil(paxCarta / 12) : 0;
-
-  return extrasEventos + extrasCarta;
+  return total;
 }
 
 // Convocar automaticamente extras cuando se crea/actualiza una reserva
