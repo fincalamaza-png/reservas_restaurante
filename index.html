@@ -1361,12 +1361,12 @@ function comprobarAlertasExtras() {
       var html = '';
       alertas.forEach(function(a){
         var diff = Math.round((new Date(a.fecha+'T12:00:00') - new Date()) / (1000*60*60*24));
-        var cuando = diff === 0 ? 'Hoy' : diff === 1 ? 'Manana' : 'En ' + diff + ' dias';
+        var cuando = diff <= 0 ? 'Hoy' : diff === 1 ? 'Manana' : 'En ' + diff + ' dias';
+        var urgencia = diff <= 0 ? '&#128308;' : diff <= 3 ? '&#128992;' : '&#128994;';
         html += '<div class="alerta-card alerta-extras-card">';
-        html += '<div class="alerta-card-header"><span class="alerta-card-icon">&#128101;</span><span class="alerta-card-title">&#9888; ' + cuando + ' · ' + fmtFechaCorta(a.fecha) + '</span></div>';
-        html += '<div class="alerta-card-body" style="display:none">'; // spacer
-        html += a.pax + ' personas reservadas &middot; Necesitas ' + a.necesarios + ' extras</div>';
-        html += '<button class="alerta-extras-btn" onclick="event.stopPropagation();abrirExtrasConFecha(&quot;' + a.fecha + '&quot;)">Ver extras</button>';
+        html += '<div class="alerta-card-header"><span class="alerta-card-icon">&#128101;</span><span class="alerta-card-title">' + urgencia + ' ' + cuando + ' &middot; ' + fmtFechaCorta(a.fecha) + '</span></div>';
+        html += '<div class="alerta-card-body">' + a.pax + ' personas &middot; ' + a.necesarios + ' extras necesarios</div>';
+        html += '<div class="alerta-card-footer"><button class="alerta-card-btn alerta-card-btn-primary" onclick="abrirExtrasConFecha(\'' + a.fecha + '\')">Ver extras</button></div>';
         html += '</div>';
       });
       document.getElementById('home-alertas').innerHTML = html;
@@ -1388,7 +1388,7 @@ function comprobarAvisosCancelacion() {
         html += '<div class="alerta-card alerta-cancel-card">';
         html += '<div class="alerta-card-header"><span class="alerta-card-icon">&#128680;</span><span class="alerta-card-title">Cancelacion con menos de 7 dias</span></div>';
         html += '<div class="alerta-card-body"><strong>' + a.extra + '</strong> ha cancelado su plaza para el servicio del <strong>' + fecha + '</strong>. Es necesario buscar cobertura.</div>';
-        html += '<div class="alerta-card-footer"><button class="alerta-card-btn alerta-card-btn-secondary" onclick="descartarAviso(' + idx + ')">Descartar</button><button class="alerta-card-btn alerta-card-btn-primary" onclick="abrirExtrasConFecha(''+a.fecha+'')">Ver extras</button></div>';
+        html += '<div class="alerta-card-footer"><button class="alerta-card-btn alerta-card-btn-secondary" onclick="descartarAviso(' + idx + ')">Descartar</button><button class="alerta-card-btn alerta-card-btn-primary" onclick="abrirExtrasConFecha(\'' + a.fecha + '\')">Ver extras</button></div>';
         html += '</div>';
       });
       cont.innerHTML = html;
@@ -1417,8 +1417,8 @@ function comprobarAlertasConvocatoria() {
         html += 'Solo entraran los primeros en confirmar.';
         html += '</div>';
         html += '<div class="alerta-card-footer">';
-        html += '<button class="alerta-card-btn alerta-card-btn-secondary" onclick="cancelarConvocatoria('' + a.fecha + '')">Cancelar</button>';
-        html += '<button class="alerta-card-btn alerta-card-btn-primary" onclick="confirmarConvocatoria('' + a.fecha + '',' + a.necesarios + ')">&#9993; Enviar emails</button>';
+        html += '<button class="alerta-card-btn alerta-card-btn-secondary" onclick="cancelarConvocatoria(\'' + a.fecha + '\')">Cancelar</button>';
+        html += '<button class="alerta-card-btn alerta-card-btn-primary" onclick="confirmarConvocatoria(\'' + a.fecha + '\',' + a.necesarios + ')">&#9993; Enviar emails</button>';
         html += '</div></div>';
         cont.innerHTML = html + cont.innerHTML;
       });
