@@ -1667,6 +1667,12 @@ function abrirPresupuesto() {
         });
         // Linea por defecto con precio por persona
         presupLineas = [{desc: 'Menu ' + (r.tipo_evento||'evento') + ' - ' + r.pax + ' personas', qty: r.pax||1, precio: 0}];
+        // Añadir fianza si la reserva la tiene
+        if (r.fianza && r.fianza_imp) {
+          presupLineas.push({desc: 'Fianza (a descontar del total)', qty: 1, precio: -(parseFloat(r.fianza_imp)||0)});
+        } else if (r.fianza) {
+          presupLineas.push({desc: 'Fianza (importe pendiente de confirmar)', qty: 1, precio: 0});
+        }
       }
       document.getElementById('p-firmante').onchange = function() {
         document.getElementById('presup-firmante-label').textContent = this.options[this.selectedIndex].text;
