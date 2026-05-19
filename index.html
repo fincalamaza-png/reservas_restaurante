@@ -431,7 +431,7 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
   </div>
   <div class="content" id="orden-pdf-content" style="background:white;padding:0">
     <div class="orden-actions no-print" style="padding:12px;background:#f0ede8;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-primary" style="flex:1;min-width:100px" onclick="window.print()">&#128424; Imprimir / PDF</button>
+      <button class="btn btn-primary" style="flex:1;min-width:100px" onclick="imprimirOrden()">&#128424; Imprimir / PDF</button>
       <button class="btn btn-secondary" style="flex:1;min-width:100px" onclick="enviarOrdenEmail()">&#128231; Enviar por email</button>
     </div>
     <div class="orden-doc" id="orden-doc-body"></div>
@@ -1796,7 +1796,6 @@ function guardarPresupuesto(enviar) {
 }
 
 function imprimirPresupuesto() {
-  // Generar HTML A4 con datos actuales
   var r = presupReserva;
   if (!r) return;
   var ev = {boda:'Boda',comunion:'Comunion',familiar:'Grupo familiar',turista:'Grupo turista'};
@@ -1862,13 +1861,17 @@ function imprimirPresupuesto() {
   html += '<div class="presup-footer"><span>Don Fadrique &middot; Alba de Tormes &middot; '+hoy+'</span><div class="presup-logos"><img src="'+LOGO_MICHELIN+'"><img src="'+LOGO_REPSOL+'"><img src="'+LOGO_TIERRA+'"></div></div>';
   html += '</div>';
 
-  document.getElementById('presup-doc-a4').outerHTML.replace;
-  var cont = document.getElementById('presup-scroll');
-  // Reemplazar doc
-  var old = document.getElementById('presup-doc-a4');
-  if (old) old.outerHTML = html;
-  else cont.insertAdjacentHTML('beforeend', html);
-  window.print();
+  // Abrir en ventana nueva para impresion A4 limpia
+  var win = window.open('', '_blank');
+  var css = '';
+  // CSS del presupuesto
+  document.querySelectorAll('style').forEach(function(s){ css += s.textContent; });
+  win.document.write('<html><head><meta charset="UTF-8"><style>@page{size:A4 portrait;margin:0}body{margin:0;padding:0;background:white}' + css + '</style></head><body>');
+  win.document.write(html);
+  win.document.write('</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function(){ win.print(); }, 600);
 }
 
 // ── FIRMAS CANVAS ────────────────────────────────────────────────
@@ -1928,6 +1931,59 @@ function dibujarFirmaEnCanvas(tipo, dataUrl) {
   var img = new Image();
   img.onload = function() { canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); };
   img.src = dataUrl;
+}
+
+function imprimirOrden() {
+  var body = document.getElementById('orden-doc-body');
+  if (!body) return;
+  var win = window.open('', '_blank');
+  win.document.write('<html><head><meta charset="UTF-8"><style>');
+  win.document.write('@page{size:A4 portrait;margin:0}');
+  win.document.write('*{box-sizing:border-box}');
+  win.document.write('body{margin:0;padding:0;background:white;font-family:Georgia,serif;color:#1a1a1a}');
+  win.document.write('.orden-doc{width:210mm;min-height:297mm;padding:16mm 18mm;background:white}');
+  win.document.write('.orden-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}');
+  win.document.write('.orden-brand .brand-rest{font-size:9px;letter-spacing:3px;color:#666;font-family:sans-serif}');
+  win.document.write('.brand-name{font-size:26px;font-weight:900;color:#1a1a1a;letter-spacing:2px;font-family:sans-serif;margin:0}');
+  win.document.write('.brand-sub{font-size:9px;letter-spacing:2px;color:#666;font-family:sans-serif}');
+  win.document.write('.orden-title-block{text-align:right}');
+  win.document.write('.orden-title{font-size:20px;font-weight:700;color:#b8965a;letter-spacing:2px;font-family:sans-serif}');
+  win.document.write('.orden-tipo{font-size:13px;color:#666;font-family:sans-serif}');
+  win.document.write('.orden-logos{display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:6px}');
+  win.document.write('.orden-logos img{height:24px;width:auto}');
+  win.document.write('.orden-divider{border:none;border-top:2px solid #b8965a;margin:10px 0 16px}');
+  win.document.write('.orden-divider2{border:none;border-top:1px solid #e0dcd6;margin:12px 0}');
+  win.document.write('.orden-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px}');
+  win.document.write('.orden-field label{font-size:8px;letter-spacing:2px;color:#888;font-family:sans-serif;text-transform:uppercase;display:block;margin-bottom:2px}');
+  win.document.write('.orden-field strong{font-size:14px;font-family:sans-serif}');
+  win.document.write('.orden-field strong.big{font-size:20px}');
+  win.document.write('.orden-menu-title{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}');
+  win.document.write('.orden-menu-title span{font-size:9px;letter-spacing:2px;color:#888;font-family:sans-serif;text-transform:uppercase}');
+  win.document.write('.orden-menu-title em{font-size:13px;color:#444;font-family:sans-serif}');
+  win.document.write('.orden-platos{width:100%;border-collapse:collapse;margin-bottom:24px}');
+  win.document.write('.orden-platos td{padding:10px 0;vertical-align:top}');
+  win.document.write('.plato-label{font-size:9px;letter-spacing:2px;color:#888;font-family:sans-serif;text-transform:uppercase;width:120px;padding-right:16px}');
+  win.document.write('.plato-val{font-size:15px;font-weight:700;font-family:sans-serif}');
+  win.document.write('.orden-platos tr{border-bottom:1px solid #f0ede8}');
+  win.document.write('.orden-bodega{background:#fffbf0;border-radius:8px;padding:16px 20px;margin-bottom:24px}');
+  win.document.write('.orden-bodega-title{font-size:9px;letter-spacing:2px;color:#b8965a;font-family:sans-serif;font-weight:700;text-transform:uppercase;margin-bottom:12px}');
+  win.document.write('.orden-bodega-wines{display:grid;grid-template-columns:1fr 1fr;gap:10px}');
+  win.document.write('.wine-item label{font-size:9px;letter-spacing:1px;color:#888;font-family:sans-serif;text-transform:uppercase;display:block}');
+  win.document.write('.wine-item strong{font-size:13px;font-family:sans-serif}');
+  win.document.write('.orden-alergias{border:2px solid #dc3545;border-radius:6px;padding:14px 18px;margin-bottom:24px}');
+  win.document.write('.alerg-title{font-size:11px;letter-spacing:2px;color:#dc3545;font-weight:700;font-family:sans-serif;margin-bottom:6px}');
+  win.document.write('.alerg-text{font-size:18px;font-weight:700;color:#dc3545;font-family:sans-serif}');
+  win.document.write('.orden-obs label{font-size:9px;letter-spacing:2px;color:#888;font-family:sans-serif;text-transform:uppercase;display:block;margin-bottom:4px}');
+  win.document.write('.orden-obs p{font-size:13px;font-family:sans-serif}');
+  win.document.write('.orden-footer{border-top:1px solid #e0dcd6;padding-top:12px;display:flex;justify-content:space-between;align-items:center;margin-top:20px}');
+  win.document.write('.orden-footer span{font-size:11px;color:#888;font-family:sans-serif}');
+  win.document.write('</style></head><body>');
+  win.document.write('<div class="orden-doc">');
+  win.document.write(body.innerHTML);
+  win.document.write('</div></body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function(){ win.print(); }, 500);
 }
 
 function abrirOrdenPDF(r) {
