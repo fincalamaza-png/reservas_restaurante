@@ -93,13 +93,19 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
 .alerta-cancel{display:none}
 .alerta-cancel-txt{display:none}
 
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
 @media print {
   .no-print { display: none !important; }
   .orden-print { display: block !important; }
   .presup-print { display: block !important; }
-  body { background: white; }
+  body { background: white; margin: 0; padding: 0; }
   .app { height: auto; overflow: visible; }
   .page.active { position: relative; transform: none; height: auto; overflow: visible; }
+  .presup-doc { box-shadow: none; margin: 0; width: 100%; }
+  .orden-doc { box-shadow: none; margin: 0; width: 100%; }
 }
 .orden-print { display: none; }
 .presup-print { display: none; }
@@ -151,11 +157,14 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
 .presup-footer span { font-size: 10px; color: #888; font-family: sans-serif; }
 .orden-doc {
   font-family: 'Georgia', serif;
-  max-width: 800px;
+  width: 210mm;
+  min-height: 297mm;
   margin: 0 auto;
-  padding: 40px;
+  padding: 16mm 18mm;
   background: white;
   color: #1a1a1a;
+  box-sizing: border-box;
+  position: relative;
 }
 .orden-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
 .orden-brand .brand-rest { font-size: 10px; letter-spacing: 3px; color: #666; font-family: sans-serif; }
