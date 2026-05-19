@@ -171,24 +171,28 @@ function extrasNecesarios(fecha) {
     "SELECT pax, tipo, tipo_evento FROM reservas WHERE fecha = ? AND estado != 'cancelada'"
   ).all(fecha);
 
-  let total = 0;
+  // Sumar comensales por tipo PRIMERO, luego calcular extras sobre el total
+  let paxBoda = 0, paxTurista = 0, paxCarta = 0;
 
   for (const r of reservas) {
     const pax = r.pax || 0;
     if (r.tipo === 'carta') {
-      // Carta: empieza en 25, luego cada 12 (25,37,49,61...)
-      total += calcExtrasCarta(pax);
+      paxCarta += pax;
     } else if (r.tipo === 'evento') {
       if (r.tipo_evento === 'turista') {
-        // Grupo turista: 1 cada 15, margen de 6
-        total += calcExtras(pax, 15);
+        paxTurista += pax;
       } else {
-        // Boda, comunion, familiar: 1 cada 12, margen de 6
-        // 125->10, 126->11
-        total += calcExtras(pax, 12);
+        // Boda, comunion, familiar
+        paxBoda += pax;
       }
     }
   }
+
+  // Calcular extras sobre el total de cada tipo
+  let total = 0;
+  total += calcExtras(paxBoda, 12);      // Boda/comunion/familiar: 1 cada 12
+  total += calcExtras(paxTurista, 15);   // Turista: 1 cada 15
+  total += calcExtrasCarta(paxCarta);    // Carta: desde 25, luego cada 12
 
   return total;
 }
