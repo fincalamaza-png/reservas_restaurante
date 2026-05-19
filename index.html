@@ -1961,6 +1961,8 @@ function abrirOrdenPDF(r) {
     html += '<div class="orden-menu-title"><span>&#128269; MEN&Uacute;</span><em>' + r.nombre + '</em></div>';
     html += '<hr class="orden-divider2">';
     html += '<table class="orden-platos">';
+    if (r.coctel) html += '<tr style="background:#fffbf0"><td class="plato-label" style="color:#b8965a">&#127867; C&oacute;ctel</td><td class="plato-val" style="color:#b8965a">' + (r.coctel_det || 'S&iacute;') + '</td></tr>';
+    if (r.copas) html += '<tr style="background:#fffbf0"><td class="plato-label" style="color:#b8965a">&#127870; Copas de cava</td><td class="plato-val" style="color:#b8965a">S&iacute;</td></tr>';
     if (r.entrantes) html += '<tr><td class="plato-label">Entrantes</td><td class="plato-val">' + r.entrantes + '</td></tr>';
     if (r.pescado) html += '<tr><td class="plato-label">Pescado</td><td class="plato-val">' + r.pescado + '</td></tr>';
     if (r.sorbete) html += '<tr><td class="plato-label">Sorbete</td><td class="plato-val">Si</td></tr>';
@@ -1980,17 +1982,6 @@ function abrirOrdenPDF(r) {
     if (r.vino_tinto) html += '<div class="wine-item"><label>Vino tinto</label><strong>' + r.vino_tinto + '</strong></div>';
     if (r.vino_cava) html += '<div class="wine-item"><label>Cava</label><strong>' + r.vino_cava + '</strong></div>';
     if (r.vino_extra) html += '<div class="wine-item"><label>Otro</label><strong>' + r.vino_extra + '</strong></div>';
-    html += '</div></div>';
-  }
-
-  // Coctel y copas
-  var hayCoctel = r.coctel || r.copas;
-  if (hayCoctel) {
-    html += '<div class="orden-bodega">';
-    html += '<div class="orden-bodega-title">&#127867; C&Oacute;CTEL / APERITIVO</div>';
-    html += '<div class="orden-bodega-wines">';
-    if (r.coctel) html += '<div class="wine-item"><label>C&oacute;ctel previo</label><strong>S&iacute;' + (r.coctel_det ? ' &mdash; ' + r.coctel_det : '') + '</strong></div>';
-    if (r.copas) html += '<div class="wine-item"><label>Copas de cava</label><strong>S&iacute;</strong></div>';
     html += '</div></div>';
   }
 
