@@ -1654,7 +1654,8 @@ function abrirPresupuesto() {
       if (presups.length) {
         var p = presups[0];
         presupId = p.id;
-        presupLineas = JSON.parse(p.lineas || '[]');
+        try { presupLineas = JSON.parse(p.lineas || '[]'); } catch(e) { presupLineas = []; }
+        if (!Array.isArray(presupLineas)) presupLineas = [];
         document.getElementById('p-numero').value = p.numero || '';
         document.getElementById('p-firmante').value = p.firmante || 'Nicolas Sanchez Monje';
         document.getElementById('p-obs').value = p.obs || '';
