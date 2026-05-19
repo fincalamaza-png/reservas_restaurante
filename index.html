@@ -1982,7 +1982,18 @@ function abrirOrdenPDF(r) {
     if (r.vino_extra) html += '<div class="wine-item"><label>Otro</label><strong>' + r.vino_extra + '</strong></div>';
     html += '</div></div>';
   }
-  
+
+  // Coctel y copas
+  var hayCoctel = r.coctel || r.copas;
+  if (hayCoctel) {
+    html += '<div class="orden-bodega">';
+    html += '<div class="orden-bodega-title">&#127867; C&Oacute;CTEL / APERITIVO</div>';
+    html += '<div class="orden-bodega-wines">';
+    if (r.coctel) html += '<div class="wine-item"><label>C&oacute;ctel previo</label><strong>S&iacute;' + (r.coctel_det ? ' &mdash; ' + r.coctel_det : '') + '</strong></div>';
+    if (r.copas) html += '<div class="wine-item"><label>Copas de cava</label><strong>S&iacute;</strong></div>';
+    html += '</div></div>';
+  }
+
   // Alergias
   if (r.alergias) {
     html += '<div class="orden-alergias">';
