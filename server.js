@@ -149,13 +149,21 @@ function calcHoraConvocatoria(fecha) {
 }
 
 // Cuantos extras se necesitan para un dia
-// Calcula extras con margen: solo sube si sobran MAS de 6 personas del multiplo
-// Ej: 126 pax / 12 = 10.5 -> sobran 6 -> 10 extras. 127 pax -> sobran 7 -> 11 extras
+// Calcula extras con margen de 6:
+// Solo sube si sobran MAS de 6 del multiplo
+// Ej: 120/12=10, 125/12=10 (sobran 5, no sube), 126/12=11 (sobran 6, SUBE)
 function calcExtras(pax, ratio) {
   if (pax <= 0) return 0;
   const base = Math.floor(pax / ratio);
   const resto = pax % ratio;
-  return resto > 6 ? base + 1 : base;
+  return resto >= 6 ? base + 1 : base;
+}
+
+// Carta: empieza en 25 personas (1 extra), sube cada 12: 25,37,49,61...
+// Es decir: 1 + Math.floor((pax - 25) / 12) cuando pax >= 25
+function calcExtrasCarta(pax) {
+  if (pax < 25) return 0;
+  return 1 + Math.floor((pax - 25) / 12);
 }
 
 function extrasNecesarios(fecha) {
@@ -168,14 +176,15 @@ function extrasNecesarios(fecha) {
   for (const r of reservas) {
     const pax = r.pax || 0;
     if (r.tipo === 'carta') {
-      // Carta: 1 extra por cada 12 comensales, solo a partir de 22, margen de 6
-      if (pax >= 22) total += calcExtras(pax, 12);
+      // Carta: empieza en 25, luego cada 12 (25,37,49,61...)
+      total += calcExtrasCarta(pax);
     } else if (r.tipo === 'evento') {
       if (r.tipo_evento === 'turista') {
-        // Grupo turista: 1 extra por cada 15 comensales, margen de 6
+        // Grupo turista: 1 cada 15, margen de 6
         total += calcExtras(pax, 15);
       } else {
-        // Boda, comunion, grupo familiar: 1 extra por cada 12 comensales, margen de 6
+        // Boda, comunion, familiar: 1 cada 12, margen de 6
+        // 125->10, 126->11
         total += calcExtras(pax, 12);
       }
     }
