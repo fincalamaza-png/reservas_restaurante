@@ -1292,6 +1292,7 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
 
   const destinatarios = ['oscar@donfadrique.com'];
   if (emailCliente) destinatarios.unshift(emailCliente);
+  const copias = 'nicocuadri@icloud.com, fincalamaza@gmail.com';
 
   // Adjuntar firmas si existen
   const firmasHtml = (presup.firma_restaurante || presup.firma_cliente) ? `
@@ -1311,6 +1312,7 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
   await transporter.sendMail({
     from: `"Don Fadrique" <${cfg.email_smtp}>`,
     to: destinatarios.join(', '),
+    cc: copias,
     subject: `Presupuesto Nº ${presup.numero} - ${presup.cliente}`,
     html: html.replace('</div></body></html>', firmasHtml + '</div></body></html>')
   });
