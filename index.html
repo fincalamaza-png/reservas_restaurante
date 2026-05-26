@@ -1949,6 +1949,11 @@ function imprimirPresupuesto() {
   html += '<tr><td style="padding:3px 8px;font-weight:700;color:#333">IVA:</td><td style="padding:3px 8px" colspan="3">Los precios indicados no incluyen IVA (10%).</td></tr>';
   html += '</table></div>';
   html += '<div class="presup-divider2"></div>';
+  var fechaEvento = new Date(r.fecha + 'T12:00:00');
+  var diaFirma = fechaEvento.toLocaleDateString('es-ES', {day:'numeric'});
+  var mesFirma = fechaEvento.toLocaleDateString('es-ES', {month:'long'});
+  var anioFirma = fechaEvento.getFullYear();
+  html += '<p style="font-size:11px;color:#555;text-align:center;margin-bottom:16px;font-family:sans-serif">En Alba de Tormes, a <strong>' + diaFirma + '</strong> de <strong>' + mesFirma + '</strong> de <strong>' + anioFirma + '</strong></p>';
   html += '<div class="presup-firmas">';
   html += '<div class="presup-firma-box"><div class="f-label">Firma del restaurante</div>';
   html += (firmaRest ? '<img src="'+firmaRest+'" style="height:60px;border-bottom:1px solid #333;display:block;margin:0 auto">' : '<div style="height:60px;border-bottom:1px solid #ccc"></div>');

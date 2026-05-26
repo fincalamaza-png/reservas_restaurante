@@ -1311,17 +1311,27 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
   const copias = 'nicocuadri@icloud.com, fincalamaza@gmail.com';
 
   // Adjuntar firmas si existen
+  const fechaFirma = new Date(presup.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  const anioFirma = new Date(presup.fecha_evento + 'T12:00:00').getFullYear();
+  const diaFirma = new Date(presup.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric' });
+  const mesFirma = new Date(presup.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { month: 'long' });
+
   const firmasHtml = (presup.firma_restaurante || presup.firma_cliente) ? `
-    <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
-      <div style="text-align:center">
-        <p style="font-size:10px;color:#888;letter-spacing:1px;margin-bottom:8px">FIRMA DEL RESTAURANTE</p>
-        ${presup.firma_restaurante ? `<img src="${presup.firma_restaurante}" style="max-width:200px;border-bottom:1px solid #333">` : '<div style="height:60px;border-bottom:1px solid #ccc"></div>'}
-        <p style="font-size:11px;margin-top:4px">${presup.firmante || 'Don Fadrique'}</p>
-      </div>
-      <div style="text-align:center">
-        <p style="font-size:10px;color:#888;letter-spacing:1px;margin-bottom:8px">FIRMA DEL CLIENTE</p>
-        ${presup.firma_cliente ? `<img src="${presup.firma_cliente}" style="max-width:200px;border-bottom:1px solid #333">` : '<div style="height:60px;border-bottom:1px solid #ccc"></div>'}
-        <p style="font-size:11px;margin-top:4px">${presup.cliente}</p>
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e0dcd6">
+      <p style="font-size:12px;color:#555;text-align:center;margin-bottom:20px">
+        En Alba de Tormes, a <strong>${diaFirma}</strong> de <strong>${mesFirma}</strong> de <strong>${anioFirma}</strong>
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div style="text-align:center">
+          <p style="font-size:10px;color:#888;letter-spacing:1px;margin-bottom:8px">FIRMA DEL RESTAURANTE</p>
+          ${presup.firma_restaurante ? `<img src="${presup.firma_restaurante}" style="max-width:200px;border-bottom:1px solid #333">` : '<div style="height:60px;border-bottom:1px solid #ccc"></div>'}
+          <p style="font-size:11px;margin-top:4px">${presup.firmante || 'Don Fadrique'}</p>
+        </div>
+        <div style="text-align:center">
+          <p style="font-size:10px;color:#888;letter-spacing:1px;margin-bottom:8px">FIRMA DEL CLIENTE</p>
+          ${presup.firma_cliente ? `<img src="${presup.firma_cliente}" style="max-width:200px;border-bottom:1px solid #333">` : '<div style="height:60px;border-bottom:1px solid #ccc"></div>'}
+          <p style="font-size:11px;margin-top:4px">${presup.cliente}</p>
+        </div>
       </div>
     </div>` : '';
 
