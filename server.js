@@ -1308,7 +1308,7 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
 
   const destinatarios = ['oscar@donfadrique.com'];
   if (emailCliente) destinatarios.unshift(emailCliente);
-  const copias = 'nicocuadri@icloud.com, fincalamaza@gmail.com';
+  const copias = 'nicocuadri@hotmail.com, fincalamaza@gmail.com';
 
   // Adjuntar firmas si existen
   const fechaFirma = new Date(presup.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
