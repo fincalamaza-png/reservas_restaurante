@@ -1243,7 +1243,7 @@ app.post('/api/presupuestos/:id/enviar', async (req, res) => {
 
 async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
   const cfg = getConfig();
-  if (!cfg.email_smtp || !cfg.email_pass) return;
+  if (!cfg.email_smtp || !cfg.email_pass) throw new Error('SMTP no configurado');
 
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com', port: 587, secure: false,
