@@ -1600,10 +1600,11 @@ function comprobarAvisosCancelacion() {
       var html = cont.innerHTML;
       avisos.forEach(function(a, idx){
         var fecha = fmtFechaCorta(a.fecha);
-        html += '<div class="alerta-card alerta-cancel-card">';
-        html += '<div class="alerta-card-header"><span class="alerta-card-icon">&#128680;</span><span class="alerta-card-title">Cancelacion con menos de 7 dias</span></div>';
-        html += '<div class="alerta-card-body"><strong>' + a.extra + '</strong> ha cancelado su plaza para el servicio del <strong>' + fecha + '</strong>. Es necesario buscar cobertura.</div>';
-        html += '<div class="alerta-card-footer"><button class="alerta-card-btn alerta-card-btn-secondary" onclick="descartarAviso(' + idx + ')">Descartar</button><button class="alerta-card-btn alerta-card-btn-primary" onclick="abrirExtrasConFecha(\'' + a.fecha + '\')">Ver extras</button></div>';
+        html += '<div style="display:flex;align-items:center;gap:10px;background:#fff0f0;border:1px solid #f0b0b0;border-radius:10px;padding:10px 14px;margin-bottom:8px">';
+        html += '<span style="font-size:18px">&#128680;</span>';
+        html += '<span style="flex:1;font-size:13px;color:#8a1a1a;font-weight:600">Cancelacion ' + fecha + ' &middot; ' + a.extra + '</span>';
+        html += '<button onclick="abrirExtrasConFecha(\'' + a.fecha + '\')" style="background:#842029;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">Ver</button>';
+        html += '<button onclick="descartarAviso(' + idx + ')" style="background:#ccc;color:#555;border:none;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer">✕</button>';
         html += '</div>';
       });
       cont.innerHTML = html;
