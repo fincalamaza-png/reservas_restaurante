@@ -609,7 +609,7 @@ function abrirDetalle(id){
   html+=ovRow('Tipo',r.tipo==='carta'?'Carta':'Evento');
   html+=ovRow('Fecha',fmtFechaCorta(r.fecha));
   html+=ovRow('Hora',r.hora);
-  html+=ovRow('Personas',r.pax);
+  html+=ovRow('Personas',r.pax + (r.ninos>0?' adultos + '+r.ninos+' niños':' adultos'));
   var sn={bodega:'Bodega',cristalera:'Cristalera',cayetana:'Salon Cayetana',cupula:'Salon Cupula'};html+=ovRow('Salon',sn[r.salon]||r.salon);
   if(r.tipo==='carta'&&r.mesa)html+=ovRow('Mesa',r.mesa);
   if(r.tipo==='carta'&&r.menu)html+=ovRow('Menu',mn[r.menu]||r.menu);
@@ -630,6 +630,12 @@ function abrirDetalle(id){
     if(r.sorbete)html+=ovRow('Sorbete','Si');
     if(r.carne)html+=ovRow('Carne',r.carne);
     if(r.postre)html+=ovRow('Postre',r.postre);
+    if(r.ninos>0&&(r.menu_ninos_entrante||r.menu_ninos_principal||r.menu_ninos_postre)){
+      html+='<div class="ov-row" style="background:#f0f4ff"><span class="ov-label" style="color:#3c3489;font-weight:700">Menu Niños ('+r.ninos+')</span><span></span></div>';
+      if(r.menu_ninos_entrante)html+=ovRow('Entrante',r.menu_ninos_entrante);
+      if(r.menu_ninos_principal)html+=ovRow('Principal',r.menu_ninos_principal);
+      if(r.menu_ninos_postre)html+=ovRow('Postre niños',r.menu_ninos_postre);
+    }
     var vinosStr=[];if(r.vino_blanco)vinosStr.push('Blanco: '+r.vino_blanco);if(r.vino_tinto)vinosStr.push('Tinto: '+r.vino_tinto);if(r.vino_cava)vinosStr.push('Cava: '+r.vino_cava);if(vinosStr.length)html+=ovRow('Vinos',vinosStr.join(' | '));
     if(r.copas)html+=ovRow('Copas cava','Si');
     if(r.fianza)html+=ovRow('Fianza',r.fianza_imp?r.fianza_imp+' euros':'Si');
@@ -720,7 +726,8 @@ function abrirForm(tipo){
   S.form={tipo:tipo,fecha:S.dia,hora:'14:00',nombre:'',tel:'',email:'',pax:2,
     salon:'bodega',mesa:null,menu:'carta',alergias:'',obs:'',estado:'pendiente',
     tipo_evento:'boda',montaje:'imperial',protocolo:false,coctel:false,coctel_det:'',
-    entrantes:'',pescado:'',sorbete:false,carne:'',postre:'',vino_blanco:'Verdejo',vino_tinto:'Cinco de Copas',vino_cava:'Cava',vino_extra:'',menu_infantil:'',
+    entrantes:'',pescado:'',sorbete:false,carne:'',postre:'',vino_blanco:'Verdejo',vino_tinto:'Cinco de Copas',vino_cava:'Cava',vino_extra:'',
+    ninos:0,menu_ninos_entrante:'',menu_ninos_principal:'',menu_ninos_postre:'',menu_ninos_precio:null,
     copas:false,fianza:false,fianza_imp:null,menus_comensales:[]};
   S.step=0;S.editId=null;
   document.getElementById('form-titulo').textContent='Nueva reserva';
@@ -765,7 +772,10 @@ function renderForm(){
     html+='</div></div>';
     html+='<div class="field"><label>Fecha</label><input type="date" value="'+S.form.fecha+'" onchange="S.form.fecha=this.value"></div>';
     html+='<div class="field"><label>Hora</label><input type="time" value="'+S.form.hora+'" onchange="S.form.hora=this.value"></div>';
-    html+='<div class="field"><label>Personas</label><input type="number" min="1" value="'+S.form.pax+'" onchange="S.form.pax=parseInt(this.value)||1"></div>';
+    html+='<div class="field"><label>Personas (adultos)</label><input type="number" min="1" value="'+S.form.pax+'" onchange="S.form.pax=parseInt(this.value)||1"></div>';
+    if(S.form.tipo==='evento'){
+      html+='<div class="field"><label>Niños</label><input type="number" min="0" value="'+(S.form.ninos||0)+'" onchange="S.form.ninos=parseInt(this.value)||0"></div>';
+    }
   }
 
   if(paso==='datos'){
@@ -824,11 +834,17 @@ function renderForm(){
     html+='<div class="field"><label>Vino blanco</label><input type="text" id="vino-blanco" value="'+(S.form.vino_blanco||'Verdejo')+'" placeholder="Nombre del vino blanco (dejar vacio para no incluir)" oninput="S.form.vino_blanco=this.value"></div>';
     html+='<div class="field"><label>Vino tinto</label><input type="text" id="vino-tinto" value="'+(S.form.vino_tinto||'Cinco de Copas')+'" placeholder="Nombre del vino tinto (dejar vacio para no incluir)" oninput="S.form.vino_tinto=this.value"></div>';
     html+='<div class="field"><label>Cava</label><input type="text" id="vino-cava" value="'+(S.form.vino_cava||'Cava')+'" placeholder="Nombre del cava (dejar vacio para no incluir)" oninput="S.form.vino_cava=this.value"></div>';
-    html+='<div class="field"><label>Menu infantil (si hay ninos)</label><input type="text" value="'+(S.form.menu_infantil||'')+'" placeholder="Ej: Macarrones, filete con patatas..." oninput="S.form.menu_infantil=this.value"></div>';
     html+='<div class="field"><label>Vino extra</label><input type="text" value="'+(S.form.vino_extra||'')+'" oninput="S.form.vino_extra=this.value"></div>';
     html+=swFld('Copas cava','S.form.copas',S.form.copas);
     html+=swFld('Fianza','S.form.fianza',S.form.fianza);
     if(S.form.fianza)html+='<div class="field"><label>Importe fianza</label><input type="number" value="'+(S.form.fianza_imp||'')+'" oninput="S.form.fianza_imp=parseFloat(this.value)||null"></div>';
+    if(S.form.ninos>0){
+      html+='<div style="font-weight:600;font-size:13px;margin:10px 0 6px;color:#3c3489">&#128118; Menu infantil ('+S.form.ninos+' ninos)</div>';
+      html+='<div class="field"><label>Entrante</label><input type="text" value="'+(S.form.menu_ninos_entrante||'')+'" placeholder="Ej: Croquetas, ensalada..." oninput="S.form.menu_ninos_entrante=this.value"></div>';
+      html+='<div class="field"><label>Plato principal</label><input type="text" value="'+(S.form.menu_ninos_principal||'')+'" placeholder="Ej: Macarrones, filete con patatas..." oninput="S.form.menu_ninos_principal=this.value"></div>';
+      html+='<div class="field"><label>Postre</label><input type="text" value="'+(S.form.menu_ninos_postre||'')+'" placeholder="Ej: Helado, fruta..." oninput="S.form.menu_ninos_postre=this.value"></div>';
+      html+='<div class="field"><label>Precio por nino (€)</label><input type="number" step="0.01" value="'+(S.form.menu_ninos_precio||'')+'" placeholder="Ej: 18.00" oninput="S.form.menu_ninos_precio=parseFloat(this.value)||null"></div>';
+    }
   }
 
   if(paso==='confirmar'){
@@ -956,14 +972,20 @@ function renderOrden(){
     html='<div class="card"><div style="font-weight:700;font-size:15px;color:#8b1a2a;margin-bottom:10px">ORDEN COCINA</div>';
     html+=ovRow('Evento',ev[r.tipo_evento]||r.tipo_evento);
     html+=ovRow('Fecha',fmtFechaCorta(r.fecha)+' '+r.hora);
-    html+=ovRow('Comensales',r.pax);
+    html+=ovRow('Adultos',r.pax);
+    if(r.ninos>0)html+=ovRow('Niños',r.ninos);
     if(r.coctel)html+=ovRow('Coctel','Si'+(r.coctel_det?' - '+r.coctel_det:''));
     if(r.entrantes)html+=ovRow('Entrantes',r.entrantes);
     if(r.pescado)html+=ovRow('Pescado',r.pescado);
     if(r.sorbete)html+=ovRow('Sorbete','Si');
     if(r.carne)html+=ovRow('Carne',r.carne);
     if(r.postre)html+=ovRow('Postre',r.postre);
-    if(r.menu_infantil)html+=ovRow('Menu infantil',r.menu_infantil);
+    if(r.ninos>0&&(r.menu_ninos_entrante||r.menu_ninos_principal||r.menu_ninos_postre)){
+      html+='<div class="ov-row" style="background:#f0f4ff"><span class="ov-label" style="color:#3c3489;font-weight:700">MENU NIÑOS</span><span></span></div>';
+      if(r.menu_ninos_entrante)html+=ovRow('Entrante (niños)',r.menu_ninos_entrante);
+      if(r.menu_ninos_principal)html+=ovRow('Principal (niños)',r.menu_ninos_principal);
+      if(r.menu_ninos_postre)html+=ovRow('Postre (niños)',r.menu_ninos_postre);
+    }
     if(r.alergias)html+='<div class="ov-row" style="background:#fff0f0"><span class="ov-label" style="color:#dc3545">ALERGIAS</span><span style="color:#dc3545;font-weight:600">'+r.alergias+'</span></div>';
     if(r.menus_detalle){
       try{
@@ -981,7 +1003,8 @@ function renderOrden(){
     html+=ovRow('Cliente',r.nombre);
     html+=ovRow('Evento',ev[r.tipo_evento]||r.tipo_evento);
     html+=ovRow('Fecha',fmtFechaCorta(r.fecha)+' '+r.hora);
-    html+=ovRow('Comensales',r.pax);
+    html+=ovRow('Adultos',r.pax);
+    if(r.ninos>0)html+=ovRow('Niños',r.ninos);
     var sn={bodega:'Bodega',cristalera:'Cristalera',cayetana:'Salon Cayetana',cupula:'Salon Cupula'};html+=ovRow('Salon',sn[r.salon]||r.salon);
     if(r.montaje)html+=ovRow('Montaje',r.montaje);
     if(r.protocolo)html+=ovRow('Protocolo','Si');
@@ -999,9 +1022,17 @@ function renderOrden(){
     if(r.email)html+=ovRow('Email',r.email);
     html+=ovRow('Evento',ev[r.tipo_evento]||r.tipo_evento);
     html+=ovRow('Fecha',fmtFechaCorta(r.fecha));
-    html+=ovRow('Comensales',r.pax);
+    html+=ovRow('Adultos',r.pax);
+    if(r.ninos>0)html+=ovRow('Niños',r.ninos);
     html+='<div class="ov-row"><span class="ov-label">Estado</span><span class="badge badge-'+r.estado+'">'+r.estado+'</span></div>';
     if(r.fianza)html+=ovRow('Fianza',r.fianza_imp?r.fianza_imp+' euros':'Pendiente');
+    if(r.ninos>0&&(r.menu_ninos_entrante||r.menu_ninos_principal||r.menu_ninos_postre)){
+      html+='<div class="ov-row" style="background:#f0f4ff"><span class="ov-label" style="color:#3c3489;font-weight:700">MENU NIÑOS</span><span></span></div>';
+      if(r.menu_ninos_entrante)html+=ovRow('Entrante',r.menu_ninos_entrante);
+      if(r.menu_ninos_principal)html+=ovRow('Principal',r.menu_ninos_principal);
+      if(r.menu_ninos_postre)html+=ovRow('Postre',r.menu_ninos_postre);
+      if(r.menu_ninos_precio)html+=ovRow('Precio/niño',r.menu_ninos_precio.toFixed(2)+' €');
+    }
     html+=ovRow('Conf. enviada',r.conf_env?'Si':'No');
     html+=ovRow('Rec. enviado',r.rec_env?'Si':'No');
     if(r.obs)html+=ovRow('Notas',r.obs);
@@ -2021,6 +2052,7 @@ function abrirOrdenPDF(r) {
   html += '<div class="orden-field"><label>Hora</label><strong>' + r.hora + ' h</strong></div>';
   html += '<div class="orden-field"><label>Salon</label><strong>' + (salones[r.salon]||r.salon) + '</strong></div>';
   html += '<div class="orden-field"><label>Adultos</label><strong class="big">' + r.pax + ' <span style="font-size:14px;font-weight:400">pax</span></strong></div>';
+  if (r.ninos > 0) html += '<div class="orden-field"><label>Niños</label><strong class="big">' + r.ninos + ' <span style="font-size:14px;font-weight:400">pax</span></strong></div>';
   html += '<div class="orden-field"><label>Montaje</label><strong>' + (r.montaje||'Imperial') + '</strong></div>';
   html += '</div>';
   
@@ -2036,7 +2068,12 @@ function abrirOrdenPDF(r) {
     if (r.sorbete) html += '<tr><td class="plato-label">Sorbete</td><td class="plato-val">Si</td></tr>';
     if (r.carne) html += '<tr><td class="plato-label">Carne</td><td class="plato-val">' + r.carne + '</td></tr>';
     if (r.postre) html += '<tr><td class="plato-label">Postre</td><td class="plato-val">' + r.postre + '</td></tr>';
-    if (r.menu_infantil) html += '<tr><td class="plato-label">Menu infantil</td><td class="plato-val">' + r.menu_infantil + '</td></tr>';
+    if (r.ninos > 0 && (r.menu_ninos_entrante || r.menu_ninos_principal || r.menu_ninos_postre)) {
+      html += '<tr style="background:#f0f4ff"><td class="plato-label" style="color:#3c3489;font-weight:700" colspan="2">&#128118; Menu Niños (' + r.ninos + ' pax)</td></tr>';
+      if (r.menu_ninos_entrante) html += '<tr><td class="plato-label" style="padding-left:20px">Entrante</td><td class="plato-val">' + r.menu_ninos_entrante + '</td></tr>';
+      if (r.menu_ninos_principal) html += '<tr><td class="plato-label" style="padding-left:20px">Principal</td><td class="plato-val">' + r.menu_ninos_principal + '</td></tr>';
+      if (r.menu_ninos_postre) html += '<tr><td class="plato-label" style="padding-left:20px">Postre</td><td class="plato-val">' + r.menu_ninos_postre + '</td></tr>';
+    }
     html += '</table>';
   }
   

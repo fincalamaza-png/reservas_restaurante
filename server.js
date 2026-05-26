@@ -85,6 +85,12 @@ try { db.exec("CREATE TABLE IF NOT EXISTS presupuestos (id INTEGER PRIMARY KEY A
   try { db.exec("ALTER TABLE reservas ADD COLUMN vino_blanco TEXT DEFAULT 'Verdejo'"); } catch(e) {}
   try { db.exec("ALTER TABLE reservas ADD COLUMN vino_tinto TEXT DEFAULT 'Cinco de Copas'"); } catch(e) {}
   try { db.exec("ALTER TABLE reservas ADD COLUMN vino_cava TEXT DEFAULT 'Cava'"); } catch(e) {}
+  // Add niños columns if not exist
+  try { db.exec("ALTER TABLE reservas ADD COLUMN ninos INTEGER DEFAULT 0"); } catch(e) {}
+  try { db.exec("ALTER TABLE reservas ADD COLUMN menu_ninos_entrante TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE reservas ADD COLUMN menu_ninos_principal TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE reservas ADD COLUMN menu_ninos_postre TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE reservas ADD COLUMN menu_ninos_precio REAL"); } catch(e) {}
   // Ensure presupuestos table exists
   try { db.exec("CREATE TABLE IF NOT EXISTS presupuestos (id INTEGER PRIMARY KEY AUTOINCREMENT, numero TEXT, reserva_id INTEGER, cliente TEXT, fecha_evento TEXT, salon TEXT, pax INTEGER, tipo_evento TEXT, firmante TEXT, lineas TEXT, subtotal REAL, iva REAL, total REAL, obs TEXT, enviado INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime(\'now\')))"); } catch(e) {}
 
@@ -311,8 +317,10 @@ async function enviarEmailCliente(r, tipo) {
   let filas = `
     <tr><td style="color:#888;padding:5px 0;width:38%">Fecha</td><td style="padding:5px 0"><strong>${fecha}</strong></td></tr>
     <tr><td style="color:#888;padding:5px 0">Hora</td><td style="padding:5px 0"><strong>${r.hora}</strong></td></tr>
-    <tr><td style="color:#888;padding:5px 0">Personas</td><td style="padding:5px 0"><strong>${r.pax}</strong></td></tr>
-    <tr><td style="color:#888;padding:5px 0">Salon</td><td style="padding:5px 0"><strong>${salones[r.salon] || r.salon}</strong></td></tr>
+    <tr><td style="color:#888;padding:5px 0">Adultos</td><td style="padding:5px 0"><strong>${r.pax}</strong></td></tr>
+  `;
+  if (r.ninos > 0) filas += `<tr><td style="color:#888;padding:5px 0">Niños</td><td style="padding:5px 0"><strong>${r.ninos}</strong></td></tr>`;
+  filas += `<tr><td style="color:#888;padding:5px 0">Salon</td><td style="padding:5px 0"><strong>${salones[r.salon] || r.salon}</strong></td></tr>
   `;
   if (r.tipo === 'carta' && r.mesa) filas += `<tr><td style="color:#888;padding:5px 0">Mesa</td><td style="padding:5px 0"><strong>Mesa ${r.mesa}</strong></td></tr>`;
   if (r.tipo === 'carta' && r.menu) filas += `<tr><td style="color:#888;padding:5px 0">Menu</td><td style="padding:5px 0"><strong>${menus[r.menu] || ''}</strong></td></tr>`;
@@ -574,8 +582,9 @@ app.post('/api/reservas', (req, res) => {
   const stmt = db.prepare(`
     INSERT INTO reservas (tipo,salon,mesa,fecha,hora,nombre,tel,email,pax,menu,alergias,obs,estado,
       tipo_evento,montaje,protocolo,coctel,coctel_det,entrantes,pescado,sorbete,carne,postre,
-      vino_blanco,vino_tinto,vino_cava,vino_extra,copas,fianza,fianza_imp,conf_env,rec_env,menus_detalle)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      vino_blanco,vino_tinto,vino_cava,vino_extra,copas,fianza,fianza_imp,conf_env,rec_env,menus_detalle,
+      ninos,menu_ninos_entrante,menu_ninos_principal,menu_ninos_postre,menu_ninos_precio)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `);
   const result = stmt.run(
     d.tipo, d.salon, d.mesa||null, d.fecha, d.hora, d.nombre, d.tel||'', d.email||'', d.pax,
@@ -586,7 +595,9 @@ app.post('/api/reservas', (req, res) => {
     d.vino_blanco||'', d.vino_tinto||'', d.vino_cava||'',
     d.vino_extra||'', parseBool(d.copas),
     parseBool(d.fianza), d.fianza_imp||null, 0, 0,
-    d.menus_detalle||null
+    d.menus_detalle||null,
+    d.ninos||0, d.menu_ninos_entrante||null, d.menu_ninos_principal||null,
+    d.menu_ninos_postre||null, d.menu_ninos_precio||null
   );
   const nueva = rowToObj(db.prepare('SELECT * FROM reservas WHERE id = ?').get(result.lastInsertRowid));
 
@@ -611,7 +622,9 @@ app.put('/api/reservas/:id', (req, res) => {
     UPDATE reservas SET tipo=?,salon=?,mesa=?,fecha=?,hora=?,nombre=?,tel=?,email=?,pax=?,menu=?,
     alergias=?,obs=?,estado=?,tipo_evento=?,montaje=?,protocolo=?,coctel=?,coctel_det=?,
     entrantes=?,pescado=?,sorbete=?,carne=?,postre=?,vino_blanco=?,vino_tinto=?,vino_cava=?,
-    vino_extra=?,copas=?,fianza=?,fianza_imp=?,menus_detalle=? WHERE id=?
+    vino_extra=?,copas=?,fianza=?,fianza_imp=?,menus_detalle=?,
+    ninos=?,menu_ninos_entrante=?,menu_ninos_principal=?,menu_ninos_postre=?,menu_ninos_precio=?
+    WHERE id=?
   `).run(
     d.tipo, d.salon, d.mesa||null, d.fecha, d.hora, d.nombre, d.tel||'', d.email||'', d.pax,
     d.menu||'', d.alergias||'', d.obs||'', d.estado||'pendiente',
@@ -621,6 +634,8 @@ app.put('/api/reservas/:id', (req, res) => {
     d.vino_blanco||'', d.vino_tinto||'', d.vino_cava||'',
     d.vino_extra||'', parseBool(d.copas),
     parseBool(d.fianza), d.fianza_imp||null, d.menus_detalle||null,
+    d.ninos||0, d.menu_ninos_entrante||null, d.menu_ninos_principal||null,
+    d.menu_ninos_postre||null, d.menu_ninos_precio||null,
     req.params.id
   );
   const actualizada = rowToObj(db.prepare('SELECT * FROM reservas WHERE id = ?').get(req.params.id));
@@ -641,6 +656,66 @@ app.delete('/api/reservas/:id', (req, res) => {
 app.post('/api/email/:id/:tipo', async (req, res) => {
   const r = rowToObj(db.prepare('SELECT * FROM reservas WHERE id = ?').get(req.params.id));
   if (!r) return res.json({ ok: false, msg: 'Reserva no encontrada' });
+
+  if (req.params.tipo === 'orden') {
+    // Enviar orden de servicio a administración (oscar@donfadrique.com) con precio niños
+    const cfg = getConfig();
+    if (!cfg.email_smtp || !cfg.email_pass) return res.json({ ok: false, msg: 'SMTP no configurado' });
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com', port: 587, secure: false,
+      auth: { user: cfg.email_smtp, pass: cfg.email_pass }
+    });
+    const ev = { boda: 'Boda', comunion: 'Comunion', familiar: 'Grupo familiar', turista: 'Grupo turista' };
+    const salones = { bodega: 'Salon Bodega', cristalera: 'Salon Cristalera', cayetana: 'Salon Cayetana', cupula: 'Salon Cupula' };
+    const fecha = new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    const fila = (label, val) => `<tr><td style="color:#888;padding:5px 0;width:38%">${label}</td><td style="padding:5px 0"><strong>${val}</strong></td></tr>`;
+    let filas = fila('Fecha', fecha) + fila('Hora', r.hora) + fila('Evento', ev[r.tipo_evento] || r.tipo_evento) +
+      fila('Salon', salones[r.salon] || r.salon) + fila('Adultos', r.pax);
+    if (r.ninos > 0) filas += fila('Niños', r.ninos);
+    if (r.coctel) filas += fila('Coctel', r.coctel_det || 'Si');
+    if (r.entrantes) filas += fila('Entrantes', r.entrantes);
+    if (r.pescado) filas += fila('Pescado', r.pescado);
+    if (r.sorbete) filas += fila('Sorbete', 'Si');
+    if (r.carne) filas += fila('Carne', r.carne);
+    if (r.postre) filas += fila('Postre', r.postre);
+    if (r.ninos > 0 && (r.menu_ninos_entrante || r.menu_ninos_principal || r.menu_ninos_postre)) {
+      filas += `<tr><td colspan="2" style="padding:8px 0 4px;font-weight:700;color:#3c3489">Menu Niños (${r.ninos} pax)</td></tr>`;
+      if (r.menu_ninos_entrante) filas += fila('Entrante', r.menu_ninos_entrante);
+      if (r.menu_ninos_principal) filas += fila('Principal', r.menu_ninos_principal);
+      if (r.menu_ninos_postre) filas += fila('Postre niños', r.menu_ninos_postre);
+      if (r.menu_ninos_precio) filas += fila('Precio/niño', r.menu_ninos_precio.toFixed(2) + ' € (Total: ' + (r.menu_ninos_precio * r.ninos).toFixed(2) + ' €)');
+    }
+    if (r.vino_blanco) filas += fila('Vino blanco', r.vino_blanco);
+    if (r.vino_tinto) filas += fila('Vino tinto', r.vino_tinto);
+    if (r.vino_cava) filas += fila('Cava', r.vino_cava);
+    if (r.alergias) filas += `<tr><td style="color:#791f1f;padding:5px 0">ALERGIAS</td><td style="padding:5px 0;color:#791f1f"><strong>${r.alergias}</strong></td></tr>`;
+    if (r.obs) filas += fila('Observaciones', r.obs);
+    const htmlOrden = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,sans-serif">
+<div style="max-width:520px;margin:0 auto">
+  <div style="background:#b8965a;padding:24px;text-align:center;border-radius:8px 8px 0 0">
+    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;letter-spacing:3px">Don Fadrique</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:4px">ORDEN DE SERVICIO</div>
+  </div>
+  <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
+    <p style="font-size:15px;font-weight:700">${r.nombre}</p>
+    <div style="background:#f9f9f7;border-radius:8px;padding:16px;margin:16px 0">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">${filas}</table>
+    </div>
+  </div>
+</div></body></html>`;
+    try {
+      await transporter.sendMail({
+        from: `"Restaurante Don Fadrique" <${cfg.email_smtp}>`,
+        to: 'oscar@donfadrique.com',
+        subject: `Orden de servicio - ${r.nombre} - ${fecha}`,
+        html: htmlOrden
+      });
+      return res.json({ ok: true });
+    } catch(e) {
+      return res.json({ ok: false, msg: e.message });
+    }
+  }
+
   const result = await enviarEmailCliente(r, req.params.tipo);
   if (result.ok) {
     const campo = req.params.tipo === 'confirmacion' ? 'conf_env' : 'rec_env';
