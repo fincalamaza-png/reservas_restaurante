@@ -658,7 +658,6 @@ app.post('/api/email/:id/:tipo', async (req, res) => {
   if (!r) return res.json({ ok: false, msg: 'Reserva no encontrada' });
 
   if (req.params.tipo === 'orden') {
-    // Enviar orden de servicio a administración (oscar@donfadrique.com) con precio niños
     const cfg = getConfig();
     if (!cfg.email_smtp || !cfg.email_pass) return res.json({ ok: false, msg: 'SMTP no configurado' });
     const transporter = nodemailer.createTransport({
@@ -668,46 +667,91 @@ app.post('/api/email/:id/:tipo', async (req, res) => {
     const ev = { boda: 'Boda', comunion: 'Comunion', familiar: 'Grupo familiar', turista: 'Grupo turista' };
     const salones = { bodega: 'Salon Bodega', cristalera: 'Salon Cristalera', cayetana: 'Salon Cayetana', cupula: 'Salon Cupula' };
     const fecha = new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-    const fila = (label, val) => `<tr><td style="color:#888;padding:5px 0;width:38%">${label}</td><td style="padding:5px 0"><strong>${val}</strong></td></tr>`;
-    let filas = fila('Fecha', fecha) + fila('Hora', r.hora) + fila('Evento', ev[r.tipo_evento] || r.tipo_evento) +
-      fila('Salon', salones[r.salon] || r.salon) + fila('Adultos', r.pax);
+
+    const seccion = (titulo, color) => `
+      <tr><td colspan="2" style="padding:14px 0 6px">
+        <div style="font-size:10px;letter-spacing:2px;color:${color||'#b8965a'};font-weight:700;border-bottom:1px solid #f0ede8;padding-bottom:4px">${titulo}</div>
+      </td></tr>`;
+    const fila = (label, val, color) => `<tr>
+      <td style="color:#888;padding:4px 0;width:38%;font-size:13px">${label}</td>
+      <td style="padding:4px 0;font-size:13px${color?';color:'+color:''}"><strong>${val}</strong></td>
+    </tr>`;
+
+    let filas = seccion('DATOS DEL EVENTO');
+    filas += fila('Cliente', r.nombre);
+    if (r.tel) filas += fila('Telefono', r.tel);
+    if (r.email) filas += fila('Email', r.email);
+    filas += fila('Tipo', ev[r.tipo_evento] || r.tipo_evento);
+    filas += fila('Fecha', fecha);
+    filas += fila('Hora', r.hora);
+    filas += fila('Salon', salones[r.salon] || r.salon);
+    if (r.montaje) filas += fila('Montaje', r.montaje);
+    filas += fila('Adultos', r.pax);
     if (r.ninos > 0) filas += fila('Niños', r.ninos);
-    if (r.coctel) filas += fila('Coctel', r.coctel_det || 'Si');
+    filas += fila('Total comensales', r.pax + (r.ninos || 0));
+
+    filas += seccion('MENU');
+    if (r.coctel) filas += fila('Coctel previo', r.coctel_det || 'Si', '#b8965a');
+    if (r.copas) filas += fila('Copas de cava', 'Si', '#b8965a');
     if (r.entrantes) filas += fila('Entrantes', r.entrantes);
     if (r.pescado) filas += fila('Pescado', r.pescado);
     if (r.sorbete) filas += fila('Sorbete', 'Si');
     if (r.carne) filas += fila('Carne', r.carne);
     if (r.postre) filas += fila('Postre', r.postre);
+
     if (r.ninos > 0 && (r.menu_ninos_entrante || r.menu_ninos_principal || r.menu_ninos_postre)) {
-      filas += `<tr><td colspan="2" style="padding:8px 0 4px;font-weight:700;color:#3c3489">Menu Niños (${r.ninos} pax)</td></tr>`;
+      filas += seccion('MENU NIÑOS (' + r.ninos + ' pax)', '#3c3489');
       if (r.menu_ninos_entrante) filas += fila('Entrante', r.menu_ninos_entrante);
-      if (r.menu_ninos_principal) filas += fila('Principal', r.menu_ninos_principal);
-      if (r.menu_ninos_postre) filas += fila('Postre niños', r.menu_ninos_postre);
-      if (r.menu_ninos_precio) filas += fila('Precio/niño', r.menu_ninos_precio.toFixed(2) + ' € (Total: ' + (r.menu_ninos_precio * r.ninos).toFixed(2) + ' €)');
+      if (r.menu_ninos_principal) filas += fila('Plato principal', r.menu_ninos_principal);
+      if (r.menu_ninos_postre) filas += fila('Postre', r.menu_ninos_postre);
+      if (r.menu_ninos_precio) filas += fila('Precio por niño', r.menu_ninos_precio.toFixed(2) + ' €');
+      if (r.menu_ninos_precio) filas += fila('Total menu niños', (r.menu_ninos_precio * r.ninos).toFixed(2) + ' €', '#2c7a3a');
     }
+
+    filas += seccion('BODEGA');
     if (r.vino_blanco) filas += fila('Vino blanco', r.vino_blanco);
     if (r.vino_tinto) filas += fila('Vino tinto', r.vino_tinto);
     if (r.vino_cava) filas += fila('Cava', r.vino_cava);
-    if (r.alergias) filas += `<tr><td style="color:#791f1f;padding:5px 0">ALERGIAS</td><td style="padding:5px 0;color:#791f1f"><strong>${r.alergias}</strong></td></tr>`;
-    if (r.obs) filas += fila('Observaciones', r.obs);
-    const htmlOrden = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,sans-serif">
-<div style="max-width:520px;margin:0 auto">
-  <div style="background:#b8965a;padding:24px;text-align:center;border-radius:8px 8px 0 0">
-    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;letter-spacing:3px">Don Fadrique</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:4px">ORDEN DE SERVICIO</div>
+    if (r.vino_extra) filas += fila('Otro', r.vino_extra);
+
+    if (r.alergias) {
+      filas += seccion('⚠ ALERGIAS / INTOLERANCIAS', '#dc3545');
+      filas += fila('Alergias', r.alergias, '#dc3545');
+    }
+    if (r.fianza) {
+      filas += seccion('FIANZA');
+      filas += fila('Importe', r.fianza_imp ? r.fianza_imp.toFixed(2) + ' €' : 'Pendiente definir');
+    }
+    if (r.obs) {
+      filas += seccion('OBSERVACIONES');
+      filas += fila('Notas', r.obs);
+    }
+
+    const htmlOrden = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
+  <div style="background:#b8965a;padding:28px 24px;text-align:center">
+    <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.7)">R E S T A U R A N T E</div>
+    <div style="font-family:Georgia,serif;font-size:28px;color:#fff;letter-spacing:3px;margin:4px 0">Don Fadrique</div>
+    <div style="font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.7)">P A L A C I O · C O N D E · D E · A L D A N A</div>
+    <div style="margin-top:12px;display:inline-block;background:rgba(255,255,255,0.15);border-radius:20px;padding:4px 16px">
+      <span style="font-size:12px;color:#fff;font-weight:600;letter-spacing:1px">ORDEN DE SERVICIO — ADMINISTRACION</span>
+    </div>
   </div>
-  <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
-    <p style="font-size:15px;font-weight:700">${r.nombre}</p>
-    <div style="background:#f9f9f7;border-radius:8px;padding:16px;margin:16px 0">
-      <table style="width:100%;border-collapse:collapse;font-size:13px">${filas}</table>
+  <div style="background:#fff;padding:28px 24px;border:1px solid #e0dcd6;border-top:none">
+    <table style="width:100%;border-collapse:collapse">${filas}</table>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f0ede8;text-align:center">
+      <p style="font-size:11px;color:#aaa;margin:0">Restaurante Don Fadrique · NIMANSANMON S.L. · CIF: B37297223</p>
+      <p style="font-size:11px;color:#aaa;margin:4px 0">${cfg.tel_rest || '920 37 00 51'} · Alba de Tormes, Salamanca</p>
     </div>
   </div>
 </div></body></html>`;
+
     try {
       await transporter.sendMail({
         from: `"Restaurante Don Fadrique" <${cfg.email_smtp}>`,
         to: 'oscar@donfadrique.com',
-        subject: `Orden de servicio - ${r.nombre} - ${fecha}`,
+        cc: 'nicocuadri@icloud.com, fincalamaza@gmail.com',
+        subject: `Orden de servicio — ${r.nombre} — ${fecha}`,
         html: htmlOrden
       });
       return res.json({ ok: true });
