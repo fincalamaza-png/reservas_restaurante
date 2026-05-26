@@ -1877,7 +1877,8 @@ function enviarPresupuesto() {
         : Promise.resolve();
       guardarFirmas.then(function(){
         return fetch('/api/presupuestos/' + presupId + '/enviar', {method:'POST'});
-      }).then(function(res){return res.json();}).then(function(){
+      }).then(function(res){return res.json();}).then(function(result){
+        if (!result.ok) { alert('Error al enviar: ' + (result.msg || 'desconocido')); return; }
         // Cambiar botón a verde "Enviado"
         var btnEnviar = document.getElementById('btn-enviar-presup');
         if (btnEnviar) {
