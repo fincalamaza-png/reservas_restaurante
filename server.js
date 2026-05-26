@@ -1223,6 +1223,22 @@ app.delete('/api/presupuestos/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/presupuestos/:id/enviar', async (req, res) => {
+  const presup = db.prepare('SELECT * FROM presupuestos WHERE id = ?').get(req.params.id);
+  if (!presup) return res.json({ ok: false, msg: 'Presupuesto no encontrado' });
+  const reserva = db.prepare('SELECT * FROM reservas WHERE id = ?').get(presup.reserva_id);
+  const emailCliente = reserva ? reserva.email : null;
+  let lineas = [];
+  try { lineas = JSON.parse(presup.lineas || '[]'); } catch(e) {}
+  try {
+    await enviarEmailPresupuesto(presup, emailCliente, lineas);
+    db.prepare('UPDATE presupuestos SET enviado = 1 WHERE id = ?').run(presup.id);
+    res.json({ ok: true });
+  } catch(e) {
+    res.json({ ok: false, msg: e.message });
+  }
+});
+
 async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
   const cfg = getConfig();
   if (!cfg.email_smtp || !cfg.email_pass) return;

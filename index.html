@@ -1868,24 +1868,29 @@ function enviarPresupuesto() {
     .then(function(d){
       if (!d.ok) { alert('Error al enviar'); return; }
       presupId = d.presupuesto.id;
-      if (firmaRest || firmaCli) {
-        fetch('/api/presupuestos/' + presupId + '/firmas', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({firma_restaurante: firmaRest, firma_cliente: firmaCli})
-        });
-      }
-      // Cambiar botón a verde "Enviado"
-      var btnEnviar = document.getElementById('btn-enviar-presup');
-      if (btnEnviar) {
-        btnEnviar.textContent = '✓ Enviado';
-        btnEnviar.style.background = '#1a7a3a';
-        btnEnviar.style.borderColor = '#1a7a3a';
-      }
-      var ok = document.createElement('div');
-      ok.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a4a8a;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999';
-      ok.textContent = '✓ Presupuesto enviado por email.';
-      document.body.appendChild(ok);
-      setTimeout(function(){ if(ok.parentNode) ok.parentNode.removeChild(ok); }, 3000);
+      // Primero guardar firmas, luego enviar email con firmas incluidas
+      var guardarFirmas = (firmaRest || firmaCli)
+        ? fetch('/api/presupuestos/' + presupId + '/firmas', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({firma_restaurante: firmaRest, firma_cliente: firmaCli})
+          })
+        : Promise.resolve();
+      guardarFirmas.then(function(){
+        return fetch('/api/presupuestos/' + presupId + '/enviar', {method:'POST'});
+      }).then(function(res){return res.json();}).then(function(){
+        // Cambiar botón a verde "Enviado"
+        var btnEnviar = document.getElementById('btn-enviar-presup');
+        if (btnEnviar) {
+          btnEnviar.textContent = '✓ Enviado';
+          btnEnviar.style.background = '#1a7a3a';
+          btnEnviar.style.borderColor = '#1a7a3a';
+        }
+        var ok = document.createElement('div');
+        ok.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a4a8a;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999';
+        ok.textContent = '✓ Presupuesto enviado por email.';
+        document.body.appendChild(ok);
+        setTimeout(function(){ if(ok.parentNode) ok.parentNode.removeChild(ok); }, 3000);
+      });
     });
 }
 
