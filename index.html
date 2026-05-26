@@ -416,7 +416,7 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
       </div>
       <div style="display:flex;gap:8px;margin-bottom:20px">
         <button onclick="guardarPresupuesto()" class="btn btn-secondary" style="flex:1">&#128190; Guardar</button>
-        <button onclick="enviarPresupuesto()" class="btn btn-primary" style="flex:1">&#128231; Enviar</button>
+        <button id="btn-enviar-presup" onclick="enviarPresupuesto()" class="btn btn-primary" style="flex:1">&#128231; Enviar</button>
       </div>
     </div>
     <!-- Documento A4 (print) -->
@@ -1701,6 +1701,19 @@ function abrirPresupuesto() {
         document.getElementById('p-numero').value = p.numero || '';
         document.getElementById('p-firmante').value = p.firmante || 'Nicolas Sanchez Monje';
         document.getElementById('p-obs').value = p.obs || '';
+        // Actualizar botón según estado de envío
+        var btnEnviar = document.getElementById('btn-enviar-presup');
+        if (btnEnviar) {
+          if (p.enviado) {
+            btnEnviar.textContent = '✓ Enviado';
+            btnEnviar.style.background = '#1a7a3a';
+            btnEnviar.style.borderColor = '#1a7a3a';
+          } else {
+            btnEnviar.textContent = '📧 Enviar';
+            btnEnviar.style.background = '';
+            btnEnviar.style.borderColor = '';
+          }
+        }
         // firmas se cargan en el setTimeout de abajo
       } else {
         // Nuevo presupuesto — numero automatico
@@ -1859,6 +1872,13 @@ function enviarPresupuesto() {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({firma_restaurante: firmaRest, firma_cliente: firmaCli})
         });
+      }
+      // Cambiar botón a verde "Enviado"
+      var btnEnviar = document.getElementById('btn-enviar-presup');
+      if (btnEnviar) {
+        btnEnviar.textContent = '✓ Enviado';
+        btnEnviar.style.background = '#1a7a3a';
+        btnEnviar.style.borderColor = '#1a7a3a';
       }
       var ok = document.createElement('div');
       ok.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a4a8a;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999';
