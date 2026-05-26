@@ -1840,10 +1840,8 @@ function guardarPresupuesto() {
 function enviarPresupuesto() {
   var r = presupReserva;
   if (!r) return;
-  if (!presupId) { alert('Guarda el presupuesto primero antes de enviarlo.'); return; }
   if (!confirm('¿Enviar el presupuesto por email a administración' + (r.email ? ' y al cliente' : '') + '?')) return;
 
-  // Guardar primero con envío
   var firmante = document.getElementById('p-firmante').value;
   var obs = document.getElementById('p-obs').value;
   var numero = document.getElementById('p-numero').value;
@@ -1860,38 +1858,40 @@ function enviarPresupuesto() {
     fecha_evento: r.fecha, salon: r.salon, pax: r.pax,
     tipo_evento: r.tipo_evento, firmante: firmante,
     lineas: presupLineas, subtotal: sub, iva: iva, total: tot,
-    obs: obs, pago: pagoTexto, email_cliente: r.email || null
+    obs: obs, pago: pagoTexto
   };
 
+  // 1. Guardar presupuesto
   fetch('/api/presupuestos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(datos)})
     .then(function(res){return res.json();})
     .then(function(d){
-      if (!d.ok) { alert('Error al enviar'); return; }
+      if (!d.ok) { alert('Error al guardar: ' + (d.msg||'')); return; }
       presupId = d.presupuesto.id;
-      // Primero guardar firmas, luego enviar email con firmas incluidas
+      // 2. Guardar firmas si las hay
       var guardarFirmas = (firmaRest || firmaCli)
         ? fetch('/api/presupuestos/' + presupId + '/firmas', {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({firma_restaurante: firmaRest, firma_cliente: firmaCli})
           })
-        : Promise.resolve();
-      guardarFirmas.then(function(){
-        return fetch('/api/presupuestos/' + presupId + '/enviar', {method:'POST'});
-      }).then(function(res){return res.json();}).then(function(result){
-        if (!result.ok) { alert('Error al enviar: ' + (result.msg || 'desconocido')); return; }
-        // Cambiar botón a verde "Enviado"
-        var btnEnviar = document.getElementById('btn-enviar-presup');
-        if (btnEnviar) {
-          btnEnviar.textContent = '✓ Enviado';
-          btnEnviar.style.background = '#1a7a3a';
-          btnEnviar.style.borderColor = '#1a7a3a';
-        }
-        var ok = document.createElement('div');
-        ok.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a4a8a;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999';
-        ok.textContent = '✓ Presupuesto enviado por email.';
-        document.body.appendChild(ok);
-        setTimeout(function(){ if(ok.parentNode) ok.parentNode.removeChild(ok); }, 3000);
-      });
+        : Promise.resolve({ok:true});
+      // 3. Enviar email
+      guardarFirmas
+        .then(function(){ return fetch('/api/presupuestos/' + presupId + '/enviar', {method:'POST'}); })
+        .then(function(res){ return res.json(); })
+        .then(function(result){
+          if (!result.ok) { alert('Error al enviar email: ' + (result.msg || 'desconocido')); return; }
+          var btnEnviar = document.getElementById('btn-enviar-presup');
+          if (btnEnviar) {
+            btnEnviar.textContent = '✓ Enviado';
+            btnEnviar.style.background = '#1a7a3a';
+            btnEnviar.style.borderColor = '#1a7a3a';
+          }
+          var ok = document.createElement('div');
+          ok.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a4a8a;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999';
+          ok.textContent = '✓ Presupuesto enviado por email.';
+          document.body.appendChild(ok);
+          setTimeout(function(){ if(ok.parentNode) ok.parentNode.removeChild(ok); }, 3000);
+        });
     });
 }
 
