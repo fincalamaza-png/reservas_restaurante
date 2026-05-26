@@ -415,8 +415,8 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:20px">
-        <button onclick="guardarPresupuesto(true)" class="btn btn-primary" style="flex:1">&#128231; Guardar y enviar</button>
-        <button onclick="guardarPresupuesto(false)" class="btn btn-secondary" style="flex:1">&#128190; Solo guardar</button>
+        <button onclick="guardarPresupuesto()" class="btn btn-secondary" style="flex:1">&#128190; Guardar</button>
+        <button onclick="enviarPresupuesto()" class="btn btn-primary" style="flex:1">&#128231; Enviar</button>
       </div>
     </div>
     <!-- Documento A4 (print) -->
@@ -1782,7 +1782,7 @@ function recalcPresup() {
   document.getElementById('p-total').textContent = tot.toFixed(2) + ' €';
 }
 
-function guardarPresupuesto(enviar) {
+function guardarPresupuesto() {
   var r = presupReserva;
   if (!r) return;
   var firmante = document.getElementById('p-firmante').value;
@@ -1801,30 +1801,70 @@ function guardarPresupuesto(enviar) {
     fecha_evento: r.fecha, salon: r.salon, pax: r.pax,
     tipo_evento: r.tipo_evento, firmante: firmante,
     lineas: presupLineas, subtotal: sub, iva: iva, total: tot,
-    obs: obs, pago: pagoTexto, email_cliente: enviar ? r.email : null
+    obs: obs, pago: pagoTexto, email_cliente: null
   };
 
-  var url = presupId ? '/api/presupuestos' : '/api/presupuestos';
-  fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(datos)})
+  fetch('/api/presupuestos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(datos)})
     .then(function(res){return res.json();})
     .then(function(d){
       if (!d.ok) { alert('Error al guardar'); return; }
       presupId = d.presupuesto.id;
-      // Guardar firmas
       if (firmaRest || firmaCli) {
         fetch('/api/presupuestos/' + presupId + '/firmas', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
+          method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({firma_restaurante: firmaRest, firma_cliente: firmaCli})
         });
       }
-      // Confirmacion visual
-      var msg = enviar ? 'Presupuesto guardado y enviado por email.' : 'Presupuesto guardado correctamente.';
       var ok = document.createElement('div');
       ok.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#0f5132;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999';
-      ok.textContent = '✓ ' + msg;
+      ok.textContent = '✓ Presupuesto guardado correctamente.';
       document.body.appendChild(ok);
-      setTimeout(function(){ if(ok.parentNode) ok.parentNode.removeChild(ok); }, 3500);
+      setTimeout(function(){ if(ok.parentNode) ok.parentNode.removeChild(ok); }, 3000);
+    });
+}
+
+function enviarPresupuesto() {
+  var r = presupReserva;
+  if (!r) return;
+  if (!presupId) { alert('Guarda el presupuesto primero antes de enviarlo.'); return; }
+  if (!confirm('¿Enviar el presupuesto por email a administración' + (r.email ? ' y al cliente' : '') + '?')) return;
+
+  // Guardar primero con envío
+  var firmante = document.getElementById('p-firmante').value;
+  var obs = document.getElementById('p-obs').value;
+  var numero = document.getElementById('p-numero').value;
+  var pagoOpt = document.getElementById('p-pago');
+  var pagoTexto = pagoOpt ? pagoOpt.options[pagoOpt.selectedIndex].text : '';
+  var sub = presupLineas.reduce(function(s,l){return s+(l.qty||0)*(l.precio||0);},0);
+  var iva = sub * 0.10;
+  var tot = sub + iva;
+  var firmaRest = obtenerFirma('restaurante');
+  var firmaCli = obtenerFirma('cliente');
+
+  var datos = {
+    numero: numero, reserva_id: r.id, cliente: r.nombre,
+    fecha_evento: r.fecha, salon: r.salon, pax: r.pax,
+    tipo_evento: r.tipo_evento, firmante: firmante,
+    lineas: presupLineas, subtotal: sub, iva: iva, total: tot,
+    obs: obs, pago: pagoTexto, email_cliente: r.email || null
+  };
+
+  fetch('/api/presupuestos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(datos)})
+    .then(function(res){return res.json();})
+    .then(function(d){
+      if (!d.ok) { alert('Error al enviar'); return; }
+      presupId = d.presupuesto.id;
+      if (firmaRest || firmaCli) {
+        fetch('/api/presupuestos/' + presupId + '/firmas', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({firma_restaurante: firmaRest, firma_cliente: firmaCli})
+        });
+      }
+      var ok = document.createElement('div');
+      ok.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a4a8a;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999';
+      ok.textContent = '✓ Presupuesto enviado por email.';
+      document.body.appendChild(ok);
+      setTimeout(function(){ if(ok.parentNode) ok.parentNode.removeChild(ok); }, 3000);
     });
 }
 
