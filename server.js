@@ -1197,6 +1197,7 @@ app.get('/api/presupuestos', (req, res) => {
 });
 
 app.post('/api/presupuestos', async (req, res) => {
+  console.log('POST presupuestos reserva_id:', req.body.reserva_id);
   const d = req.body;
   // Si ya existe un presupuesto para esta reserva, actualizar en vez de insertar
   const existente = d.reserva_id ? db.prepare('SELECT id FROM presupuestos WHERE reserva_id = ? ORDER BY id DESC LIMIT 1').get(d.reserva_id) : null;
@@ -1224,6 +1225,7 @@ app.delete('/api/presupuestos/:id', (req, res) => {
 });
 
 app.post('/api/presupuestos/:id/enviar', async (req, res) => {
+  console.log('Enviando presupuesto id:', req.params.id);
   const presup = db.prepare('SELECT * FROM presupuestos WHERE id = ?').get(req.params.id);
   if (!presup) return res.json({ ok: false, msg: 'Presupuesto no encontrado' });
   const reserva = db.prepare('SELECT * FROM reservas WHERE id = ?').get(presup.reserva_id);
