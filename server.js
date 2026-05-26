@@ -1198,23 +1198,23 @@ app.get('/api/presupuestos', (req, res) => {
 
 app.post('/api/presupuestos', async (req, res) => {
   const d = req.body;
-  const result = db.prepare(`
-    INSERT INTO presupuestos (numero, reserva_id, cliente, fecha_evento, salon, pax, tipo_evento, firmante, lineas, subtotal, iva, total, obs, enviado)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-  `).run(d.numero, d.reserva_id||null, d.cliente, d.fecha_evento, d.salon, d.pax, d.tipo_evento, d.firmante, JSON.stringify(d.lineas), d.subtotal, d.iva, d.total, d.obs||'');
-  // Guardar forma de pago si se incluye
-  if (d.pago) db.prepare('UPDATE presupuestos SET pago=? WHERE id=?').run(d.pago, result.lastInsertRowid);
+  // Si ya existe un presupuesto para esta reserva, actualizar en vez de insertar
+  const existente = d.reserva_id ? db.prepare('SELECT id FROM presupuestos WHERE reserva_id = ? ORDER BY id DESC LIMIT 1').get(d.reserva_id) : null;
 
-  const presup = db.prepare('SELECT * FROM presupuestos WHERE id = ?').get(result.lastInsertRowid);
-
-  // Send email
-  if (d.email_cliente || d.enviar_email) {
-    try {
-      await enviarEmailPresupuesto(presup, d.email_cliente, d.lineas);
-      db.prepare('UPDATE presupuestos SET enviado = 1 WHERE id = ?').run(presup.id);
-    } catch(e) { console.error('Error email presupuesto:', e.message); }
+  let presupId;
+  if (existente) {
+    db.prepare(`UPDATE presupuestos SET numero=?, cliente=?, fecha_evento=?, salon=?, pax=?, tipo_evento=?, firmante=?, lineas=?, subtotal=?, iva=?, total=?, obs=? WHERE id=?`)
+      .run(d.numero, d.cliente, d.fecha_evento, d.salon, d.pax, d.tipo_evento, d.firmante, JSON.stringify(d.lineas), d.subtotal, d.iva, d.total, d.obs||'', existente.id);
+    if (d.pago) db.prepare('UPDATE presupuestos SET pago=? WHERE id=?').run(d.pago, existente.id);
+    presupId = existente.id;
+  } else {
+    const result = db.prepare(`INSERT INTO presupuestos (numero, reserva_id, cliente, fecha_evento, salon, pax, tipo_evento, firmante, lineas, subtotal, iva, total, obs, enviado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`)
+      .run(d.numero, d.reserva_id||null, d.cliente, d.fecha_evento, d.salon, d.pax, d.tipo_evento, d.firmante, JSON.stringify(d.lineas), d.subtotal, d.iva, d.total, d.obs||'');
+    if (d.pago) db.prepare('UPDATE presupuestos SET pago=? WHERE id=?').run(d.pago, result.lastInsertRowid);
+    presupId = result.lastInsertRowid;
   }
 
+  const presup = db.prepare('SELECT * FROM presupuestos WHERE id = ?').get(presupId);
   res.json({ ok: true, presupuesto: presup });
 });
 
