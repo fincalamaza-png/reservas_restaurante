@@ -3,6 +3,7 @@ const Database = require('better-sqlite3');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
 const path = require('path');
+const PDFDocument = require('pdfkit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1241,6 +1242,127 @@ app.post('/api/presupuestos/:id/enviar', async (req, res) => {
   }
 });
 
+async function generarPDFPresupuesto(presup, lineas) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const chunks = [];
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const gold = '#b8965a';
+    const dark = '#2c2c2c';
+    const gray = '#666666';
+    const lightgray = '#f5f2ee';
+
+    const fechaEvento = new Date(presup.fecha_evento + 'T12:00:00');
+    const fecha = fechaEvento.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    const dia = fechaEvento.toLocaleDateString('es-ES', { day: 'numeric' });
+    const mes = fechaEvento.toLocaleDateString('es-ES', { month: 'long' });
+    const anio = fechaEvento.getFullYear();
+
+    // Cabecera dorada
+    doc.rect(50, 50, 495, 80).fill(gold);
+    doc.fillColor('#fff').fontSize(20).font('Helvetica-Bold').text('DON FADRIQUE', 65, 65);
+    doc.fontSize(8).font('Helvetica').text('R E S T A U R A N T E · A L B A D E T O R M E S', 65, 88);
+    doc.fontSize(16).font('Helvetica-Bold').text('PRESUPUESTO', 380, 65, { width: 150, align: 'right' });
+    doc.fontSize(11).font('Helvetica').text('Nº ' + presup.numero, 380, 88, { width: 150, align: 'right' });
+
+    // Datos cliente
+    doc.fillColor(dark).fontSize(9).font('Helvetica');
+    doc.rect(50, 145, 495, 55).fill(lightgray);
+    doc.fillColor(gray).text('CLIENTE', 65, 155).text('FECHA EVENTO', 240, 155).text('PERSONAS', 420, 155);
+    doc.fillColor(dark).fontSize(11).font('Helvetica-Bold');
+    doc.text(presup.cliente, 65, 168).text(fecha, 240, 168).text(presup.pax + ' pax', 420, 168);
+
+    // Tabla líneas
+    let y = 220;
+    doc.rect(50, y, 495, 22).fill(lightgray);
+    doc.fillColor(gray).fontSize(8).font('Helvetica');
+    doc.text('CONCEPTO', 65, y + 7).text('CANT.', 340, y + 7, { width: 50, align: 'right' })
+       .text('PRECIO UNIT.', 395, y + 7, { width: 70, align: 'right' })
+       .text('TOTAL', 465, y + 7, { width: 70, align: 'right' });
+    y += 22;
+
+    lineas.forEach((l, i) => {
+      if (i % 2 === 0) doc.rect(50, y, 495, 20).fill('#fafaf8');
+      doc.fillColor(dark).fontSize(10).font('Helvetica');
+      doc.text(l.desc || '', 65, y + 5, { width: 270 })
+         .text(String(l.qty || 0), 340, y + 5, { width: 50, align: 'right' })
+         .text((l.precio || 0).toFixed(2) + ' \u20ac', 395, y + 5, { width: 70, align: 'right' })
+         .text(((l.qty || 0) * (l.precio || 0)).toFixed(2) + ' \u20ac', 465, y + 5, { width: 70, align: 'right' });
+      y += 20;
+    });
+
+    // Totales
+    y += 10;
+    doc.moveTo(50, y).lineTo(545, y).strokeColor('#e0dcd6').stroke();
+    y += 10;
+    doc.fillColor(gray).fontSize(10).font('Helvetica');
+    doc.text('Subtotal:', 380, y).fillColor(dark).text(presup.subtotal.toFixed(2) + ' \u20ac', 460, y, { width: 80, align: 'right' });
+    y += 18;
+    doc.fillColor(gray).text('IVA (10%):', 380, y).fillColor(dark).text(presup.iva.toFixed(2) + ' \u20ac', 460, y, { width: 80, align: 'right' });
+    y += 5;
+    doc.moveTo(380, y + 8).lineTo(545, y + 8).strokeColor(gold).lineWidth(1.5).stroke();
+    y += 14;
+    doc.fillColor(dark).fontSize(13).font('Helvetica-Bold');
+    doc.text('TOTAL:', 380, y).text(presup.total.toFixed(2) + ' \u20ac', 460, y, { width: 80, align: 'right' });
+    doc.lineWidth(1);
+
+    // Condiciones
+    y += 35;
+    doc.rect(50, y, 495, presup.obs ? 90 : 70).fill('#f9f9f7');
+    doc.fillColor(gray).fontSize(9).font('Helvetica');
+    doc.text('NIMANSANMON S.L.  ·  CIF: B37297223', 65, y + 10);
+    if (presup.pago) doc.text('Forma de pago: ' + presup.pago, 65, y + 23);
+    doc.text('El número de comensales facturados será el indicado 7 días antes del banquete.', 65, y + 36, { width: 460 });
+    doc.text('Validez 30 días. Precios sin IVA (10%).', 65, y + 49);
+    if (presup.obs) doc.text('Obs: ' + presup.obs, 65, y + 62, { width: 460 });
+
+    // Firmas
+    y += presup.obs ? 105 : 85;
+    doc.fillColor('#555').fontSize(10).font('Helvetica').text(
+      'En Alba de Tormes, a ' + dia + ' de ' + mes + ' de ' + anio,
+      50, y, { align: 'center', width: 495 }
+    );
+    y += 25;
+
+    const firmaPromises = [];
+
+    // Firma restaurante
+    const xRest = 65;
+    const xCli = 310;
+    const wFirma = 220;
+
+    doc.fillColor(gray).fontSize(8).font('Helvetica');
+    doc.text('FIRMA DEL RESTAURANTE', xRest, y, { width: wFirma, align: 'center' });
+    doc.text('FIRMA DEL CLIENTE', xCli, y, { width: wFirma, align: 'center' });
+    y += 12;
+
+    const drawFirmaBox = (x, nombre, yPos) => {
+      doc.rect(x, yPos, wFirma, 55).stroke('#cccccc');
+      doc.fillColor(gray).fontSize(9).font('Helvetica').text(nombre, x, yPos + 60, { width: wFirma, align: 'center' });
+    };
+
+    const loadFirma = (dataUrl, x, yPos) => {
+      if (!dataUrl) return Promise.resolve();
+      try {
+        const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+        const buf = Buffer.from(base64, 'base64');
+        doc.image(buf, x + 5, yPos + 3, { width: wFirma - 10, height: 49, fit: [wFirma - 10, 49] });
+      } catch(e) {}
+      return Promise.resolve();
+    };
+
+    drawFirmaBox(xRest, presup.firmante || 'Don Fadrique', y);
+    drawFirmaBox(xCli, presup.cliente, y);
+    loadFirma(presup.firma_restaurante, xRest, y);
+    loadFirma(presup.firma_cliente, xCli, y);
+
+    doc.end();
+  });
+}
+
 async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
   const cfg = getConfig();
   if (!cfg.email_smtp || !cfg.email_pass) throw new Error('SMTP no configurado');
@@ -1250,99 +1372,40 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
     auth: { user: cfg.email_smtp, pass: cfg.email_pass }
   });
 
-  const fecha = new Date(presup.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', {day:'numeric', month:'long', year:'numeric'});
-  const lineasHtml = lineas.map(l => `
-    <tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${l.desc}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right">${l.qty}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right">${(l.precio||0).toFixed(2)} €</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right">${((l.qty||0)*(l.precio||0)).toFixed(2)} €</td>
-    </tr>`).join('');
-
-  const html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:sans-serif">
-<div style="max-width:600px;margin:0 auto">
-  <div style="background:#b8965a;padding:24px;border-radius:8px 8px 0 0;text-align:left">
-    <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.8)">R E S T A U R A N T E</div>
-    <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:2px">DON FADRIQUE</div>
-    <div style="font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.8)">H O T E L R E S T A U R A N T E · A L B A D E T O R M E S</div>
-    <div style="float:right;margin-top:-50px;color:#fff;text-align:right">
-      <div style="font-size:18px;font-weight:700;letter-spacing:2px">PRESUPUESTO</div>
-      <div style="font-size:13px">Nº ${presup.numero}</div>
-    </div>
-  </div>
-  <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
-    <table style="width:100%;margin-bottom:20px;font-size:13px">
-      <tr>
-        <td><span style="font-size:10px;color:#888;display:block">CLIENTE</span><strong>${presup.cliente}</strong></td>
-        <td><span style="font-size:10px;color:#888;display:block">FECHA EVENTO</span><strong>${fecha}</strong></td>
-        <td><span style="font-size:10px;color:#888;display:block">PERSONAS</span><strong>${presup.pax} pax</strong></td>
-      </tr>
-    </table>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">
-      <thead>
-        <tr style="background:#f5f2ee">
-          <th style="padding:8px 12px;text-align:left;font-size:10px;letter-spacing:1px;color:#666">CONCEPTO</th>
-          <th style="padding:8px 12px;text-align:right;font-size:10px;letter-spacing:1px;color:#666">CANTIDAD</th>
-          <th style="padding:8px 12px;text-align:right;font-size:10px;letter-spacing:1px;color:#666">PRECIO UNIT.</th>
-          <th style="padding:8px 12px;text-align:right;font-size:10px;letter-spacing:1px;color:#666">TOTAL</th>
-        </tr>
-      </thead>
-      <tbody>${lineasHtml}</tbody>
-    </table>
-    <table style="width:40%;margin-left:auto;font-size:13px">
-      <tr><td style="padding:6px 12px">Subtotal</td><td style="padding:6px 12px;text-align:right">${presup.subtotal.toFixed(2)} €</td></tr>
-      <tr><td style="padding:6px 12px">IVA (10%)</td><td style="padding:6px 12px;text-align:right">${presup.iva.toFixed(2)} €</td></tr>
-      <tr style="font-weight:700;font-size:15px;border-top:2px solid #b8965a"><td style="padding:8px 12px">TOTAL</td><td style="padding:8px 12px;text-align:right">${presup.total.toFixed(2)} €</td></tr>
-    </table>
-    <p style="font-size:10px;color:#888;text-align:right">* IVA 10% no incluido en los precios anteriores</p>
-    ${presup.obs ? `<p style="font-size:13px;color:#444;margin-top:16px"><strong>Observaciones:</strong> ${presup.obs}</p>` : ''}
-    <div style="background:#f9f9f7;border-radius:8px;padding:14px 16px;margin-top:16px;font-size:12px;color:#555;line-height:1.8">
-      <p style="margin:0 0 4px 0"><strong>Empresa:</strong> NIMANSANMON S.L. &nbsp;·&nbsp; <strong>CIF:</strong> B37297223</p>
-      ${presup.pago ? `<p style="margin:0 0 4px 0"><strong>Forma de pago:</strong> ${presup.pago}</p>` : ''}
-      <p style="margin:0 0 4px 0"><strong>Comensales:</strong> El número de comensales facturados será el indicado 7 días antes del banquete.</p>
-      <p style="margin:0">Este presupuesto tiene una validez de 30 días. Los precios indicados no incluyen IVA (10%).</p>
-    </div>
-    <p style="font-size:13px;color:#444;margin-top:16px">Firmado por: <strong>${presup.firmante}</strong></p>
-    <hr style="border:none;border-top:1px solid #e0dcd6;margin:20px 0">
-    <p style="font-size:12px;color:#888">Restaurante Don Fadrique · NIMANSANMON S.L. · CIF: B37297223 · Alba de Tormes · ${cfg.tel_rest}</p>
-  </div>
-</div></body></html>`;
-
+  const fecha = new Date(presup.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   const destinatarios = ['oscar@donfadrique.com'];
   if (emailCliente) destinatarios.unshift(emailCliente);
   const copias = 'nicocuadri@hotmail.com, fincalamaza@gmail.com';
 
-  // Adjuntar firmas si existen
-  const fechaFirma = new Date(presup.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-  const anioFirma = new Date(presup.fecha_evento + 'T12:00:00').getFullYear();
-  const diaFirma = new Date(presup.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric' });
-  const mesFirma = new Date(presup.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { month: 'long' });
+  // Generar PDF
+  const pdfBuffer = await generarPDFPresupuesto(presup, lineas);
 
-  const firmasHtml = (presup.firma_restaurante || presup.firma_cliente) ? `
-    <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e0dcd6">
-      <p style="font-size:12px;color:#555;text-align:center;margin-bottom:20px">
-        En Alba de Tormes, a <strong>${diaFirma}</strong> de <strong>${mesFirma}</strong> de <strong>${anioFirma}</strong>
-      </p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-        <div style="text-align:center">
-          <p style="font-size:10px;color:#888;letter-spacing:1px;margin-bottom:8px">FIRMA DEL RESTAURANTE</p>
-          ${presup.firma_restaurante ? `<img src="${presup.firma_restaurante}" style="max-width:200px;border-bottom:1px solid #333">` : '<div style="height:60px;border-bottom:1px solid #ccc"></div>'}
-          <p style="font-size:11px;margin-top:4px">${presup.firmante || 'Don Fadrique'}</p>
-        </div>
-        <div style="text-align:center">
-          <p style="font-size:10px;color:#888;letter-spacing:1px;margin-bottom:8px">FIRMA DEL CLIENTE</p>
-          ${presup.firma_cliente ? `<img src="${presup.firma_cliente}" style="max-width:200px;border-bottom:1px solid #333">` : '<div style="height:60px;border-bottom:1px solid #ccc"></div>'}
-          <p style="font-size:11px;margin-top:4px">${presup.cliente}</p>
-        </div>
-      </div>
-    </div>` : '';
+  const htmlBody = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:sans-serif">
+<div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
+  <div style="background:#b8965a;padding:28px 24px;text-align:center">
+    <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.7)">R E S T A U R A N T E</div>
+    <div style="font-family:Georgia,serif;font-size:28px;color:#fff;letter-spacing:3px;margin:4px 0">Don Fadrique</div>
+    <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.8)">Presupuesto Nº ${presup.numero}</div>
+  </div>
+  <div style="background:#fff;padding:24px;border:1px solid #e0dcd6;border-top:none">
+    <p style="font-size:14px;color:#333">Estimado/a <strong>${presup.cliente}</strong>,</p>
+    <p style="font-size:13px;color:#555">Adjunto encontrará el presupuesto Nº <strong>${presup.numero}</strong> para el evento del <strong>${fecha}</strong>.</p>
+    <p style="font-size:13px;color:#555">Importe total: <strong>${presup.total.toFixed(2)} € (IVA 10% incluido)</strong></p>
+    <p style="font-size:11px;color:#aaa;margin-top:20px">Restaurante Don Fadrique · NIMANSANMON S.L. · CIF: B37297223 · Alba de Tormes</p>
+  </div>
+</div></body></html>`;
 
   await transporter.sendMail({
     from: `"Don Fadrique" <${cfg.email_smtp}>`,
     to: destinatarios.join(', '),
     cc: copias,
     subject: `Presupuesto Nº ${presup.numero} - ${presup.cliente}`,
-    html: html.replace('</div></body></html>', firmasHtml + '</div></body></html>')
+    html: htmlBody,
+    attachments: [{
+      filename: `Presupuesto_${presup.numero}_${presup.cliente.replace(/\s+/g, '_')}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf'
+    }]
   });
 }
 
