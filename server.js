@@ -4,6 +4,9 @@ const nodemailer = require('nodemailer');
 const cors = require('cors');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const fs = require('fs');
+
+const LOGOS_DIR = path.join(__dirname, 'logos');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1268,15 +1271,26 @@ async function generarPDFPresupuesto(presup, lineas) {
     doc.fontSize(16).font('Helvetica-Bold').text('PRESUPUESTO', 380, 65, { width: 150, align: 'right' });
     doc.fontSize(11).font('Helvetica').text('Nº ' + presup.numero, 380, 88, { width: 150, align: 'right' });
 
+    // Logos bajo la cabecera
+    let logoY = 140;
+    try {
+      const michelin = path.join(LOGOS_DIR, 'michelin.jpg');
+      const repsol = path.join(LOGOS_DIR, 'repsol.jpg');
+      const tierra = path.join(LOGOS_DIR, 'tierra.png');
+      if (fs.existsSync(michelin)) doc.image(michelin, 65, logoY, { height: 38 });
+      if (fs.existsSync(repsol)) doc.image(repsol, 130, logoY, { height: 38 });
+      if (fs.existsSync(tierra)) doc.image(tierra, 200, logoY, { height: 38 });
+    } catch(e) {}
+
     // Datos cliente
     doc.fillColor(dark).fontSize(9).font('Helvetica');
-    doc.rect(50, 145, 495, 55).fill(lightgray);
-    doc.fillColor(gray).text('CLIENTE', 65, 155).text('FECHA EVENTO', 240, 155).text('PERSONAS', 420, 155);
+    doc.rect(50, 190, 495, 55).fill(lightgray);
+    doc.fillColor(gray).text('CLIENTE', 65, 200).text('FECHA EVENTO', 240, 200).text('PERSONAS', 420, 200);
     doc.fillColor(dark).fontSize(11).font('Helvetica-Bold');
-    doc.text(presup.cliente, 65, 168).text(fecha, 240, 168).text(presup.pax + ' pax', 420, 168);
+    doc.text(presup.cliente, 65, 213).text(fecha, 240, 213).text(presup.pax + ' pax', 420, 213);
 
     // Tabla líneas
-    let y = 220;
+    let y = 265;
     doc.rect(50, y, 495, 22).fill(lightgray);
     doc.fillColor(gray).fontSize(8).font('Helvetica');
     doc.text('CONCEPTO', 65, y + 7).text('CANT.', 340, y + 7, { width: 50, align: 'right' })
