@@ -438,6 +438,26 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
   </div>
 </div>
 </div>
+
+<!-- MODAL CONVOCAR EXTRAS -->
+<div id="modalConvocar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;overflow-y:auto">
+  <div style="background:#fff;max-width:520px;margin:30px auto;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="background:#1a1a2e;color:#c9a84c;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:16px;font-weight:700">&#128101; Convocar extras</div>
+      <button onclick="cerrarModalConvocar()" style="background:none;border:none;color:#c9a84c;font-size:22px;cursor:pointer">&#10005;</button>
+    </div>
+    <div id="modalConvocar-info" style="background:#f8f4e8;padding:14px 20px;border-bottom:1px solid #e0d4b0;font-size:13px"></div>
+    <div style="padding:16px 20px">
+      <div style="font-size:13px;color:#555;margin-bottom:10px">Selecciona a quien enviar la convocatoria:</div>
+      <div id="modalConvocar-lista" style="max-height:300px;overflow-y:auto"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+      <span id="modalConvocar-contador" style="font-size:13px;color:#666">0 seleccionados</span>
+      <button onclick="enviarConvocatorias()" style="background:#27ae60;color:#fff;border:none;padding:11px 26px;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px">&#128231; Enviar convocatorias</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var S={
   dia:new Date().toISOString().slice(0,10),
@@ -652,6 +672,7 @@ function abrirDetalle(id){
     }
     html+='<button class="btn btn-primary" style="margin-top:10px" onclick="abrirOrdenPDF(null)">&#128203; Orden de servicio (PDF)</button>';
     html+='<button class="btn btn-secondary" style="margin-top:8px" onclick="abrirPresupuesto()">&#128220; Presupuesto</button>';
+    html+='<button class="btn" style="margin-top:8px;background:#2980b9;color:#fff;border:none;padding:10px;border-radius:8px;width:100%;font-size:14px;cursor:pointer" onclick="abrirModalConvocar('+id+')">&#128101; Convocar extras</button>';
     html+='</div>';
   }
 
@@ -2200,6 +2221,110 @@ function enviarOrdenEmail() {
     .then(function(d){ alert(d.ok ? 'Orden enviada por email' : 'Error: ' + d.msg); });
 }
 window.addEventListener('DOMContentLoaded',function(){renderCalendario();cargarHome();comprobarAlertasExtras();});
+
+// ─── MODAL CONVOCAR EXTRAS ────────────────────────────────────────
+var _reservaConvocar = null;
+
+async function abrirModalConvocar(reservaId) {
+  _reservaConvocar = reservaId;
+  var r = S.reservas.find(function(x){ return x.id == reservaId; });
+  if (!r) return;
+
+  // Calcular extras necesarios
+  var necesarios = calcExtrasLocal(r.tipo_evento, r.pax);
+  var ev = {boda:'Boda',comunion:'Comunion',familiar:'Grupo familiar',turista:'Grupo turista'};
+
+  document.getElementById('modalConvocar-info').innerHTML =
+    '<strong>' + (ev[r.tipo_evento] || r.tipo_evento || 'Evento') + '</strong> &middot; ' +
+    fmtFechaCorta(r.fecha) + ' ' + r.hora + ' &middot; Salon ' + r.salon +
+    '<br><span style="color:#856404;font-weight:700">Necesitas ' + necesarios + ' extra(s) para este servicio</span>';
+
+  document.getElementById('modalConvocar-lista').innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">Cargando...</div>';
+  document.getElementById('modalConvocar').style.display = 'block';
+
+  try {
+    var extras = await fetch('/api/extras').then(function(r){ return r.json(); });
+    var convocados = await fetch('/api/extras/dia/' + r.fecha).then(function(r){ return r.json(); });
+    var idsConvocados = convocados
+      .filter(function(c){ return c.reserva_id == reservaId && ['convocado','confirmado','en_espera'].indexOf(c.estado) >= 0; })
+      .map(function(c){ return c.extra_id; });
+
+    var activos = extras.filter(function(e){ return e.activo && e.email; });
+    if (!activos.length) {
+      document.getElementById('modalConvocar-lista').innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">No hay extras con email registrado</div>';
+      return;
+    }
+
+    var html = activos.map(function(e) {
+      var yaConv = idsConvocados.indexOf(e.id) >= 0;
+      var badgeConv = yaConv ? '<span style="background:#dfe6e9;color:#636e72;padding:2px 7px;border-radius:10px;font-size:11px;margin-left:6px">ya convocado</span>' : '';
+      var badgePen = e.penalizado ? '<span style="background:#ffeaa7;color:#856404;padding:2px 7px;border-radius:10px;font-size:11px;margin-left:4px">&#9888; penalizado</span>' : '';
+      return '<label style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;cursor:' + (yaConv?'default':'pointer') + '">' +
+        '<input type="checkbox" value="' + e.id + '" onchange="actualizarContadorConvocar()" ' + (yaConv?'disabled checked':'') + ' style="width:18px;height:18px;margin-right:12px;accent-color:#2980b9">' +
+        '<div style="flex:1">' +
+          '<span style="font-weight:600">' + e.nombre + ' ' + (e.apellidos||'') + '</span>' + badgeConv + badgePen +
+          '<br><span style="font-size:12px;color:#888">' + e.email + (e.tel?' &middot; '+e.tel:'') + '</span>' +
+        '</div>' +
+        '<div style="font-size:11px;color:#aaa;text-align:right">Actitud: ' + (e.actitud||'-') + '<br>Rigor: ' + (e.rigor||'-') + '</div>' +
+        '</label>';
+    }).join('');
+
+    document.getElementById('modalConvocar-lista').innerHTML = html;
+    actualizarContadorConvocar();
+  } catch(err) {
+    document.getElementById('modalConvocar-lista').innerHTML = '<div style="color:#dc3545;padding:20px">Error cargando extras: ' + err.message + '</div>';
+  }
+}
+
+function cerrarModalConvocar() {
+  document.getElementById('modalConvocar').style.display = 'none';
+  _reservaConvocar = null;
+}
+
+function actualizarContadorConvocar() {
+  var checks = document.querySelectorAll('#modalConvocar-lista input[type=checkbox]:checked:not(:disabled)');
+  document.getElementById('modalConvocar-contador').textContent = checks.length + ' seleccionados';
+}
+
+function calcExtrasLocal(tipo, pax) {
+  if (!pax) return 0;
+  var ratio = tipo === 'turista' ? 15 : 12;
+  if (tipo === 'carta') return pax >= 25 ? Math.ceil((pax - 25) / ratio) + 1 : 0;
+  return Math.max(1, Math.ceil(pax / ratio));
+}
+
+async function enviarConvocatorias() {
+  var checks = document.querySelectorAll('#modalConvocar-lista input[type=checkbox]:checked:not(:disabled)');
+  var ids = Array.from(checks).map(function(c){ return parseInt(c.value); });
+  if (!ids.length) { alert('Selecciona al menos un extra'); return; }
+
+  var btn = document.querySelector('#modalConvocar button[onclick="enviarConvocatorias()"]');
+  btn.textContent = 'Enviando...';
+  btn.disabled = true;
+
+  try {
+    var data = await fetch('/api/extras/convocar-reserva', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ reserva_id: _reservaConvocar, extra_ids: ids })
+    }).then(function(r){ return r.json(); });
+
+    var enviados = data.resultados.filter(function(r){ return r.estado==='enviado'; }).length;
+    var errores = data.resultados.filter(function(r){ return r.estado==='error'; }).length;
+    var yaConv = data.resultados.filter(function(r){ return r.estado==='ya_convocado'; }).length;
+
+    var msg = 'Convocatorias enviadas: ' + enviados;
+    if (errores) msg += ' | Errores: ' + errores;
+    if (yaConv) msg += ' | Ya convocados: ' + yaConv;
+    alert(msg);
+    cerrarModalConvocar();
+  } catch(err) {
+    alert('Error: ' + err.message);
+  } finally {
+    btn.textContent = '📧 Enviar convocatorias';
+    btn.disabled = false;
+  }
+}
 </script>
 </body>
 </html>

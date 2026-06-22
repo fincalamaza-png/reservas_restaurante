@@ -471,6 +471,9 @@ async function enviarEmailExtra(extra, asignacion, tipo) {
     <div style="background:#fff8e1;border-radius:8px;padding:12px 16px;margin-top:20px;border:1px solid #ffe082">
       <p style="font-size:12px;color:#555;margin:0;line-height:1.7"><strong>Recuerda:</strong> el primero en confirmar asegura su plaza. Una vez confirmado, eres responsable de asistir o de gestionar tu sustitucion con antelacion suficiente.</p>
     </div>
+    <div style="background:#fce4e4;border-radius:8px;padding:12px 16px;margin-top:12px;border:1px solid #f5c6cb">
+      <p style="font-size:12px;color:#842029;margin:0;line-height:1.7">&#9201; <strong>Esta invitacion caduca en 24 horas.</strong> Si no confirmas antes, perderás la plaza automaticamente.</p>
+    </div>
     ${emailFooter(cfg)}`;
   }
 
@@ -482,20 +485,93 @@ async function enviarEmailExtra(extra, asignacion, tipo) {
     const puedeAnular = diasParaEvento >= 7;
     const cancelUrl = `${baseUrl}/api/extras/respuesta/${asignacion.id}/no`;
 
+    // Cargar datos completos de la reserva si tenemos reserva_id
+    let reserva = null;
+    if (asignacion.reserva_id) {
+      reserva = db.prepare('SELECT * FROM reservas WHERE id = ?').get(asignacion.reserva_id);
+    }
+
+    // Construir bloque de menu
+    let menuHtml = '';
+    if (reserva) {
+      if (reserva.coctel) menuHtml += `<tr><td style="color:#555;padding:5px 0">Coctel</td><td style="padding:5px 0">${reserva.coctel_det || 'Si'}</td></tr>`;
+      if (reserva.entrantes) menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Entrantes</td><td style="padding:5px 0">${reserva.entrantes}</td></tr>`;
+      if (reserva.pescado) menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Pescado</td><td style="padding:5px 0">${reserva.pescado}</td></tr>`;
+      if (reserva.sorbete) menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Sorbete</td><td style="padding:5px 0">${reserva.sorbete}</td></tr>`;
+      if (reserva.carne) menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Carne</td><td style="padding:5px 0">${reserva.carne}</td></tr>`;
+      if (reserva.postre) menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Postre</td><td style="padding:5px 0">${reserva.postre}</td></tr>`;
+    }
+
+    // Comensales
+    const paxTotal = reserva ? (reserva.ninos > 0 ? `${reserva.pax} adultos + ${reserva.ninos} ninos` : `${reserva.pax} personas`) : '---';
+
     html = emailHeader('Plaza Confirmada', 'Tu servicio esta reservado', '#0f5132') + `
     <p style="font-size:15px;margin-bottom:6px">Hola <strong>${extra.nombre}</strong>,</p>
-    <p style="font-size:13px;color:#444;line-height:1.8">Tu plaza esta <strong>confirmada</strong> para el siguiente servicio. Apunta los datos:</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Tu plaza esta <strong>confirmada</strong> para el siguiente servicio. Lee con atencion todos los detalles:</p>
 
     <div style="background:#f0f7f3;border-radius:8px;padding:16px 20px;margin:20px 0;border:1px solid #a8d5bc">
+      <p style="font-size:12px;font-weight:700;color:#0f5132;margin:0 0 10px;text-transform:uppercase;letter-spacing:1px">Datos del servicio</p>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr><td style="color:#555;padding:6px 0;width:42%">Fecha</td><td style="padding:6px 0"><strong>${fechaStr}</strong></td></tr>
-        <tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Hora de presentacion</td><td style="padding:6px 0"><strong>${asignacion.hora_convocatoria || '---'}</strong></td></tr>
-        <tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Lugar</td><td style="padding:6px 0"><strong>Restaurante Don Fadrique · Palacio Conde de Aldana</strong></td></tr>
+        <tr><td style="color:#555;padding:6px 0;width:42%">Tipo de evento</td><td style="padding:6px 0"><strong>${reserva ? (reserva.tipo_evento || 'Evento') : '---'}</strong></td></tr>
+        <tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Fecha</td><td style="padding:6px 0"><strong>${fechaStr}</strong></td></tr>
+        <tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Hora del evento</td><td style="padding:6px 0"><strong>${reserva ? (reserva.hora || '---') : '---'}</strong></td></tr>
+        <tr style="border-top:1px solid #d0eada;background:#e8f5e9"><td style="color:#1b5e20;padding:8px;font-weight:700">&#9201; Tu hora de llegada</td><td style="padding:8px;color:#1b5e20;font-weight:700">${asignacion.hora_convocatoria || '---'} (15 min antes)</td></tr>
+        <tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Salon</td><td style="padding:6px 0"><strong>${reserva ? (reserva.salon || '---') : '---'}</strong></td></tr>
+        <tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Lugar</td><td style="padding:6px 0">Restaurante Don Fadrique · Palacio Conde de Aldana</td></tr>
+        <tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Comensales</td><td style="padding:6px 0"><strong>${paxTotal}</strong></td></tr>
+        ${reserva && reserva.montaje ? `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:6px 0">Montaje</td><td style="padding:6px 0">${reserva.montaje}</td></tr>` : ''}
       </table>
     </div>
 
-    <div style="background:#fff3cd;border-radius:8px;padding:12px 16px;margin:16px 0;border:1px solid #ffe082">
-      <p style="font-size:12px;color:#555;margin:0;line-height:1.7"><strong>Recuerda durante el servicio:</strong> prohibido el uso del movil, fumar y consumir alcohol. Puntualidad obligatoria en la hora de presentacion.</p>
+    ${menuHtml ? `
+    <div style="background:#f9f9f7;border-radius:8px;padding:16px 20px;margin:16px 0;border:1px solid #e8e0d6">
+      <p style="font-size:12px;font-weight:700;color:#b8965a;margin:0 0 10px;text-transform:uppercase;letter-spacing:1px">Menu del evento</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">${menuHtml}</table>
+    </div>` : ''}
+
+    ${reserva && reserva.alergias ? `
+    <div style="background:#fce4e4;border-radius:8px;padding:12px 16px;margin:16px 0;border:1px solid #f5c6cb">
+      <p style="font-size:13px;color:#842029;margin:0;font-weight:700">&#9888; ALERGIAS DETECTADAS: ${reserva.alergias}</p>
+    </div>` : ''}
+
+    <div style="background:#1a1a2e;border-radius:8px;padding:20px;margin:20px 0">
+      <p style="font-size:13px;font-weight:700;color:#b8965a;margin:0 0 14px;text-transform:uppercase;letter-spacing:1px">&#128203; Protocolo de servicio Don Fadrique</p>
+
+      <p style="font-size:12px;font-weight:700;color:#e0c068;margin:12px 0 6px;text-transform:uppercase;letter-spacing:1px">Antes del servicio</p>
+      <ul style="font-size:12px;color:#ddd;line-height:2;margin:0;padding-left:18px">
+        <li>Presentarse <strong style="color:white">15 minutos antes</strong> de la hora indicada para el briefing con el responsable</li>
+        <li>Uniforme: camisa blanca planchada, pantalon negro, zapatos negros cerrados</li>
+        <li>Sin joyeria visible ni perfume excesivo</li>
+        <li>Revisar el menu del evento y preguntar por las alergias detectadas</li>
+      </ul>
+
+      <p style="font-size:12px;font-weight:700;color:#e0c068;margin:12px 0 6px;text-transform:uppercase;letter-spacing:1px">Durante el servicio</p>
+      <ul style="font-size:12px;color:#ddd;line-height:2;margin:0;padding-left:18px">
+        <li>Las bebidas se sirven siempre por la <strong style="color:white">derecha</strong> del comensal</li>
+        <li>Los platos se sirven y retiran por la <strong style="color:white">izquierda</strong></li>
+        <li>Nunca cruzar los brazos delante del comensal al colocar cubiertos</li>
+        <li>El pan se sirve por la izquierda</li>
+        <li>Orden de servicio: senoras primero, luego caballeros</li>
+        <li>Usar siempre bandeja para transportar cristaleria</li>
+        <li>Comunicacion entre personal: discreta y en voz baja</li>
+        <li>Movil <strong style="color:white">apagado o en silencio</strong>, nunca visible durante el servicio</li>
+        <li>Rellenar copas de agua y vino sin esperar a que esten vacias</li>
+        <li>Retirar platos solo cuando <strong style="color:white">todos los comensales</strong> de la mesa hayan terminado</li>
+      </ul>
+
+      <p style="font-size:12px;font-weight:700;color:#e0c068;margin:12px 0 6px;text-transform:uppercase;letter-spacing:1px">Actitud</p>
+      <ul style="font-size:12px;color:#ddd;line-height:2;margin:0;padding-left:18px">
+        <li>Trato siempre de <strong style="color:white">usted</strong> salvo indicacion contraria</li>
+        <li>Sonrisa natural, postura erguida</li>
+        <li>Ante cualquier incidencia: mantener la calma y avisar al responsable</li>
+        <li>Nunca decir no se — buscar la respuesta y volver con ella</li>
+      </ul>
+
+      <p style="font-size:12px;font-weight:700;color:#e0c068;margin:12px 0 6px;text-transform:uppercase;letter-spacing:1px">Al finalizar</p>
+      <ul style="font-size:12px;color:#ddd;line-height:2;margin:0;padding-left:18px">
+        <li>No abandonar el puesto sin autorizacion del responsable</li>
+        <li>Colaborar en el recogido si se requiere</li>
+      </ul>
     </div>
 
     <p style="font-size:13px;color:#842029;font-weight:600">En caso de no poder asistir, es tu responsabilidad encontrar un companero que te cubra y comunicarlo al restaurante con la maxima antelacion posible.</p>
@@ -1432,6 +1508,98 @@ app.get('/api/alertas-convocatoria', (req, res) => {
 });
 
 // Confirmar y enviar convocatoria para una fecha
+// Convocar extras seleccionados manualmente para una reserva concreta
+app.post('/api/extras/convocar-reserva', async (req, res) => {
+  const { reserva_id, extra_ids } = req.body;
+  if (!reserva_id || !extra_ids || !extra_ids.length)
+    return res.status(400).json({ error: 'Faltan datos' });
+
+  const reserva = db.prepare('SELECT * FROM reservas WHERE id = ?').get(reserva_id);
+  if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
+
+  const cfg = getConfig();
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com', port: 587, secure: false,
+    auth: { user: cfg.email_smtp, pass: cfg.email_pass }
+  });
+
+  const baseUrl = 'https://restaurantefadrique.palaciocondealdana.com';
+  const fechaStr = new Date(reserva.fecha + 'T12:00:00').toLocaleDateString('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
+  const horaConv = calcHoraConvocatoria(reserva.fecha);
+  const resultados = [];
+
+  for (const extra_id of extra_ids) {
+    const extra = db.prepare('SELECT * FROM extras WHERE id = ?').get(extra_id);
+    if (!extra || !extra.email) {
+      resultados.push({ extra_id, estado: 'sin_email' });
+      continue;
+    }
+
+    // Verificar que no este ya convocado para esta reserva
+    const yaConvocado = db.prepare(`
+      SELECT id FROM extras_reservas
+      WHERE extra_id = ? AND reserva_id = ? AND estado NOT IN ('rechazado','cancelado_tardio')
+    `).get(extra_id, reserva_id);
+
+    if (yaConvocado) {
+      resultados.push({ extra_id, nombre: extra.nombre, estado: 'ya_convocado' });
+      continue;
+    }
+
+    // Crear registro
+    const ins = db.prepare(`
+      INSERT INTO extras_reservas (extra_id, reserva_id, fecha, estado, hora_convocatoria, conv_env, created_at)
+      VALUES (?, ?, ?, 'convocado', ?, 1, datetime('now'))
+    `).run(extra_id, reserva_id, reserva.fecha, horaConv);
+
+    const asignacion_id = ins.lastInsertRowid;
+
+    const htmlConv = emailHeader('Convocatoria de servicio', fechaStr, '#b8965a') + `
+    <p style="font-size:15px;margin-bottom:6px">Hola <strong>${extra.nombre}</strong>,</p>
+    <p style="font-size:13px;color:#444;line-height:1.8">Necesitamos personal de refuerzo para el siguiente servicio y contamos contigo. Confirma tu disponibilidad lo antes posible.</p>
+
+    <div style="background:#f9f9f7;border-radius:8px;padding:16px 20px;margin:20px 0;border:1px solid #e8e0d6">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr><td style="color:#888;padding:6px 0;width:42%">Tipo de evento</td><td style="padding:6px 0"><strong>${reserva.tipo_evento || 'Evento'}</strong></td></tr>
+        <tr style="border-top:1px solid #f0ede8"><td style="color:#888;padding:6px 0">Fecha</td><td style="padding:6px 0"><strong>${fechaStr}</strong></td></tr>
+        <tr style="border-top:1px solid #f0ede8"><td style="color:#888;padding:6px 0">Hora del evento</td><td style="padding:6px 0"><strong>${reserva.hora || '---'}</strong></td></tr>
+        <tr style="border-top:1px solid #f0ede8"><td style="color:#888;padding:6px 0">Hora de presentacion</td><td style="padding:6px 0"><strong>${horaConv}</strong></td></tr>
+        <tr style="border-top:1px solid #f0ede8"><td style="color:#888;padding:6px 0">Salon</td><td style="padding:6px 0"><strong>${reserva.salon || '---'}</strong></td></tr>
+        <tr style="border-top:1px solid #f0ede8"><td style="color:#888;padding:6px 0">Lugar</td><td style="padding:6px 0"><strong>Restaurante Don Fadrique · Palacio Conde de Aldana</strong></td></tr>
+        <tr style="border-top:1px solid #f0ede8"><td style="color:#888;padding:6px 0">Comensales</td><td style="padding:6px 0"><strong>${reserva.pax} personas</strong></td></tr>
+      </table>
+    </div>
+
+    <p style="font-size:13px;color:#444;font-weight:600;text-align:center;margin:20px 0 8px 0">&#128071; Indica tu disponibilidad pulsando uno de los botones:</p>
+    <div style="text-align:center;margin:16px 0">
+      <a href="${baseUrl}/api/extras/respuesta/${asignacion_id}/si" style="display:inline-block;background:#0f5132;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-right:12px;letter-spacing:.5px">&#10003;&nbsp; SI, PUEDO IR</a>
+      <a href="${baseUrl}/api/extras/respuesta/${asignacion_id}/no" style="display:inline-block;background:#842029;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;letter-spacing:.5px">&#10007;&nbsp; NO PUEDO IR</a>
+    </div>
+
+    <div style="background:#fce4e4;border-radius:8px;padding:12px 16px;margin-top:12px;border:1px solid #f5c6cb">
+      <p style="font-size:12px;color:#842029;margin:0;line-height:1.7">&#9201; <strong>Esta invitacion caduca en 24 horas.</strong> Si no confirmas antes, perderas la plaza automaticamente.</p>
+    </div>
+    ${emailFooter(cfg)}`;
+
+    try {
+      await transporter.sendMail({
+        from: `"Don Fadrique" <${cfg.email_smtp}>`,
+        to: extra.email,
+        subject: `Convocatoria: ${reserva.tipo_evento || 'Evento'} - ${fechaStr}`,
+        html: htmlConv
+      });
+      resultados.push({ extra_id, nombre: `${extra.nombre} ${extra.apellidos}`, estado: 'enviado' });
+    } catch(err) {
+      console.error('Error convocatoria extra', extra.email, err.message);
+      resultados.push({ extra_id, nombre: `${extra.nombre} ${extra.apellidos}`, estado: 'error' });
+    }
+  }
+
+  res.json({ ok: true, resultados });
+});
+
 app.post('/api/extras/enviar-convocatoria/:fecha', async (req, res) => {
   const { fecha } = req.params;
   const enviados = await enviarConvocatoria(fecha).catch(e => { console.error(e); return 0; });
