@@ -2233,7 +2233,9 @@ async function cargarExtrasAsignados(reservaId, fecha) {
 
   try {
     var convocados = await fetch('/api/extras/dia/' + fecha).then(function(r){ return r.json(); });
-    var asignados = convocados.filter(function(c){ return c.reserva_id == reservaId; });
+    var asignados = convocados.filter(function(c){
+      return c.reserva_id == reservaId || (!c.reserva_id && c.fecha === fecha);
+    });
 
     if (!asignados.length) {
       div.innerHTML = '<div style="font-size:12px;color:#aaa;padding:6px 0">Sin extras asignados</div>';
