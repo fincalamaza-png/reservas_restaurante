@@ -704,7 +704,7 @@ function abrirDetalle(id){
 
   document.getElementById('det-body').innerHTML=html;
   irA('p-detalle');
-  if (r.tipo==='evento') cargarExtrasAsignados(r.id, r.fecha);
+  if (r.tipo==='evento') setTimeout(function(){ cargarExtrasAsignados(r.id, r.fecha); }, 100);
 }
 
 function cambiarEstado(id,estado){
