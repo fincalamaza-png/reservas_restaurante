@@ -673,6 +673,7 @@ function abrirDetalle(id){
     html+='<button class="btn btn-primary" style="margin-top:10px" onclick="abrirOrdenPDF(null)">&#128203; Orden de servicio (PDF)</button>';
     html+='<button class="btn btn-secondary" style="margin-top:8px" onclick="abrirPresupuesto()">&#128220; Presupuesto</button>';
     html+='<button class="btn" style="margin-top:8px;background:#2980b9;color:#fff;border:none;padding:10px;border-radius:8px;width:100%;font-size:14px;cursor:pointer" onclick="abrirModalConvocar('+id+')">&#128101; Convocar extras</button>';
+    html+='<div id="extras-asignados-'+id+'" style="margin-top:10px"></div>';
     html+='</div>';
   }
 
@@ -703,6 +704,7 @@ function abrirDetalle(id){
 
   document.getElementById('det-body').innerHTML=html;
   irA('p-detalle');
+  if (r.tipo==='evento') cargarExtrasAsignados(r.id, r.fecha);
 }
 
 function cambiarEstado(id,estado){
@@ -2225,6 +2227,39 @@ window.addEventListener('DOMContentLoaded',function(){renderCalendario();cargarH
 // ─── MODAL CONVOCAR EXTRAS ────────────────────────────────────────
 var _reservaConvocar = null;
 
+async function cargarExtrasAsignados(reservaId, fecha) {
+  var div = document.getElementById('extras-asignados-' + reservaId);
+  if (!div) return;
+
+  try {
+    var convocados = await fetch('/api/extras/dia/' + fecha).then(function(r){ return r.json(); });
+    var asignados = convocados.filter(function(c){ return c.reserva_id == reservaId; });
+
+    if (!asignados.length) {
+      div.innerHTML = '<div style="font-size:12px;color:#aaa;padding:6px 0">Sin extras asignados</div>';
+      return;
+    }
+
+    var estadoColor = { confirmado:'#0f5132', convocado:'#856404', en_espera:'#856404', rechazado:'#842029', cancelado_tardio:'#842029', pendiente_conv:'#888' };
+    var estadoLabel = { confirmado:'Confirmado', convocado:'Pendiente respuesta', en_espera:'En espera', rechazado:'Rechazado', cancelado_tardio:'Cancelado tarde', pendiente_conv:'Pendiente conv.' };
+
+    var html = '<div style="border-top:1px solid #e0dcd6;margin-top:8px;padding-top:8px">';
+    html += '<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:6px">Extras asignados a este servicio:</div>';
+    asignados.forEach(function(a) {
+      var color = estadoColor[a.estado] || '#888';
+      var label = estadoLabel[a.estado] || a.estado;
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0ede8;font-size:13px">';
+      html += '<span>' + (a.nombre||'') + ' ' + (a.apellidos||'') + '</span>';
+      html += '<span style="background:' + color + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">' + label + '</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+    div.innerHTML = html;
+  } catch(err) {
+    div.innerHTML = '<div style="font-size:12px;color:#dc3545">Error cargando extras</div>';
+  }
+}
+
 async function abrirModalConvocar(reservaId) {
   _reservaConvocar = reservaId;
   var r = S.reservas.find(function(x){ return x.id == reservaId; });
@@ -2257,12 +2292,23 @@ async function abrirModalConvocar(reservaId) {
 
     var html = activos.map(function(e) {
       var yaConv = idsConvocados.indexOf(e.id) >= 0;
+      var horaEvento = parseInt((r.hora||'00:00').split(':')[0]);
+      var turnoEvento = horaEvento < 17 ? 'almuerzo' : 'cena';
+      var tieneConflicto = convocados.some(function(c){
+        if (c.extra_id !== e.id) return false;
+        if (c.reserva_id == reservaId) return false;
+        if (['rechazado','cancelado_tardio'].indexOf(c.estado) >= 0) return false;
+        var h = parseInt((c.hora_convocatoria||'00:00').split(':')[0]);
+        var turno = h < 17 ? 'almuerzo' : 'cena';
+        return turno === turnoEvento;
+      });
       var badgeConv = yaConv ? '<span style="background:#dfe6e9;color:#636e72;padding:2px 7px;border-radius:10px;font-size:11px;margin-left:6px">ya convocado</span>' : '';
       var badgePen = e.penalizado ? '<span style="background:#ffeaa7;color:#856404;padding:2px 7px;border-radius:10px;font-size:11px;margin-left:4px">&#9888; penalizado</span>' : '';
+      var badgeConf = tieneConflicto ? '<span style="background:#fce4e4;color:#842029;padding:2px 7px;border-radius:10px;font-size:11px;margin-left:4px">&#9940; mismo turno</span>' : '';
       return '<label style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;cursor:' + (yaConv?'default':'pointer') + '">' +
         '<input type="checkbox" value="' + e.id + '" onchange="actualizarContadorConvocar()" ' + (yaConv?'disabled checked':'') + ' style="width:18px;height:18px;margin-right:12px;accent-color:#2980b9">' +
         '<div style="flex:1">' +
-          '<span style="font-weight:600">' + e.nombre + ' ' + (e.apellidos||'') + '</span>' + badgeConv + badgePen +
+          '<span style="font-weight:600">' + e.nombre + ' ' + (e.apellidos||'') + '</span>' + badgeConv + badgePen + badgeConf +
           '<br><span style="font-size:12px;color:#888">' + e.email + (e.tel?' &middot; '+e.tel:'') + '</span>' +
         '</div>' +
         '<div style="font-size:11px;color:#aaa;text-align:right">Actitud: ' + (e.actitud||'-') + '<br>Rigor: ' + (e.rigor||'-') + '</div>' +
@@ -2312,12 +2358,15 @@ async function enviarConvocatorias() {
     var enviados = data.resultados.filter(function(r){ return r.estado==='enviado'; }).length;
     var errores = data.resultados.filter(function(r){ return r.estado==='error'; }).length;
     var yaConv = data.resultados.filter(function(r){ return r.estado==='ya_convocado'; }).length;
+    var conflicto = data.resultados.filter(function(r){ return r.estado==='conflicto_turno'; }).length;
 
     var msg = 'Convocatorias enviadas: ' + enviados;
     if (errores) msg += ' | Errores: ' + errores;
     if (yaConv) msg += ' | Ya convocados: ' + yaConv;
+    if (conflicto) msg += ' | Conflicto de turno (mismo dia y turno): ' + conflicto;
     alert(msg);
     cerrarModalConvocar();
+    abrirDetalle(_reservaConvocar);
   } catch(err) {
     alert('Error: ' + err.message);
   } finally {

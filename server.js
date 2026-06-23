@@ -1548,6 +1548,28 @@ app.post('/api/extras/convocar-reserva', async (req, res) => {
       continue;
     }
 
+    // Verificar conflicto de turno el mismo dia
+    const horaEvento = parseInt((reserva.hora || '00:00').split(':')[0]);
+    const turnoEvento = horaEvento < 17 ? 'almuerzo' : 'cena';
+
+    const conflicto = db.prepare(`
+      SELECT er.id, r.hora FROM extras_reservas er
+      JOIN reservas r ON r.id = er.reserva_id
+      WHERE er.extra_id = ? AND er.fecha = ? AND er.estado IN ('convocado','confirmado','en_espera')
+      AND er.reserva_id != ?
+    `).all(extra_id, reserva.fecha, reserva_id);
+
+    const hayConflicto = conflicto.some(c => {
+      const h = parseInt((c.hora || '00:00').split(':')[0]);
+      const turno = h < 17 ? 'almuerzo' : 'cena';
+      return turno === turnoEvento;
+    });
+
+    if (hayConflicto) {
+      resultados.push({ extra_id, nombre: `${extra.nombre} ${extra.apellidos}`, estado: 'conflicto_turno' });
+      continue;
+    }
+
     // Crear registro
     const ins = db.prepare(`
       INSERT INTO extras_reservas (extra_id, reserva_id, fecha, estado, hora_convocatoria, conv_env, created_at)
