@@ -957,9 +957,11 @@ app.post('/api/extras/convocar/:fecha', async (req, res) => {
 app.get('/api/extras/dia/:fecha', (req, res) => {
   const asignaciones = db.prepare(`
     SELECT er.*, e.nombre, e.apellidos, e.email, e.tel,
-    (e.actitud+e.capacidad+e.rigor+e.conocimientos+e.aspecto)/5.0 as puntuacion
+    (e.actitud+e.capacidad+e.rigor+e.conocimientos+e.aspecto)/5.0 as puntuacion,
+    r.hora as hora_reserva
     FROM extras_reservas er
     JOIN extras e ON e.id = er.extra_id
+    LEFT JOIN reservas r ON r.id = er.reserva_id
     WHERE er.fecha = ?
     ORDER BY er.estado, puntuacion DESC
   `).all(req.params.fecha);
