@@ -2299,8 +2299,10 @@ async function abrirModalConvocar(reservaId) {
       var tieneConflicto = convocados.some(function(c){
         if (c.extra_id !== e.id) return false;
         if (c.reserva_id == reservaId) return false;
-        if (['rechazado','cancelado_tardio'].indexOf(c.estado) >= 0) return false;
+        if (!c.reserva_id) return false;
+        if (['rechazado','cancelado_tardio','pendiente_conv'].indexOf(c.estado) >= 0) return false;
         var h = parseInt((c.hora_reserva||'00:00').split(':')[0]);
+        if (!h) return false;
         var turno = h < 17 ? 'almuerzo' : 'cena';
         return turno === turnoEvento;
       });
