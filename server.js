@@ -1742,6 +1742,28 @@ function programarConvocatorias10Dias() {
   }, 60 * 60 * 1000); // cada hora
 }
 
+// ─── MINUTA PRINT ────────────────────────────────────────────────
+const minutasTemp = {};
+
+app.post('/api/minuta-temp', (req, res) => {
+  const id = Date.now().toString();
+  minutasTemp[id] = req.body.html;
+  setTimeout(() => delete minutasTemp[id], 5 * 60 * 1000); // borrar en 5 min
+  res.json({ id });
+});
+
+app.get('/minuta-print', (req, res) => {
+  const html = minutasTemp[req.query.id];
+  if (!html) return res.status(404).send('Minuta no encontrada');
+  res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Minuta</title>'
+    + '<style>*{margin:0;padding:0;box-sizing:border-box}body{background:white}'
+    + '@page{size:A4 landscape;margin:8mm}'
+    + '</style></head><body>'
+    + html
+    + '<script>setTimeout(function(){window.print();},500);<\/script>'
+    + '</body></html>');
+});
+
 // ─── CATCH-ALL ────────────────────────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));

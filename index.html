@@ -439,6 +439,29 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
 </div>
 </div>
 
+<!-- PAGINA MINUTA -->
+<style>
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  #p-minuta .top { display: none !important; }
+  #p-minuta .no-print { display: none !important; }
+  .minuta-pagina { width: 100% !important; page-break-after: always; }
+  .minuta-col { flex: 1 !important; min-height: 170mm !important; }
+}
+</style>
+<div class="page" id="p-minuta">
+  <div class="top no-print">
+    <button class="back" onclick="irA('p-detalle')">&#8592;</button>
+    <div style="flex:1;font-size:14px;font-weight:600" id="minuta-titulo">Minuta del menu</div>
+  </div>
+  <div class="content" id="minuta-content" style="background:white;padding:0">
+    <div class="no-print" style="padding:12px;background:#f0ede8;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" style="flex:1;min-width:100px" onclick="imprimirMinuta()">&#128424; Imprimir / PDF</button>
+    </div>
+    <div id="minuta-body"></div>
+  </div>
+</div>
+
 <!-- MODAL CONVOCAR EXTRAS -->
 <div id="modalConvocar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;overflow-y:auto">
   <div style="background:#fff;max-width:520px;margin:30px auto;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3)">
@@ -677,6 +700,7 @@ function abrirDetalle(id){
     }
     html+='<button class="btn btn-primary" style="margin-top:10px" onclick="abrirOrdenPDF(null)">&#128203; Orden de servicio (PDF)</button>';
     html+='<button class="btn btn-secondary" style="margin-top:8px" onclick="abrirPresupuesto()">&#128220; Presupuesto</button>';
+    html+='<button class="btn" style="margin-top:8px;background:#8b1a2a;color:#fff;border:none;padding:10px;border-radius:8px;width:100%;font-size:14px;cursor:pointer" onclick="abrirMinuta()">&#127859; Minuta del menu</button>';
     html+='<button class="btn" style="margin-top:8px;background:#2980b9;color:#fff;border:none;padding:10px;border-radius:8px;width:100%;font-size:14px;cursor:pointer" onclick="abrirModalConvocar('+id+')">&#128101; Convocar extras</button>';
     html+='<div id="extras-asignados-'+id+'" style="margin-top:10px"></div>';
     html+='</div>';
@@ -2303,46 +2327,6 @@ function enviarOrdenEmail() {
 }
 window.addEventListener('DOMContentLoaded',function(){renderCalendario();cargarHome();comprobarAlertasExtras();});
 
-// ─── PLATOS PRINCIPALES A ELEGIR ──────────────────────────────────
-function togglePlatosPrincipales() {
-  if (S.form.platos_principales) {
-    S.form.platos_principales = '';
-  } else {
-    S.form.platos_principales = JSON.stringify([
-      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
-      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}
-    ]);
-  }
-  renderForm();
-}
-
-function getPPArr() {
-  try {
-    var arr = JSON.parse(S.form.platos_principales||'[]');
-    while (arr.length < 6) arr.push({texto:'',cantidad:''});
-    return arr;
-  } catch(e) {
-    return [{texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
-            {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}];
-  }
-}
-
-function actualizarPP(idx, campo, valor) {
-  var arr = getPPArr();
-  arr[idx][campo] = valor;
-  S.form.platos_principales = JSON.stringify(arr);
-}
-
-function ppToTexto(pp) {
-  try {
-    var arr = JSON.parse(pp||'[]');
-    if (!Array.isArray(arr)) return pp||'';
-    return arr.filter(function(p){ return p.texto; })
-      .map(function(p){ return p.texto + (p.cantidad ? ' ('+p.cantidad+' pax)' : ''); })
-      .join(' / ');
-  } catch(e) { return pp||''; }
-}
-
 // ─── ENTRANTES ────────────────────────────────────────────────────
 function getEntrantesArr() {
   try {
@@ -2354,13 +2338,11 @@ function getEntrantesArr() {
   } catch(e) {}
   return [{texto:S.form.entrantes||'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false}];
 }
-
 function actualizarEntrante(idx, valor) {
   var arr = getEntrantesArr();
   arr[idx].texto = valor;
   S.form.entrantes = JSON.stringify(arr);
 }
-
 function toggleCompartirEntrante(idx) {
   var arr = getEntrantesArr();
   arr[idx].compartir = !arr[idx].compartir;
@@ -2373,7 +2355,6 @@ function toggleCompartirEntrante(idx) {
     btn.innerHTML = arr[idx].compartir ? '&#10003; Compartir' : 'Compartir';
   }
 }
-
 function entrantesToTexto(entrantes) {
   try {
     var arr = JSON.parse(entrantes||'[]');
@@ -2384,117 +2365,481 @@ function entrantesToTexto(entrantes) {
   } catch(ex) { return entrantes||''; }
 }
 
-// ─── MODAL CONVOCAR EXTRAS ────────────────────────────────────────
-var _reservaConvocar = null;
-
-async function cargarExtrasAsignados(reservaId, fecha) {
-  var div = document.getElementById('extras-asignados-' + reservaId);
-  if (!div) return;
-
+// ─── PLATOS PRINCIPALES A ELEGIR ──────────────────────────────────
+function togglePlatosPrincipales() {
+  if (S.form.platos_principales) {
+    S.form.platos_principales = '';
+  } else {
+    S.form.platos_principales = JSON.stringify([
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}
+    ]);
+  }
+  renderForm();
+}
+function getPPArr() {
   try {
-    var convocados = await fetch('/api/extras/dia/' + fecha).then(function(r){ return r.json(); });
-    var asignados = convocados.filter(function(c){
-      return c.reserva_id == reservaId || (!c.reserva_id && c.fecha === fecha);
-    });
-
-    if (!asignados.length) {
-      div.innerHTML = '<div style="font-size:12px;color:#aaa;padding:6px 0">Sin extras asignados</div>';
-      return;
-    }
-
-    var estadoColor = { confirmado:'#0f5132', convocado:'#856404', en_espera:'#856404', rechazado:'#842029', cancelado_tardio:'#842029', pendiente_conv:'#888' };
-    var estadoLabel = { confirmado:'Confirmado', convocado:'Pendiente respuesta', en_espera:'En espera', rechazado:'Rechazado', cancelado_tardio:'Cancelado tarde', pendiente_conv:'Pendiente conv.' };
-
-    var html = '<div style="border-top:1px solid #e0dcd6;margin-top:8px;padding-top:8px">';
-    html += '<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:6px">Extras asignados a este servicio:</div>';
-    asignados.forEach(function(a) {
-      var color = estadoColor[a.estado] || '#888';
-      var label = estadoLabel[a.estado] || a.estado;
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0ede8;font-size:13px">';
-      html += '<span>' + (a.nombre||'') + ' ' + (a.apellidos||'') + '</span>';
-      html += '<span style="background:' + color + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">' + label + '</span>';
-      html += '</div>';
-    });
-    html += '</div>';
-    div.innerHTML = html;
-  } catch(err) {
-    div.innerHTML = '<div style="font-size:12px;color:#dc3545">Error cargando extras</div>';
+    var arr = JSON.parse(S.form.platos_principales||'[]');
+    while (arr.length < 6) arr.push({texto:'',cantidad:''});
+    return arr;
+  } catch(e) {
+    return [{texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+            {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}];
   }
 }
+function actualizarPP(idx, campo, valor) {
+  var arr = getPPArr();
+  arr[idx][campo] = valor;
+  S.form.platos_principales = JSON.stringify(arr);
+}
+function ppToTexto(pp) {
+  try {
+    var arr = JSON.parse(pp||'[]');
+    if (!Array.isArray(arr)) return pp||'';
+    return arr.filter(function(p){ return p.texto; })
+      .map(function(p){ return p.texto + (p.cantidad ? ' ('+p.cantidad+' pax)' : ''); })
+      .join(' / ');
+  } catch(e) { return pp||''; }
+}
 
-async function abrirModalConvocar(reservaId) {
-  _reservaConvocar = reservaId;
-  var r = S.reservas.find(function(x){ return x.id == reservaId; });
+// ─── MINUTA ───────────────────────────────────────────────────────
+function abrirMinuta() {
+  var r = S.ordenReserva;
   if (!r) return;
 
-  // Calcular extras necesarios
-  var necesarios = calcExtrasLocal(r.tipo_evento, r.pax);
   var ev = {boda:'Boda',comunion:'Comunion',familiar:'Grupo familiar',turista:'Grupo turista'};
+  var tipoEvento = (ev[r.tipo_evento] || r.tipo_evento || 'Evento').toUpperCase();
+  var fecha = new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,' ');
 
-  document.getElementById('modalConvocar-info').innerHTML =
-    '<strong>' + (ev[r.tipo_evento] || r.tipo_evento || 'Evento') + '</strong> &middot; ' +
-    fmtFechaCorta(r.fecha) + ' ' + r.hora + ' &middot; Salon ' + r.salon +
-    '<br><span style="color:#856404;font-weight:700">Necesitas ' + necesarios + ' extra(s) para este servicio</span>';
+  function sec(label) {
+    return '<p style="font-family:Georgia,serif;font-size:12px;font-weight:700;text-decoration:underline;text-align:center;margin:10px 0 2px;text-transform:uppercase;letter-spacing:1px">' + label + '</p>';
+  }
+  function plat(texto) {
+    return '<p style="font-family:Georgia,serif;font-size:11px;text-align:center;margin:2px 0;line-height:1.5;color:#222">' + texto + '</p>';
+  }
 
-  document.getElementById('modalConvocar-lista').innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">Cargando...</div>';
-  document.getElementById('modalConvocar').style.display = 'block';
+  var menu = '';
+  if (r.coctel) menu += '<p style="font-family:Georgia,serif;font-size:11px;text-align:center;margin:6px 0;letter-spacing:1px;text-transform:uppercase">COCTEL DE BIENVENIDA</p>';
 
-  try {
-    var extras = await fetch('/api/extras').then(function(r){ return r.json(); });
-    var convocados = await fetch('/api/extras/dia/' + r.fecha).then(function(r){ return r.json(); });
-    var idsConvocados = convocados
-      .filter(function(c){ return c.reserva_id == reservaId && ['convocado','confirmado','en_espera'].indexOf(c.estado) >= 0; })
-      .map(function(c){ return c.extra_id; });
+  if (r.entrantes) {
+    menu += sec('Entrantes');
+    try {
+      var entArr = JSON.parse(r.entrantes||'[]');
+      if (Array.isArray(entArr)) {
+        entArr.filter(function(e){ return e.texto; }).forEach(function(e){
+          menu += plat(e.texto + (e.compartir ? ' (para compartir)' : ''));
+        });
+      } else menu += plat(r.entrantes);
+    } catch(ex) { menu += plat(r.entrantes); }
+  }
 
-    var activos = extras.filter(function(e){ return e.activo && e.email; });
-    if (!activos.length) {
-      document.getElementById('modalConvocar-lista').innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">No hay extras con email registrado</div>';
-      return;
-    }
-
-    var html = activos.map(function(e) {
-      var yaConv = idsConvocados.indexOf(e.id) >= 0;
-      var horaEvento = parseInt((r.hora||'00:00').split(':')[0]);
-      var turnoEvento = horaEvento < 17 ? 'almuerzo' : 'cena';
-      var tieneConflicto = convocados.some(function(c){
-        if (c.extra_id !== e.id) return false;
-        if (c.reserva_id == reservaId) return false;
-        if (!c.reserva_id) return false;
-        if (['rechazado','cancelado_tardio','pendiente_conv'].indexOf(c.estado) >= 0) return false;
-        var h = parseInt((c.hora_reserva||'00:00').split(':')[0]);
-        if (!h) return false;
-        var turno = h < 17 ? 'almuerzo' : 'cena';
-        return turno === turnoEvento;
+  if (r.platos_principales) {
+    if (r.sorbete) menu += sec('Sorbete');
+    menu += sec('Platos principales');
+    try {
+      var ppArr = JSON.parse(r.platos_principales||'[]');
+      ppArr.filter(function(p){ return p.texto; }).forEach(function(p){
+        menu += plat(p.texto + (p.cantidad ? ' ('+p.cantidad+' pax)' : ''));
       });
-      var badgeConv = yaConv ? '<span style="background:#dfe6e9;color:#636e72;padding:2px 7px;border-radius:10px;font-size:11px;margin-left:6px">ya convocado</span>' : '';
-      var badgePen = e.penalizado ? '<span style="background:#ffeaa7;color:#856404;padding:2px 7px;border-radius:10px;font-size:11px;margin-left:4px">&#9888; penalizado</span>' : '';
-      var badgeConf = tieneConflicto ? '<span style="background:#fce4e4;color:#842029;padding:2px 7px;border-radius:10px;font-size:11px;margin-left:4px">&#9940; mismo turno</span>' : '';
-      return '<label style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;cursor:' + (yaConv?'default':'pointer') + '">' +
-        '<input type="checkbox" value="' + e.id + '" onchange="actualizarContadorConvocar()" ' + (yaConv?'disabled checked':'') + ' style="width:18px;height:18px;margin-right:12px;accent-color:#2980b9">' +
-        '<div style="flex:1">' +
-          '<span style="font-weight:600">' + e.nombre + ' ' + (e.apellidos||'') + '</span>' + badgeConv + badgePen + badgeConf +
-          '<br><span style="font-size:12px;color:#888">' + e.email + (e.tel?' &middot; '+e.tel:'') + '</span>' +
-        '</div>' +
-        '<div style="font-size:11px;color:#aaa;text-align:right">Actitud: ' + (e.actitud||'-') + '<br>Rigor: ' + (e.rigor||'-') + '</div>' +
-        '</label>';
-    }).join('');
+    } catch(ex) {}
+  } else {
+    if (r.pescado) { menu += sec('Pescado'); menu += plat(r.pescado); }
+    if (r.sorbete) menu += sec('Sorbete');
+    if (r.carne) { menu += sec('Carne'); menu += plat(r.carne); }
+  }
 
-    document.getElementById('modalConvocar-lista').innerHTML = html;
-    actualizarContadorConvocar();
-  } catch(err) {
-    document.getElementById('modalConvocar-lista').innerHTML = '<div style="color:#dc3545;padding:20px">Error cargando extras: ' + err.message + '</div>';
+  if (r.postre) { menu += sec('Postre'); menu += plat(r.postre); }
+
+  var bodega = [];
+  if (r.vino_blanco) bodega.push('vino blanco ' + r.vino_blanco);
+  if (r.vino_tinto) bodega.push('vino tinto ' + r.vino_tinto);
+  if (r.vino_cava) bodega.push('cava');
+  if (r.vino_extra) bodega.push(r.vino_extra);
+  if (bodega.length) {
+    menu += '<p style="font-family:Georgia,serif;font-size:11px;text-align:center;margin:10px 0 2px;letter-spacing:1px;font-style:italic">bodega</p>';
+    bodega.forEach(function(b){ menu += plat(b); });
+  }
+
+  var logos = '<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;padding-top:8px;border-top:1px solid #ddd">'
+    + '<img src="' + LOGO_MICHELIN + '" style="height:26px">'
+    + '<img src="' + LOGO_REPSOL + '" style="height:26px">'
+    + '<img src="' + LOGO_TIERRA + '" style="height:26px">'
+    + '</div>';
+
+  function unaMinuta() {
+    return '<div class="minuta-col" style="flex:1;padding:8mm 6mm;box-sizing:border-box;display:flex;flex-direction:column;border-right:1px dashed #bbb">'
+      + '<div style="text-align:center;margin-bottom:5mm">'
+      + '<p style="font-family:Georgia,serif;font-size:16px;font-weight:700;letter-spacing:2px;margin:0 0 2px;text-transform:uppercase">' + tipoEvento + '</p>'
+      + '<p style="font-family:Georgia,serif;font-size:10px;letter-spacing:1px;margin:2px 0;color:#555">' + r.nombre + '</p>'
+      + '<p style="font-family:Georgia,serif;font-size:10px;letter-spacing:1px;margin:2px 0;color:#777">' + fecha + '</p>'
+      + '<hr style="border:none;border-top:1px solid #222;margin:4px 10px 0">'
+      + '</div>'
+      + '<div style="flex:1;display:flex;flex-direction:column;justify-content:center">'
+      + menu
+      + '</div>'
+      + logos
+      + '</div>';
+  }
+  function unReverso() {
+    return '<div class="minuta-col" style="flex:1;padding:8mm 6mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:space-between;border-right:1px dashed #bbb">'
+      + '<div style="flex:1;display:flex;align-items:center;justify-content:center">'
+      + '<p style="font-family:Arial,sans-serif;font-size:26px;font-weight:200;letter-spacing:8px;writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);color:#222;margin:0">DONFADRIQUE</p>'
+      + '</div>'
+      + logos
+      + '</div>';
+  }
+    var estiloImpresion = '<style>'
+    + '@media print {'
+    + '  @page { size: A4 landscape; margin: 10mm; }'
+    + '  .no-print { display: none !important; }'
+    + '  .minuta-pagina { width: 100% !important; }'
+    + '  .minuta-col { width: 31% !important; min-height: 180mm !important; }'
+    + '}'
+    + '</style>';
+
+  var html = estiloImpresion + '<div style="background:white">'
+    // PAGINA 1 - Anverso (3 minutas)
+    + '<div class="minuta-pagina" style="page-break-after:always;padding:8mm;display:flex;gap:8mm;justify-content:center;align-items:stretch;box-sizing:border-box">'
+    + unaMinuta() + unaMinuta() + unaMinuta()
+    + '</div>'
+    // PAGINA 2 - Reverso (3 logos DONFADRIQUE)
+    + '<div class="minuta-pagina" style="padding:8mm;display:flex;gap:8mm;justify-content:center;align-items:stretch;box-sizing:border-box">'
+    + unReverso() + unReverso() + unReverso()
+    + '</div>'
+    + '</div>';
+
+  document.getElementById('minuta-body').innerHTML = html;
+  document.getElementById('minuta-titulo').textContent = 'Minuta - ' + r.nombre;
+  irA('p-minuta');
+}
+
+function imprimirMinuta() {
+  var r = S.ordenReserva;
+  if (!r) return;
+
+  var ev = {boda:'Boda',comunion:'Comunion',familiar:'Grupo familiar',turista:'Grupo turista'};
+  var tipoEvento = (ev[r.tipo_evento] || r.tipo_evento || 'Evento').toUpperCase();
+  var nombre = r.nombre || '';
+  var fecha = new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,' ');
+  var origin = location.origin;
+
+  function sec(t) { return '<p style="font-family:Georgia,serif;font-size:10pt;font-weight:700;text-decoration:underline;text-align:center;margin:14px 0 4px;text-transform:uppercase;letter-spacing:1px">'+t+'</p>'; }
+  function plat(t) { return '<p style="font-family:Georgia,serif;font-size:9pt;text-align:center;margin:3px 0;line-height:1.7;color:#222">'+t+'</p>'; }
+
+  var menu = '';
+  if (r.coctel) menu += '<p style="font-family:Georgia,serif;font-size:9pt;text-align:center;margin:4px 0;text-transform:uppercase;letter-spacing:1px">Coctel de bienvenida</p>';
+  if (r.entrantes) {
+    menu += sec('Entrantes');
+    try {
+      var ea = JSON.parse(r.entrantes||'[]');
+      if (Array.isArray(ea)) ea.filter(function(e){return e.texto;}).forEach(function(e){ menu += plat(e.texto+(e.compartir?' (para compartir)':'')); });
+      else menu += plat(r.entrantes);
+    } catch(ex) { menu += plat(r.entrantes); }
+  }
+  if (r.platos_principales) {
+    if (r.sorbete) menu += sec('Sorbete');
+    menu += sec('Platos principales');
+    try {
+      var pa = JSON.parse(r.platos_principales||'[]');
+      pa.filter(function(p){return p.texto;}).forEach(function(p){ menu += plat(p.texto+(p.cantidad?' ('+p.cantidad+' pax)':'')); });
+    } catch(ex) {}
+  } else {
+    if (r.pescado) { menu += sec('Pescado'); menu += plat(r.pescado); }
+    if (r.sorbete) menu += sec('Sorbete');
+    if (r.carne) { menu += sec('Carne'); menu += plat(r.carne); }
+  }
+  if (r.postre) { menu += sec('Postre'); menu += plat(r.postre); }
+  var bodega = [];
+  if (r.vino_blanco) bodega.push('vino blanco '+r.vino_blanco);
+  if (r.vino_tinto) bodega.push('vino tinto '+r.vino_tinto);
+  if (r.vino_cava) bodega.push('cava');
+  if (r.vino_extra) bodega.push(r.vino_extra);
+  if (bodega.length) {
+    menu += '<p style="font-family:Georgia,serif;font-size:9pt;text-align:center;margin:36px 0 3px;font-style:italic;color:#444">bodega</p>';
+    bodega.forEach(function(b){ menu += plat(b); });
+  }
+
+  var logos = '<p style="text-align:center;padding-top:6px;border-top:1px solid #ddd;margin-top:6px;padding-bottom:0">'
+    + '<img src="'+origin+'/logos/michelin.jpg" style="height:18px;margin:0 2px">'
+    + '<img src="'+origin+'/logos/repsol.jpg" style="height:18px;margin:0 2px">'
+    + '<img src="'+origin+'/logos/tierra.png" style="height:18px;margin:0 2px">'
+    + '</p>';
+
+  var cabecera = '<p style="font-family:Georgia,serif;font-size:13pt;font-weight:700;text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:1px">'+tipoEvento+'</p>'
+    + '<p style="font-family:Georgia,serif;font-size:8pt;text-align:center;color:#555;letter-spacing:1px;margin-bottom:1px">'+nombre+'</p>'
+    + '<p style="font-family:Georgia,serif;font-size:8pt;text-align:center;color:#777;letter-spacing:1px;margin-bottom:4px">'+fecha+'</p>'
+    + '<hr style="border:none;border-top:1px solid #222;margin:0 10mm 6px">';
+
+  // Calcular padding superior segun numero de lineas de menu
+  var numLineas = (menu.match(/<p/g)||[]).length;
+  var alturaContenido = numLineas * 6; // aprox 6mm por linea
+  var alturaTotal = 155; // mm disponibles entre cabecera y logos
+  var paddingTop = Math.max(5, Math.floor((alturaTotal - alturaContenido) / 2));
+
+  function unaMinuta() {
+    return '<td style="width:33%;padding:6mm 5mm;border-right:1px dashed #bbb;vertical-align:top">'
+      + cabecera
+      + '<div style="text-align:center;margin-top:'+paddingTop+'mm">'+menu+'</div>'
+      + '<div style="margin-top:28mm">'+logos+'</div>'
+      + '</td>';
+  }
+
+  function unReverso() {
+    return '<td style="width:33%;padding:6mm 5mm;border-right:1px dashed #bbb;vertical-align:top">'
+      + '<table style="width:100%;height:170mm;border-collapse:collapse">'
+      + '<tr><td style="vertical-align:middle;text-align:center;height:100%"><p style="font-family:Arial,sans-serif;font-size:20pt;font-weight:200;letter-spacing:8px;writing-mode:vertical-rl;transform:rotate(180deg);color:#222;margin:0 auto;display:inline-block">DONFADRIQUE</p></td></tr>'
+      + '<tr><td style="vertical-align:bottom">'+logos+'</td></tr>'
+      + '</table>'
+      + '</td>';
+  }
+
+  var html = '<table style="width:100%;height:185mm;border-collapse:collapse;page-break-after:always"><tr>'
+    + unaMinuta() + unaMinuta() + unaMinuta()
+    + '</tr></table>'
+    + '<table style="width:100%;height:185mm;border-collapse:collapse"><tr>'
+    + unReverso() + unReverso() + unReverso()
+    + '</tr></table>';
+
+  fetch('/api/minuta-temp', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({html: html})
+  }).then(function(res){ return res.json(); }).then(function(data){
+    window.open('/minuta-print?id=' + data.id + '&t=' + Date.now(), '_blank');
+  });
+}
+
+
+// ─── ENTRANTES ────────────────────────────────────────────────────
+function getEntrantesArr() {
+  try {
+    var ep = JSON.parse(S.form.entrantes||'[]');
+    if (Array.isArray(ep)) {
+      while (ep.length < 4) ep.push({texto:'',compartir:false});
+      return ep;
+    }
+  } catch(e) {}
+  return [{texto:S.form.entrantes||'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false}];
+}
+function actualizarEntrante(idx, valor) {
+  var arr = getEntrantesArr();
+  arr[idx].texto = valor;
+  S.form.entrantes = JSON.stringify(arr);
+}
+function toggleCompartirEntrante(idx) {
+  var arr = getEntrantesArr();
+  arr[idx].compartir = !arr[idx].compartir;
+  S.form.entrantes = JSON.stringify(arr);
+  var btn = document.getElementById('btn-compartir-'+idx);
+  if (btn) {
+    btn.style.background = arr[idx].compartir ? '#b8965a' : '#fff';
+    btn.style.color = arr[idx].compartir ? '#fff' : '#888';
+    btn.style.borderColor = arr[idx].compartir ? '#b8965a' : '#ccc';
+    btn.innerHTML = arr[idx].compartir ? '&#10003; Compartir' : 'Compartir';
   }
 }
-
-function cerrarModalConvocar() {
-  document.getElementById('modalConvocar').style.display = 'none';
-  _reservaConvocar = null;
+function entrantesToTexto(entrantes) {
+  try {
+    var arr = JSON.parse(entrantes||'[]');
+    if (!Array.isArray(arr)) return entrantes||'';
+    return arr.filter(function(e){ return e.texto; })
+      .map(function(e){ return e.texto + (e.compartir ? ' (para compartir)' : ''); })
+      .join(' / ');
+  } catch(ex) { return entrantes||''; }
 }
 
-function actualizarContadorConvocar() {
-  var checks = document.querySelectorAll('#modalConvocar-lista input[type=checkbox]:checked:not(:disabled)');
-  document.getElementById('modalConvocar-contador').textContent = checks.length + ' seleccionados';
+// ─── PLATOS PRINCIPALES A ELEGIR ──────────────────────────────────
+function togglePlatosPrincipales() {
+  if (S.form.platos_principales) {
+    S.form.platos_principales = '';
+  } else {
+    S.form.platos_principales = JSON.stringify([
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}
+    ]);
+  }
+  renderForm();
 }
+function getPPArr() {
+  try {
+    var arr = JSON.parse(S.form.platos_principales||'[]');
+    while (arr.length < 6) arr.push({texto:'',cantidad:''});
+    return arr;
+  } catch(e) {
+    return [{texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+            {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}];
+  }
+}
+function actualizarPP(idx, campo, valor) {
+  var arr = getPPArr();
+  arr[idx][campo] = valor;
+  S.form.platos_principales = JSON.stringify(arr);
+}
+function ppToTexto(pp) {
+  try {
+    var arr = JSON.parse(pp||'[]');
+    if (!Array.isArray(arr)) return pp||'';
+    return arr.filter(function(p){ return p.texto; })
+      .map(function(p){ return p.texto + (p.cantidad ? ' ('+p.cantidad+' pax)' : ''); })
+      .join(' / ');
+  } catch(e) { return pp||''; }
+}
+
+// ─── MINUTA ───────────────────────────────────────────────────────
+
+function getEntrantesArr() {
+  try {
+    var ep = JSON.parse(S.form.entrantes||'[]');
+    if (Array.isArray(ep)) {
+      while (ep.length < 4) ep.push({texto:'',compartir:false});
+      return ep;
+    }
+  } catch(e) {}
+  return [{texto:S.form.entrantes||'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false}];
+}
+function actualizarEntrante(idx, valor) {
+  var arr = getEntrantesArr();
+  arr[idx].texto = valor;
+  S.form.entrantes = JSON.stringify(arr);
+}
+function toggleCompartirEntrante(idx) {
+  var arr = getEntrantesArr();
+  arr[idx].compartir = !arr[idx].compartir;
+  S.form.entrantes = JSON.stringify(arr);
+  var btn = document.getElementById('btn-compartir-'+idx);
+  if (btn) {
+    btn.style.background = arr[idx].compartir ? '#b8965a' : '#fff';
+    btn.style.color = arr[idx].compartir ? '#fff' : '#888';
+    btn.style.borderColor = arr[idx].compartir ? '#b8965a' : '#ccc';
+    btn.innerHTML = arr[idx].compartir ? '&#10003; Compartir' : 'Compartir';
+  }
+}
+function entrantesToTexto(entrantes) {
+  try {
+    var arr = JSON.parse(entrantes||'[]');
+    if (!Array.isArray(arr)) return entrantes||'';
+    return arr.filter(function(e){ return e.texto; })
+      .map(function(e){ return e.texto + (e.compartir ? ' (para compartir)' : ''); })
+      .join(' / ');
+  } catch(ex) { return entrantes||''; }
+}
+
+// ─── PLATOS PRINCIPALES A ELEGIR ──────────────────────────────────
+function togglePlatosPrincipales() {
+  if (S.form.platos_principales) {
+    S.form.platos_principales = '';
+  } else {
+    S.form.platos_principales = JSON.stringify([
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}
+    ]);
+  }
+  renderForm();
+}
+function getPPArr() {
+  try {
+    var arr = JSON.parse(S.form.platos_principales||'[]');
+    while (arr.length < 6) arr.push({texto:'',cantidad:''});
+    return arr;
+  } catch(e) {
+    return [{texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+            {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}];
+  }
+}
+function actualizarPP(idx, campo, valor) {
+  var arr = getPPArr();
+  arr[idx][campo] = valor;
+  S.form.platos_principales = JSON.stringify(arr);
+}
+function ppToTexto(pp) {
+  try {
+    var arr = JSON.parse(pp||'[]');
+    if (!Array.isArray(arr)) return pp||'';
+    return arr.filter(function(p){ return p.texto; })
+      .map(function(p){ return p.texto + (p.cantidad ? ' ('+p.cantidad+' pax)' : ''); })
+      .join(' / ');
+  } catch(e) { return pp||''; }
+}
+
+// ─── MINUTA ───────────────────────────────────────────────────────
+
+
+function getEntrantesArr() {
+  try {
+    var ep = JSON.parse(S.form.entrantes||'[]');
+    if (Array.isArray(ep)) {
+      while (ep.length < 4) ep.push({texto:'',compartir:false});
+      return ep;
+    }
+  } catch(e) {}
+  return [{texto:S.form.entrantes||'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false}];
+}
+function actualizarEntrante(idx, valor) {
+  var arr = getEntrantesArr();
+  arr[idx].texto = valor;
+  S.form.entrantes = JSON.stringify(arr);
+}
+function toggleCompartirEntrante(idx) {
+  var arr = getEntrantesArr();
+  arr[idx].compartir = !arr[idx].compartir;
+  S.form.entrantes = JSON.stringify(arr);
+  var btn = document.getElementById('btn-compartir-'+idx);
+  if (btn) {
+    btn.style.background = arr[idx].compartir ? '#b8965a' : '#fff';
+    btn.style.color = arr[idx].compartir ? '#fff' : '#888';
+    btn.style.borderColor = arr[idx].compartir ? '#b8965a' : '#ccc';
+    btn.innerHTML = arr[idx].compartir ? '&#10003; Compartir' : 'Compartir';
+  }
+}
+function entrantesToTexto(entrantes) {
+  try {
+    var arr = JSON.parse(entrantes||'[]');
+    if (!Array.isArray(arr)) return entrantes||'';
+    return arr.filter(function(e){ return e.texto; })
+      .map(function(e){ return e.texto + (e.compartir ? ' (para compartir)' : ''); })
+      .join(' / ');
+  } catch(ex) { return entrantes||''; }
+}
+
+// ─── PLATOS PRINCIPALES A ELEGIR ──────────────────────────────────
+function togglePlatosPrincipales() {
+  if (S.form.platos_principales) {
+    S.form.platos_principales = '';
+  } else {
+    S.form.platos_principales = JSON.stringify([
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}
+    ]);
+  }
+  renderForm();
+}
+function getPPArr() {
+  try {
+    var arr = JSON.parse(S.form.platos_principales||'[]');
+    while (arr.length < 6) arr.push({texto:'',cantidad:''});
+    return arr;
+  } catch(e) {
+    return [{texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+            {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}];
+  }
+}
+function actualizarPP(idx, campo, valor) {
+  var arr = getPPArr();
+  arr[idx][campo] = valor;
+  S.form.platos_principales = JSON.stringify(arr);
+}
+function ppToTexto(pp) {
+  try {
+    var arr = JSON.parse(pp||'[]');
+    if (!Array.isArray(arr)) return pp||'';
+    return arr.filter(function(p){ return p.texto; })
+      .map(function(p){ return p.texto + (p.cantidad ? ' ('+p.cantidad+' pax)' : ''); })
+      .join(' / ');
+  } catch(e) { return pp||''; }
+}
+
+// ─── MINUTA ───────────────────────────────────────────────────────
+
 
 function calcExtrasLocal(tipo, pax) {
   if (!pax) return 0;
