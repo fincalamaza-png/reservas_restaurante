@@ -645,7 +645,7 @@ function abrirDetalle(id){
     if(r.montaje)html+=ovRow('Montaje',r.montaje);
     if(r.protocolo)html+=ovRow('Protocolo','Si');
     if(r.coctel)html+=ovRow('Coctel','Si'+(r.coctel_det?' - '+r.coctel_det:''));
-    if(r.entrantes)html+=ovRow('Entrantes',r.entrantes);
+    if(r.entrantes)html+=ovRow('Entrantes',entrantesToTexto(r.entrantes));
     if(r.pescado)html+=ovRow('Pescado',r.pescado);
     if(r.sorbete)html+=ovRow('Sorbete','Si');
     if(r.carne)html+=ovRow('Carne',r.carne);
@@ -849,7 +849,26 @@ function renderForm(){
     html+=swFld('Coctel previo','S.form.coctel',S.form.coctel);
     if(S.form.coctel)html+='<div class="field"><label>Detalle coctel</label><input type="text" value="'+(S.form.coctel_det||'')+'" oninput="S.form.coctel_det=this.value"></div>';
     html+='<div style="font-weight:600;font-size:13px;margin:10px 0 6px">Menu del evento</div>';
-    html+='<div class="field"><label>Entrantes</label><input type="text" value="'+(S.form.entrantes||'')+'" oninput="S.form.entrantes=this.value"></div>';
+    // Parsear entrantes como array
+    var entrantesArr = [];
+    try {
+      var ep = JSON.parse(S.form.entrantes||'[]');
+      if (Array.isArray(ep)) entrantesArr = ep;
+      else entrantesArr = [{texto: S.form.entrantes||'', compartir:false},{texto:'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false}];
+    } catch(e) {
+      entrantesArr = [{texto: S.form.entrantes||'', compartir:false},{texto:'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false}];
+    }
+    while (entrantesArr.length < 4) entrantesArr.push({texto:'',compartir:false});
+
+    html+='<div class="field"><label>Entrantes</label>';
+    for (var ei=0; ei<4; ei++) {
+      var ent = entrantesArr[ei];
+      html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">';
+      html+='<input type="text" placeholder="Entrante '+(ei+1)+'" value="'+(ent.texto||'')+'" data-ei="'+ei+'" oninput="actualizarEntrante('+ei+', this.value)" style="flex:1">';
+      html+='<button type="button" data-ei="'+ei+'" onclick="toggleCompartirEntrante('+ei+')" style="padding:6px 10px;border-radius:6px;border:1.5px solid;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;'+(ent.compartir?'background:#b8965a;color:#fff;border-color:#b8965a':'background:#fff;color:#888;border-color:#ccc')+'" id="btn-compartir-'+ei+'">'+(ent.compartir?'&#10003; Compartir':'Compartir')+'</button>';
+      html+='</div>';
+    }
+    html+='</div>';
     html+='<div class="field"><label>Pescado</label><input type="text" value="'+(S.form.pescado||'')+'" oninput="S.form.pescado=this.value"></div>';
     html+=swFld('Sorbete','S.form.sorbete',S.form.sorbete);
     html+='<div class="field"><label>Carne</label><input type="text" value="'+(S.form.carne||'')+'" oninput="S.form.carne=this.value"></div>';
@@ -998,7 +1017,7 @@ function renderOrden(){
     html+=ovRow('Adultos',r.pax);
     if(r.ninos>0)html+=ovRow('Niños',r.ninos);
     if(r.coctel)html+=ovRow('Coctel','Si'+(r.coctel_det?' - '+r.coctel_det:''));
-    if(r.entrantes)html+=ovRow('Entrantes',r.entrantes);
+    if(r.entrantes)html+=ovRow('Entrantes',entrantesToTexto(r.entrantes));
     if(r.pescado)html+=ovRow('Pescado',r.pescado);
     if(r.sorbete)html+=ovRow('Sorbete','Si');
     if(r.carne)html+=ovRow('Carne',r.carne);
@@ -2158,7 +2177,25 @@ function abrirOrdenPDF(r) {
     html += '<table class="orden-platos">';
     if (r.coctel) html += '<tr style="background:#fffbf0"><td class="plato-label" style="color:#b8965a">&#127867; C&oacute;ctel</td><td class="plato-val" style="color:#b8965a">' + (r.coctel_det || 'S&iacute;') + '</td></tr>';
     if (r.copas) html += '<tr style="background:#fffbf0"><td class="plato-label" style="color:#b8965a">&#127870; Copas de cava</td><td class="plato-val" style="color:#b8965a">S&iacute;</td></tr>';
-    if (r.entrantes) html += '<tr><td class="plato-label">Entrantes</td><td class="plato-val">' + r.entrantes + '</td></tr>';
+    if (r.entrantes) {
+      try {
+        var entArr = JSON.parse(r.entrantes || '[]');
+        if (Array.isArray(entArr) && entArr.some(function(e){ return e.texto; })) {
+          var conTexto = entArr.filter(function(e){ return e.texto; });
+          if (conTexto.length === 1) {
+            html += '<tr><td class="plato-label">Entrante</td><td class="plato-val">' + conTexto[0].texto + (conTexto[0].compartir ? ' (para compartir)' : '') + '</td></tr>';
+          } else {
+            conTexto.forEach(function(e, i) {
+              html += '<tr><td class="plato-label">Entrante ' + (i+1) + '</td><td class="plato-val">' + e.texto + (e.compartir ? ' (para compartir)' : '') + '</td></tr>';
+            });
+          }
+        } else {
+          html += '<tr><td class="plato-label">Entrantes</td><td class="plato-val">' + entrantesToTexto(r.entrantes) + '</td></tr>';
+        }
+      } catch(ex) {
+        html += '<tr><td class="plato-label">Entrantes</td><td class="plato-val">' + (r.entrantes||'') + '</td></tr>';
+      }
+    }
     if (r.pescado) html += '<tr><td class="plato-label">Pescado</td><td class="plato-val">' + r.pescado + '</td></tr>';
     if (r.sorbete) html += '<tr><td class="plato-label">Sorbete</td><td class="plato-val">Si</td></tr>';
     if (r.carne) html += '<tr><td class="plato-label">Carne</td><td class="plato-val">' + r.carne + '</td></tr>';
@@ -2223,6 +2260,47 @@ function enviarOrdenEmail() {
     .then(function(d){ alert(d.ok ? 'Orden enviada por email' : 'Error: ' + d.msg); });
 }
 window.addEventListener('DOMContentLoaded',function(){renderCalendario();cargarHome();comprobarAlertasExtras();});
+
+// ─── ENTRANTES ────────────────────────────────────────────────────
+function getEntrantesArr() {
+  try {
+    var ep = JSON.parse(S.form.entrantes||'[]');
+    if (Array.isArray(ep)) {
+      while (ep.length < 4) ep.push({texto:'',compartir:false});
+      return ep;
+    }
+  } catch(e) {}
+  return [{texto:S.form.entrantes||'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false},{texto:'',compartir:false}];
+}
+
+function actualizarEntrante(idx, valor) {
+  var arr = getEntrantesArr();
+  arr[idx].texto = valor;
+  S.form.entrantes = JSON.stringify(arr);
+}
+
+function toggleCompartirEntrante(idx) {
+  var arr = getEntrantesArr();
+  arr[idx].compartir = !arr[idx].compartir;
+  S.form.entrantes = JSON.stringify(arr);
+  var btn = document.getElementById('btn-compartir-'+idx);
+  if (btn) {
+    btn.style.background = arr[idx].compartir ? '#b8965a' : '#fff';
+    btn.style.color = arr[idx].compartir ? '#fff' : '#888';
+    btn.style.borderColor = arr[idx].compartir ? '#b8965a' : '#ccc';
+    btn.innerHTML = arr[idx].compartir ? '&#10003; Compartir' : 'Compartir';
+  }
+}
+
+function entrantesToTexto(entrantes) {
+  try {
+    var arr = JSON.parse(entrantes||'[]');
+    if (!Array.isArray(arr)) return entrantes||'';
+    return arr.filter(function(e){ return e.texto; })
+      .map(function(e){ return e.texto + (e.compartir ? ' (para compartir)' : ''); })
+      .join(' / ');
+  } catch(ex) { return entrantes||''; }
+}
 
 // ─── MODAL CONVOCAR EXTRAS ────────────────────────────────────────
 var _reservaConvocar = null;

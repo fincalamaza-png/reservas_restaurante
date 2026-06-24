@@ -207,6 +207,17 @@ function extrasNecesarios(fecha) {
   return total;
 }
 
+// Convierte entrantes JSON a texto plano para PDF y emails
+function entrantesToTexto(entrantes) {
+  try {
+    const arr = JSON.parse(entrantes || '[]');
+    if (!Array.isArray(arr)) return entrantes || '';
+    return arr.filter(e => e.texto)
+      .map(e => e.texto + (e.compartir ? ' (para compartir)' : ''))
+      .join(' / ');
+  } catch(ex) { return entrantes || ''; }
+}
+
 // Preparar convocatoria: registra extras pendientes de convocar
 // NO envia emails - el usuario confirma desde la app antes de enviar
 // Se llama al crear/modificar reserva. Los emails se envian:
@@ -495,7 +506,25 @@ async function enviarEmailExtra(extra, asignacion, tipo) {
     let menuHtml = '';
     if (reserva) {
       if (reserva.coctel) menuHtml += `<tr><td style="color:#555;padding:5px 0">Coctel</td><td style="padding:5px 0">${reserva.coctel_det || 'Si'}</td></tr>`;
-      if (reserva.entrantes) menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Entrantes</td><td style="padding:5px 0">${reserva.entrantes}</td></tr>`;
+      if (reserva.entrantes) {
+        try {
+          const entArr = JSON.parse(reserva.entrantes || '[]');
+          if (Array.isArray(entArr) && entArr.some(e => e.texto)) {
+            const conTexto = entArr.filter(e => e.texto);
+            if (conTexto.length === 1) {
+              menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Entrante</td><td style="padding:5px 0">${conTexto[0].texto}${conTexto[0].compartir ? ' (para compartir)' : ''}</td></tr>`;
+            } else {
+              conTexto.forEach((e, i) => {
+                menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Entrante ${i+1}</td><td style="padding:5px 0">${e.texto}${e.compartir ? ' (para compartir)' : ''}</td></tr>`;
+              });
+            }
+          } else {
+            menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Entrantes</td><td style="padding:5px 0">${entrantesToTexto(reserva.entrantes)}</td></tr>`;
+          }
+        } catch(ex) {
+          menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Entrantes</td><td style="padding:5px 0">${reserva.entrantes}</td></tr>`;
+        }
+      }
       if (reserva.pescado) menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Pescado</td><td style="padding:5px 0">${reserva.pescado}</td></tr>`;
       if (reserva.sorbete) menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Sorbete</td><td style="padding:5px 0">${reserva.sorbete}</td></tr>`;
       if (reserva.carne) menuHtml += `<tr style="border-top:1px solid #d0eada"><td style="color:#555;padding:5px 0">Carne</td><td style="padding:5px 0">${reserva.carne}</td></tr>`;
@@ -773,7 +802,7 @@ app.post('/api/email/:id/:tipo', async (req, res) => {
     filas += seccion('MENU');
     if (r.coctel) filas += fila('Coctel previo', r.coctel_det || 'Si', '#b8965a');
     if (r.copas) filas += fila('Copas de cava', 'Si', '#b8965a');
-    if (r.entrantes) filas += fila('Entrantes', r.entrantes);
+    if (r.entrantes) filas += fila('Entrantes', entrantesToTexto(r.entrantes));
     if (r.pescado) filas += fila('Pescado', r.pescado);
     if (r.sorbete) filas += fila('Sorbete', 'Si');
     if (r.carne) filas += fila('Carne', r.carne);
