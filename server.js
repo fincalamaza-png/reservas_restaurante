@@ -23,7 +23,7 @@ db.exec(`
     tipo_evento TEXT, montaje TEXT DEFAULT 'imperial',
     protocolo INTEGER DEFAULT 0, coctel INTEGER DEFAULT 0,
     coctel_det TEXT, entrantes TEXT, pescado TEXT,
-    sorbete INTEGER DEFAULT 0, carne TEXT, postre TEXT,
+    sorbete INTEGER DEFAULT 0, carne TEXT, postre TEXT, platos_principales TEXT,
     vino_blanco TEXT DEFAULT 'Verdejo', vino_tinto TEXT DEFAULT 'Cinco de Copas', vino_cava TEXT DEFAULT 'Cava',
     vino_extra TEXT, copas INTEGER DEFAULT 0,
     fianza INTEGER DEFAULT 0, fianza_imp REAL,
@@ -206,6 +206,12 @@ function extrasNecesarios(fecha) {
 
   return total;
 }
+
+// Migracion: añadir columna platos_principales si no existe
+try {
+  db.prepare("ALTER TABLE reservas ADD COLUMN platos_principales TEXT DEFAULT ''").run();
+  console.log('Columna platos_principales añadida');
+} catch(e) {} // Ya existe
 
 // Convierte entrantes JSON a texto plano para PDF y emails
 function entrantesToTexto(entrantes) {
@@ -690,17 +696,17 @@ app.post('/api/reservas', (req, res) => {
   const d = req.body;
   const stmt = db.prepare(`
     INSERT INTO reservas (tipo,salon,mesa,fecha,hora,nombre,tel,email,pax,menu,alergias,obs,estado,
-      tipo_evento,montaje,protocolo,coctel,coctel_det,entrantes,pescado,sorbete,carne,postre,
+      tipo_evento,montaje,protocolo,coctel,coctel_det,entrantes,pescado,sorbete,carne,postre,platos_principales,
       vino_blanco,vino_tinto,vino_cava,vino_extra,copas,fianza,fianza_imp,conf_env,rec_env,menus_detalle,
       ninos,menu_ninos_entrante,menu_ninos_principal,menu_ninos_postre,menu_ninos_precio)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `);
   const result = stmt.run(
     d.tipo, d.salon, d.mesa||null, d.fecha, d.hora, d.nombre, d.tel||'', d.email||'', d.pax,
     d.menu||'', d.alergias||'', d.obs||'', d.estado||'pendiente',
     d.tipo_evento||'', d.montaje||'imperial', parseBool(d.protocolo),
     parseBool(d.coctel), d.coctel_det||'', d.entrantes||'', d.pescado||'',
-    parseBool(d.sorbete), d.carne||'', d.postre||'',
+    parseBool(d.sorbete), d.carne||'', d.postre||'', d.platos_principales||'',
     d.vino_blanco||'', d.vino_tinto||'', d.vino_cava||'',
     d.vino_extra||'', parseBool(d.copas),
     parseBool(d.fianza), d.fianza_imp||null, 0, 0,
@@ -730,7 +736,7 @@ app.put('/api/reservas/:id', (req, res) => {
   db.prepare(`
     UPDATE reservas SET tipo=?,salon=?,mesa=?,fecha=?,hora=?,nombre=?,tel=?,email=?,pax=?,menu=?,
     alergias=?,obs=?,estado=?,tipo_evento=?,montaje=?,protocolo=?,coctel=?,coctel_det=?,
-    entrantes=?,pescado=?,sorbete=?,carne=?,postre=?,vino_blanco=?,vino_tinto=?,vino_cava=?,
+    entrantes=?,pescado=?,sorbete=?,carne=?,postre=?,platos_principales=?,vino_blanco=?,vino_tinto=?,vino_cava=?,
     vino_extra=?,copas=?,fianza=?,fianza_imp=?,menus_detalle=?,
     ninos=?,menu_ninos_entrante=?,menu_ninos_principal=?,menu_ninos_postre=?,menu_ninos_precio=?
     WHERE id=?
@@ -739,7 +745,7 @@ app.put('/api/reservas/:id', (req, res) => {
     d.menu||'', d.alergias||'', d.obs||'', d.estado||'pendiente',
     d.tipo_evento||'', d.montaje||'imperial', parseBool(d.protocolo),
     parseBool(d.coctel), d.coctel_det||'', d.entrantes||'', d.pescado||'',
-    parseBool(d.sorbete), d.carne||'', d.postre||'',
+    parseBool(d.sorbete), d.carne||'', d.postre||'', d.platos_principales||'',
     d.vino_blanco||'', d.vino_tinto||'', d.vino_cava||'',
     d.vino_extra||'', parseBool(d.copas),
     parseBool(d.fianza), d.fianza_imp||null, d.menus_detalle||null,
@@ -802,10 +808,36 @@ app.post('/api/email/:id/:tipo', async (req, res) => {
     filas += seccion('MENU');
     if (r.coctel) filas += fila('Coctel previo', r.coctel_det || 'Si', '#b8965a');
     if (r.copas) filas += fila('Copas de cava', 'Si', '#b8965a');
-    if (r.entrantes) filas += fila('Entrantes', entrantesToTexto(r.entrantes));
-    if (r.pescado) filas += fila('Pescado', r.pescado);
-    if (r.sorbete) filas += fila('Sorbete', 'Si');
-    if (r.carne) filas += fila('Carne', r.carne);
+    if (r.entrantes) {
+      try {
+        const entArr = JSON.parse(r.entrantes || '[]');
+        if (Array.isArray(entArr) && entArr.some(e => e.texto)) {
+          const conTexto = entArr.filter(e => e.texto);
+          if (conTexto.length === 1) {
+            filas += fila('Entrante', conTexto[0].texto + (conTexto[0].compartir ? ' (para compartir)' : ''));
+          } else {
+            conTexto.forEach((e, i) => {
+              filas += fila('Entrante ' + (i+1), e.texto + (e.compartir ? ' (para compartir)' : ''));
+            });
+          }
+        } else {
+          filas += fila('Entrantes', entrantesToTexto(r.entrantes));
+        }
+      } catch(ex) { filas += fila('Entrantes', r.entrantes); }
+    }
+    if (r.platos_principales) {
+      if (r.sorbete) filas += fila('Sorbete', 'Si');
+      try {
+        const ppArr = JSON.parse(r.platos_principales || '[]');
+        ppArr.filter(p => p.texto).forEach(p => {
+          filas += fila('Plato principal', p.texto + (p.cantidad ? ' (' + p.cantidad + ' pax)' : ''));
+        });
+      } catch(e) {}
+    } else {
+      if (r.pescado) filas += fila('Pescado', r.pescado);
+      if (r.sorbete) filas += fila('Sorbete', 'Si');
+      if (r.carne) filas += fila('Carne', r.carne);
+    }
     if (r.postre) filas += fila('Postre', r.postre);
 
     if (r.ninos > 0 && (r.menu_ninos_entrante || r.menu_ninos_principal || r.menu_ninos_postre)) {

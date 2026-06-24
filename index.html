@@ -646,9 +646,14 @@ function abrirDetalle(id){
     if(r.protocolo)html+=ovRow('Protocolo','Si');
     if(r.coctel)html+=ovRow('Coctel','Si'+(r.coctel_det?' - '+r.coctel_det:''));
     if(r.entrantes)html+=ovRow('Entrantes',entrantesToTexto(r.entrantes));
-    if(r.pescado)html+=ovRow('Pescado',r.pescado);
-    if(r.sorbete)html+=ovRow('Sorbete','Si');
-    if(r.carne)html+=ovRow('Carne',r.carne);
+    if(r.platos_principales){
+      if(r.sorbete)html+=ovRow('Sorbete','Si');
+      try{var ppA=JSON.parse(r.platos_principales||'[]');ppA.filter(function(p){return p.texto;}).forEach(function(p){html+=ovRow('Plato principal',p.texto+(p.cantidad?' ('+p.cantidad+' pax)':''));});}catch(e){}
+    } else {
+      if(r.pescado)html+=ovRow('Pescado',r.pescado);
+      if(r.sorbete)html+=ovRow('Sorbete','Si');
+      if(r.carne)html+=ovRow('Carne',r.carne);
+    }
     if(r.postre)html+=ovRow('Postre',r.postre);
     if(r.ninos>0&&(r.menu_ninos_entrante||r.menu_ninos_principal||r.menu_ninos_postre)){
       html+='<div class="ov-row" style="background:#f0f4ff"><span class="ov-label" style="color:#3c3489;font-weight:700">Menu Niños ('+r.ninos+')</span><span></span></div>';
@@ -749,7 +754,7 @@ function abrirForm(tipo){
   S.form={tipo:tipo,fecha:S.dia,hora:'14:00',nombre:'',tel:'',email:'',pax:2,
     salon:'bodega',mesa:null,menu:'carta',alergias:'',obs:'',estado:'pendiente',
     tipo_evento:'boda',montaje:'imperial',protocolo:false,coctel:false,coctel_det:'',
-    entrantes:'',pescado:'',sorbete:false,carne:'',postre:'',vino_blanco:'Verdejo',vino_tinto:'Cinco de Copas',vino_cava:'Cava',vino_extra:'',
+    entrantes:'',pescado:'',sorbete:false,carne:'',postre:'',vino_blanco:'Verdejo',vino_tinto:'Cinco de Copas',vino_cava:'Cava',vino_extra:'',platos_principales:'',
     ninos:0,menu_ninos_entrante:'',menu_ninos_principal:'',menu_ninos_postre:'',menu_ninos_precio:null,
     copas:false,fianza:false,fianza_imp:null,menus_comensales:[]};
   S.step=0;S.editId=null;
@@ -869,9 +874,31 @@ function renderForm(){
       html+='</div>';
     }
     html+='</div>';
-    html+='<div class="field"><label>Pescado</label><input type="text" value="'+(S.form.pescado||'')+'" oninput="S.form.pescado=this.value"></div>';
-    html+=swFld('Sorbete','S.form.sorbete',S.form.sorbete);
-    html+='<div class="field"><label>Carne</label><input type="text" value="'+(S.form.carne||'')+'" oninput="S.form.carne=this.value"></div>';
+    // Platos principales a elegir o pescado/carne clasico
+    var usaPP = !!S.form.platos_principales;
+    html+='<div class="field" style="margin-bottom:4px">';
+    html+='<button type="button" onclick="togglePlatosPrincipales()" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid;font-size:13px;font-weight:700;cursor:pointer;'+(usaPP?'background:#3c3489;color:#fff;border-color:#3c3489':'background:#fff;color:#555;border-color:#ccc')+'">'+(usaPP?'&#10003; Platos principales a elegir (activo)':'Platos principales a elegir')+'</button>';
+    html+='</div>';
+    if (!usaPP) {
+      html+='<div class="field"><label>Pescado</label><input type="text" value="'+(S.form.pescado||'')+'" oninput="S.form.pescado=this.value"></div>';
+      html+=swFld('Sorbete','S.form.sorbete',S.form.sorbete);
+      html+='<div class="field"><label>Carne</label><input type="text" value="'+(S.form.carne||'')+'" oninput="S.form.carne=this.value"></div>';
+    } else {
+      html+=swFld('Sorbete','S.form.sorbete',S.form.sorbete);
+      // 6 lineas de platos principales con cantidad
+      var ppArr = [];
+      try { ppArr = JSON.parse(S.form.platos_principales||'[]'); } catch(e) {}
+      while (ppArr.length < 6) ppArr.push({texto:'',cantidad:''});
+      html+='<div class="field"><label>Platos principales</label>';
+      for (var pi=0; pi<6; pi++) {
+        var pp = ppArr[pi];
+        html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">';
+        html+='<input type="text" placeholder="Plato '+(pi+1)+'" value="'+(pp.texto||'')+'" oninput="actualizarPP('+pi+',&quot;texto&quot;,this.value)" style="flex:1">';
+        html+='<input type="text" placeholder="Cant." value="'+(pp.cantidad||'')+'" oninput="actualizarPP('+pi+',&quot;cantidad&quot;,this.value)" style="width:60px;text-align:center">';
+        html+='</div>';
+      }
+      html+='</div>';
+    }
     html+='<div class="field"><label>Postre</label><input type="text" value="'+(S.form.postre||'')+'" oninput="S.form.postre=this.value"></div>';
     html+='<div class="field"><label>Vino blanco</label><input type="text" id="vino-blanco" value="'+(S.form.vino_blanco||'Verdejo')+'" placeholder="Nombre del vino blanco (dejar vacio para no incluir)" oninput="S.form.vino_blanco=this.value"></div>';
     html+='<div class="field"><label>Vino tinto</label><input type="text" id="vino-tinto" value="'+(S.form.vino_tinto||'Cinco de Copas')+'" placeholder="Nombre del vino tinto (dejar vacio para no incluir)" oninput="S.form.vino_tinto=this.value"></div>';
@@ -1018,9 +1045,14 @@ function renderOrden(){
     if(r.ninos>0)html+=ovRow('Niños',r.ninos);
     if(r.coctel)html+=ovRow('Coctel','Si'+(r.coctel_det?' - '+r.coctel_det:''));
     if(r.entrantes)html+=ovRow('Entrantes',entrantesToTexto(r.entrantes));
-    if(r.pescado)html+=ovRow('Pescado',r.pescado);
-    if(r.sorbete)html+=ovRow('Sorbete','Si');
-    if(r.carne)html+=ovRow('Carne',r.carne);
+    if(r.platos_principales){
+      if(r.sorbete)html+=ovRow('Sorbete','Si');
+      try{var ppA=JSON.parse(r.platos_principales||'[]');ppA.filter(function(p){return p.texto;}).forEach(function(p){html+=ovRow('Plato principal',p.texto+(p.cantidad?' ('+p.cantidad+' pax)':''));});}catch(e){}
+    } else {
+      if(r.pescado)html+=ovRow('Pescado',r.pescado);
+      if(r.sorbete)html+=ovRow('Sorbete','Si');
+      if(r.carne)html+=ovRow('Carne',r.carne);
+    }
     if(r.postre)html+=ovRow('Postre',r.postre);
     if(r.ninos>0&&(r.menu_ninos_entrante||r.menu_ninos_principal||r.menu_ninos_postre)){
       html+='<div class="ov-row" style="background:#f0f4ff"><span class="ov-label" style="color:#3c3489;font-weight:700">MENU NIÑOS</span><span></span></div>';
@@ -2196,9 +2228,19 @@ function abrirOrdenPDF(r) {
         html += '<tr><td class="plato-label">Entrantes</td><td class="plato-val">' + (r.entrantes||'') + '</td></tr>';
       }
     }
-    if (r.pescado) html += '<tr><td class="plato-label">Pescado</td><td class="plato-val">' + r.pescado + '</td></tr>';
-    if (r.sorbete) html += '<tr><td class="plato-label">Sorbete</td><td class="plato-val">Si</td></tr>';
-    if (r.carne) html += '<tr><td class="plato-label">Carne</td><td class="plato-val">' + r.carne + '</td></tr>';
+    if (r.platos_principales) {
+      if (r.sorbete) html += '<tr><td class="plato-label">Sorbete</td><td class="plato-val">Si</td></tr>';
+      try {
+        var ppArr = JSON.parse(r.platos_principales||'[]');
+        ppArr.filter(function(p){ return p.texto; }).forEach(function(p) {
+          html += '<tr><td class="plato-label">Plato principal</td><td class="plato-val">' + p.texto + (p.cantidad ? ' <span style="color:#888;font-size:11px">('+p.cantidad+' pax)</span>' : '') + '</td></tr>';
+        });
+      } catch(e) {}
+    } else {
+      if (r.pescado) html += '<tr><td class="plato-label">Pescado</td><td class="plato-val">' + r.pescado + '</td></tr>';
+      if (r.sorbete) html += '<tr><td class="plato-label">Sorbete</td><td class="plato-val">Si</td></tr>';
+      if (r.carne) html += '<tr><td class="plato-label">Carne</td><td class="plato-val">' + r.carne + '</td></tr>';
+    }
     if (r.postre) html += '<tr><td class="plato-label">Postre</td><td class="plato-val">' + r.postre + '</td></tr>';
     if (r.ninos > 0 && (r.menu_ninos_entrante || r.menu_ninos_principal || r.menu_ninos_postre)) {
       html += '<tr style="background:#f0f4ff"><td class="plato-label" style="color:#3c3489;font-weight:700" colspan="2">&#128118; Menu Niños (' + r.ninos + ' pax)</td></tr>';
@@ -2260,6 +2302,46 @@ function enviarOrdenEmail() {
     .then(function(d){ alert(d.ok ? 'Orden enviada por email' : 'Error: ' + d.msg); });
 }
 window.addEventListener('DOMContentLoaded',function(){renderCalendario();cargarHome();comprobarAlertasExtras();});
+
+// ─── PLATOS PRINCIPALES A ELEGIR ──────────────────────────────────
+function togglePlatosPrincipales() {
+  if (S.form.platos_principales) {
+    S.form.platos_principales = '';
+  } else {
+    S.form.platos_principales = JSON.stringify([
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+      {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}
+    ]);
+  }
+  renderForm();
+}
+
+function getPPArr() {
+  try {
+    var arr = JSON.parse(S.form.platos_principales||'[]');
+    while (arr.length < 6) arr.push({texto:'',cantidad:''});
+    return arr;
+  } catch(e) {
+    return [{texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''},
+            {texto:'',cantidad:''},{texto:'',cantidad:''},{texto:'',cantidad:''}];
+  }
+}
+
+function actualizarPP(idx, campo, valor) {
+  var arr = getPPArr();
+  arr[idx][campo] = valor;
+  S.form.platos_principales = JSON.stringify(arr);
+}
+
+function ppToTexto(pp) {
+  try {
+    var arr = JSON.parse(pp||'[]');
+    if (!Array.isArray(arr)) return pp||'';
+    return arr.filter(function(p){ return p.texto; })
+      .map(function(p){ return p.texto + (p.cantidad ? ' ('+p.cantidad+' pax)' : ''); })
+      .join(' / ');
+  } catch(e) { return pp||''; }
+}
 
 // ─── ENTRANTES ────────────────────────────────────────────────────
 function getEntrantesArr() {
