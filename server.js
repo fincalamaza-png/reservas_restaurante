@@ -1765,9 +1765,61 @@ app.get('/minuta-print', (req, res) => {
 });
 
 // ─── CATCH-ALL ────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════
+//  VISTA PERSONAL — SOLO LECTURA
+// ═══════════════════════════════════════════
+
+app.get('/personal', (req, res) => {
+  res.sendFile(path.join(__dirname, 'camareros.html'));
+});
+
+app.get('/api/personal/verificar-pin', (req, res) => {
+  try {
+    const { pin } = req.query;
+    if (!pin) return res.status(400).json({ ok: false });
+    const row = db.prepare("SELECT valor FROM config WHERE clave = 'pin_personal'").get();
+    let ok = false;
+    if (row) { try { ok = Object.values(JSON.parse(row.valor)).includes(pin); } catch { ok = pin === row.valor; } }
+    else { ok = pin === '1234'; }
+    res.json({ ok });
+  } catch (e) {
+    res.status(500).json({ ok: false });
+  }
+});
+
+app.get('/api/personal/reservas-mes', (req, res) => {
+  try {
+    const { pin, mes, anio } = req.query;
+    const row = db.prepare("SELECT valor FROM config WHERE clave = 'pin_personal'").get();
+    let auth = false;
+    if (row) { try { auth = Object.values(JSON.parse(row.valor)).includes(pin); } catch { auth = pin === row.valor; } }
+    else { auth = pin === '1234'; }
+    if (!auth) return res.status(401).json({ error: 'No autorizado' });
+    const m = String(mes || (new Date().getMonth() + 1)).padStart(2, '0');
+    const a = anio || new Date().getFullYear();
+    const reservas = db.prepare(`
+      SELECT id, tipo, salon, mesa, fecha, hora, nombre, pax, menu,
+             alergias, obs, estado, tipo_evento, montaje,
+             coctel, coctel_det, entrantes, pescado, sorbete, carne, postre,
+             vino_blanco, vino_tinto, vino_cava,
+             ninos, menu_ninos_entrante, menu_ninos_principal, menu_ninos_postre
+      FROM reservas
+      WHERE fecha >= ? AND fecha <= ?
+        AND (estado IS NULL OR estado NOT LIKE '%cancel%')
+      ORDER BY fecha ASC, hora ASC
+    `).all(`${a}-${m}-01`, `${a}-${m}-31`);
+    res.json(reservas);
+  } catch (e) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
+
 
 app.listen(PORT, () => {
   console.log(`Don Fadrique corriendo en puerto ${PORT}`);
