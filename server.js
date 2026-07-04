@@ -1816,6 +1816,338 @@ app.get('/api/personal/reservas-mes', (req, res) => {
 });
 
 
+
+// ═══════════════════════════════════════════
+//  PDFs VISTA PERSONAL
+// ═══════════════════════════════════════════
+
+const _GOLD = '#C9A84C';
+const _DARK = '#1A1A1A';
+const _RED  = '#C0392B';
+const _MESES_PDF = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function _pinOk(pin) {
+  const row = db.prepare("SELECT valor FROM config WHERE clave = 'pin_personal'").get();
+  if (!row) return false;
+  try { return Object.values(JSON.parse(row.valor)).includes(pin); }
+  catch { return pin === row.valor; }
+}
+
+function _fmtFecha(f) {
+  if (!f) return '';
+  const [y, m, d] = f.split('-');
+  return `${parseInt(d)} de ${_MESES_PDF[parseInt(m)-1]} de ${y}`;
+}
+
+function _pdfCabecera(doc, titulo, subtitulo) {
+  doc.rect(0, 0, 595.28, 105).fill(_DARK);
+  const logos = ['logos/michelin.jpg', 'logos/repsol.jpg', 'logos/tierra.png'];
+  let lx = 55;
+  logos.forEach(l => {
+    try { doc.image(path.join(__dirname, l), lx, 22, { height: 55, fit: [55, 55] }); lx += 65; } catch(e) {}
+  });
+  doc.fillColor(_GOLD).fontSize(16).font('Helvetica-Bold').text(titulo, 250, 28, { width: 295, align: 'right' });
+  if (subtitulo) doc.fillColor('#aaaaaa').fontSize(9).font('Helvetica').text(subtitulo, 250, 52, { width: 295, align: 'right' });
+  doc.moveTo(50, 113).lineTo(545, 113).strokeColor(_GOLD).lineWidth(1.5).stroke();
+}
+
+// Orden de servicio PDF
+app.get('/api/personal/orden-pdf/:id', (req, res) => {
+  try {
+    const { pin } = req.query;
+    if (!_pinOk(pin)) return res.status(401).json({ error: 'No autorizado' });
+    const r = db.prepare('SELECT * FROM reservas WHERE id = ?').get(req.params.id);
+    if (!r) return res.status(404).json({ error: 'No encontrada' });
+
+    const PDFDoc = require('pdfkit');
+    const doc = new PDFDoc({ margin: 40, size: 'A4', bufferPages: true });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="orden_${r.id}.pdf"`);
+    doc.pipe(res);
+
+    const W = 515; // ancho útil (595 - 2*40)
+    const X = 40;  // margen izquierdo
+
+    // ── CABECERA ──────────────────────────────────────────────
+    doc.rect(0, 0, 595.28, 110).fill('#1a1a1a');
+    try { doc.image(path.join(__dirname,'logos/michelin.jpg'), X, 18, {height:50,fit:[50,50]}); } catch(e){}
+    try { doc.image(path.join(__dirname,'logos/repsol.jpg'),   X+58, 18, {height:50,fit:[50,50]}); } catch(e){}
+    try { doc.image(path.join(__dirname,'logos/tierra.png'),   X+116, 18, {height:50,fit:[50,50]}); } catch(e){}
+    doc.fillColor('#c9a84c').fontSize(20).font('Helvetica-Bold')
+       .text('ORDEN DE SERVICIO', 230, 22, {width:325, align:'right'});
+    doc.fillColor('#fff').fontSize(14).font('Helvetica')
+       .text((r.tipo_evento||'EVENTO').toUpperCase(), 230, 48, {width:325, align:'right'});
+    doc.fillColor('#888').fontSize(10).font('Helvetica')
+       .text('Don Fadrique · Alba de Tormes', 230, 70, {width:325, align:'right'});
+    doc.moveTo(X,118).lineTo(555,118).strokeColor('#c9a84c').lineWidth(2).stroke();
+
+    let y = 132;
+
+    // ── FUNCIÓN helpers ───────────────────────────────────────
+    const fila = (label, valor, x, yy, w) => {
+      doc.rect(x, yy, w, 52).fill('#f5f0e8');
+      doc.fillColor('#999').fontSize(9).font('Helvetica').text(label.toUpperCase(), x+10, yy+8, {width:w-20});
+      doc.fillColor('#1a1a1a').fontSize(16).font('Helvetica-Bold').text(valor||'—', x+10, yy+22, {width:w-20});
+    };
+    const seccion = (titulo, color, yy) => {
+      doc.rect(X, yy, W, 30).fill(color||'#1a1a1a');
+      doc.fillColor('#c9a84c').fontSize(11).font('Helvetica-Bold')
+         .text(titulo, X, yy+9, {width:W, align:'center'});
+      return yy+30;
+    };
+    const lineaMenu = (label, valor, yy, par) => {
+      doc.rect(X, yy, W, 34).fill(par ? '#f8f5ef' : '#fff');
+      doc.fillColor('#aaa').fontSize(10).font('Helvetica').text(label.toUpperCase(), X+12, yy+6, {width:110});
+      doc.fillColor('#1a1a1a').fontSize(14).font('Helvetica').text(valor, X+130, yy+9, {width:W-140});
+      return yy+34;
+    };
+
+    // ── DATOS EVENTO ──────────────────────────────────────────
+    // Fila 1: Cliente + Tipo
+    fila('Cliente', r.nombre, X, y, W*0.6);
+    fila('Tipo evento', r.tipo_evento||'Evento', X + W*0.6 + 5, y, W*0.4 - 5);
+    y += 58;
+    // Fila 2: Fecha + Hora + Salón
+    fila('Fecha', _fmtFecha(r.fecha), X, y, W*0.5);
+    fila('Hora', r.hora?r.hora.substring(0,5):'—', X + W*0.5 + 5, y, W*0.25 - 5);
+    fila('Salón', r.salon||'—', X + W*0.75 + 5, y, W*0.25 - 5);
+    y += 58;
+    // Fila 3: Comensales + Montaje
+    const paxTxt = r.ninos>0 ? `${r.pax} adultos + ${r.ninos} niños` : `${r.pax} personas`;
+    fila('Comensales', paxTxt, X, y, r.montaje ? W*0.5 : W);
+    if (r.montaje) fila('Montaje', r.montaje, X + W*0.5 + 5, y, W*0.5 - 5);
+    y += 62;
+
+    // ── MENÚ ──────────────────────────────────────────────────
+    const platos = [
+      ['Cóctel',    r.coctel&&r.coctel!=='No' ? (r.coctel_det||r.coctel) : null],
+      ['Entrantes', r.entrantes], ['Pescado', r.pescado],
+      ['Sorbete',   r.sorbete],  ['Carne', r.carne], ['Postre', r.postre],
+    ].filter(([,v])=>v);
+
+    if (platos.length) {
+      y = seccion('— M E N Ú —', '#1a1a1a', y);
+      platos.forEach(([k,v],i) => { y = lineaMenu(k, v, y, i%2===0); });
+      y += 8;
+    }
+
+    // ── MENÚ INFANTIL ─────────────────────────────────────────
+    if (r.ninos>0 && (r.menu_ninos_entrante||r.menu_ninos_principal||r.menu_ninos_postre)) {
+      y = seccion(`— MENÚ INFANTIL  (${r.ninos} ${r.ninos===1?'niño':'niños'}) —`, '#5b2c6f', y);
+      const ni = [['Entrante',r.menu_ninos_entrante],['Principal',r.menu_ninos_principal],['Postre',r.menu_ninos_postre]].filter(([,v])=>v);
+      ni.forEach(([k,v],i) => {
+        doc.rect(X, y, W, 34).fill(i%2===0 ? '#f3e8fa' : '#ede0f5');
+        doc.fillColor('#7d3c98').fontSize(10).font('Helvetica').text(k.toUpperCase(), X+12, y+6, {width:110});
+        doc.fillColor('#1a1a1a').fontSize(14).font('Helvetica').text(v, X+130, y+9, {width:W-140});
+        y += 34;
+      });
+      y += 8;
+    }
+
+    // ── BODEGA ────────────────────────────────────────────────
+    const vinos = [['Blanco',r.vino_blanco],['Tinto',r.vino_tinto],['Cava',r.vino_cava]].filter(([,v])=>v);
+    if (vinos.length) {
+      y = seccion('— B O D E G A —', '#1a4f7a', y);
+      vinos.forEach(([k,v],i) => {
+        doc.rect(X, y, W, 34).fill(i%2===0 ? '#e8f4fd' : '#d6eaf8');
+        doc.fillColor('#1a4f7a').fontSize(10).font('Helvetica').text(k.toUpperCase(), X+12, y+6, {width:110});
+        doc.fillColor('#1a1a1a').fontSize(14).font('Helvetica').text(v, X+130, y+9, {width:W-140});
+        y += 34;
+      });
+      y += 8;
+    }
+
+    // ── ALERGIAS ──────────────────────────────────────────────
+    if (r.alergias && r.alergias.trim()) {
+      if (y > 720) { doc.addPage(); y = 40; }
+      doc.rect(X, y, W, 60).fill('#fde8e8');
+      doc.moveTo(X, y).lineTo(555, y).strokeColor('#c0392b').lineWidth(3).stroke();
+      doc.fillColor('#c0392b').fontSize(10).font('Helvetica-Bold').text('⚠  ALERGIAS / INTOLERANCIAS', X+12, y+10);
+      doc.fillColor('#7b1c1c').fontSize(14).font('Helvetica').text(r.alergias, X+12, y+28, {width:W-24});
+      y += 70;
+    }
+
+    // ── OBSERVACIONES ─────────────────────────────────────────
+    if (r.obs && r.obs.trim()) {
+      doc.fillColor('#aaa').fontSize(9).font('Helvetica').text('OBSERVACIONES', X, y+4);
+      doc.fillColor('#444').fontSize(13).font('Helvetica-Oblique').text(r.obs, X, y+18, {width:W});
+    }
+
+    // ── PIE ───────────────────────────────────────────────────
+    const rng = doc.bufferedPageRange();
+    for (let i=0; i<rng.count; i++) {
+      doc.switchToPage(i);
+      doc.rect(0,818,595.28,24).fill('#1a1a1a');
+      doc.fillColor('#666').fontSize(8).font('Helvetica')
+         .text('NIMANSANMON S.L.  ·  CIF: B37297223  ·  Don Fadrique  ·  Alba de Tormes  ·  920 37 00 51',
+               X, 824, {align:'center', width:W+5});
+    }
+    doc.end();
+  } catch(e) {
+    console.error('Error orden-pdf:', e);
+    if (!res.headersSent) res.status(500).json({error:'Error generando PDF'});
+  }
+});
+
+
+// Listado diario PDF
+app.get('/api/personal/listado-pdf', (req, res) => {
+  try {
+    const { pin, fecha } = req.query;
+    if (!_pinOk(pin)) return res.status(401).json({ error: 'No autorizado' });
+    if (!fecha) return res.status(400).json({ error: 'Falta fecha' });
+
+    const reservas = db.prepare(`
+      SELECT * FROM reservas
+      WHERE fecha = ? AND (estado IS NULL OR estado NOT LIKE '%cancel%')
+      ORDER BY salon ASC, hora ASC
+    `).all(fecha);
+
+    const PDFDoc = require('pdfkit');
+    const doc = new PDFDoc({ margin: 40, size: 'A4', bufferPages: true });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="listado_${fecha}.pdf"`);
+    doc.pipe(res);
+
+    const W = 515, X = 40;
+
+    // ── CABECERA ──────────────────────────────────────────────
+    doc.rect(0,0,595.28,110).fill('#1a1a1a');
+    try { doc.image(path.join(__dirname,'logos/michelin.jpg'), X, 18, {height:50,fit:[50,50]}); } catch(e){}
+    try { doc.image(path.join(__dirname,'logos/repsol.jpg'),   X+58, 18, {height:50,fit:[50,50]}); } catch(e){}
+    try { doc.image(path.join(__dirname,'logos/tierra.png'),   X+116, 18, {height:50,fit:[50,50]}); } catch(e){}
+    doc.fillColor('#c9a84c').fontSize(20).font('Helvetica-Bold')
+       .text('LISTADO DEL DÍA', 230, 22, {width:325, align:'right'});
+    doc.fillColor('#fff').fontSize(15).font('Helvetica')
+       .text(_fmtFecha(fecha), 230, 48, {width:325, align:'right'});
+    doc.fillColor('#888').fontSize(10).font('Helvetica')
+       .text('Don Fadrique · Alba de Tormes', 230, 72, {width:325, align:'right'});
+    doc.moveTo(X,118).lineTo(555,118).strokeColor('#c9a84c').lineWidth(2).stroke();
+
+    let y = 130;
+
+    // ── RESUMEN ───────────────────────────────────────────────
+    const totalPax = reservas.reduce((s,r)=>s+(r.pax||0)+(r.ninos||0), 0);
+    const nEventos = reservas.filter(r=>r.tipo==='evento').length;
+    doc.rect(X,y,W,40).fill('#f5f0e8');
+    doc.moveTo(X,y).lineTo(555,y).strokeColor('#c9a84c').lineWidth(1).stroke();
+    doc.moveTo(X,y+40).lineTo(555,y+40).strokeColor('#c9a84c').lineWidth(1).stroke();
+    doc.fillColor('#1a1a1a').fontSize(13).font('Helvetica-Bold')
+       .text(`${reservas.length} reservas   ·   ${totalPax} comensales   ·   ${nEventos} eventos`,
+             X, y+13, {width:W, align:'center'});
+    y += 52;
+
+    if (reservas.length === 0) {
+      doc.fillColor('#888').fontSize(16).font('Helvetica')
+         .text('Sin reservas este día', X, y+60, {align:'center', width:W});
+    }
+
+    // ── AGRUPAR POR SALÓN ─────────────────────────────────────
+    const salonesOrden = ['Bodega','Cristalera','Cayetana','Cúpula'];
+    const grupos = {};
+    reservas.forEach(r => {
+      const s = r.salon || 'Sin salón';
+      if (!grupos[s]) grupos[s] = [];
+      grupos[s].push(r);
+    });
+    // Ordenar salones: primero los conocidos, luego el resto
+    const salonesEnDia = [
+      ...salonesOrden.filter(s => grupos[s]),
+      ...Object.keys(grupos).filter(s => !salonesOrden.includes(s))
+    ];
+
+    salonesEnDia.forEach(salon => {
+      const lista = grupos[salon];
+
+      // Estimar si cabe la cabecera de salón + al menos 1 reserva
+      if (y > 720) { doc.addPage(); y = 40; }
+
+      // ── CABECERA DE SALÓN ──────────────────────────────────
+      doc.rect(X, y, W, 36).fill('#c9a84c');
+      doc.fillColor('#1a1a1a').fontSize(16).font('Helvetica-Bold')
+         .text(salon.toUpperCase(), X+15, y+9, {width: W*0.5});
+      doc.fillColor('#1a1a1a').fontSize(11).font('Helvetica')
+         .text(`${lista.length} ${lista.length===1?'reserva':'reservas'}`, X, y+11, {width:W-15, align:'right'});
+      y += 36;
+
+      lista.forEach((r, idx) => {
+        const paxTxt = r.ninos > 0
+          ? `${r.pax} adultos + ${r.ninos} niños`
+          : `${r.pax} personas`;
+        const mesaTxt = r.mesa ? `Mesa ${r.mesa}` : '';
+        const tieneAler = r.alergias && r.alergias.trim();
+        const tieneObs  = r.obs && r.obs.trim();
+        const esEvento  = r.tipo === 'evento';
+
+        const altBase = 52;
+        const altAler = tieneAler ? 28 : 0;
+        const altObs  = tieneObs  ? 24 : 0;
+        const altTotal = altBase + altAler + altObs;
+
+        if (y + altTotal > 800) { doc.addPage(); y = 40; }
+
+        // Fondo alternado
+        doc.rect(X, y, W, altTotal).fill(idx%2===0 ? '#fff' : '#f8f5ef');
+        doc.moveTo(X, y+altTotal).lineTo(555, y+altTotal).strokeColor('#e8e0d0').lineWidth(0.5).stroke();
+
+        // Hora — grande y dorada
+        doc.fillColor('#c9a84c').fontSize(20).font('Helvetica-Bold')
+           .text(r.hora ? r.hora.substring(0,5) : '--', X+10, y+8, {width:70});
+
+        // Nombre
+        doc.fillColor('#1a1a1a').fontSize(14).font('Helvetica-Bold')
+           .text(r.nombre, X+88, y+6, {width: W-200});
+
+        // Tipo badge (evento/carta/menú) — derecha
+        const badgeTxt = esEvento ? (r.tipo_evento||'EVENTO') : r.menu ? 'MENÚ '+r.menu : 'CARTA';
+        doc.fillColor('#888').fontSize(10).font('Helvetica')
+           .text(badgeTxt, X+88, y+26, {width:W-103, align:'right'});
+
+        // Mesa + comensales — segunda línea
+        const infoTxt = [mesaTxt, paxTxt].filter(Boolean).join('   ·   ');
+        doc.fillColor('#555').fontSize(12).font('Helvetica')
+           .text(infoTxt, X+88, y+26, {width: W*0.55});
+
+        let yExtra = y + altBase;
+
+        // Alergias
+        if (tieneAler) {
+          doc.rect(X, yExtra, W, altAler).fill('#fde8e8');
+          doc.fillColor('#c0392b').fontSize(10).font('Helvetica-Bold')
+             .text('⚠  '+r.alergias, X+12, yExtra+8, {width:W-24});
+          yExtra += altAler;
+        }
+
+        // Observaciones
+        if (tieneObs) {
+          doc.fillColor('#888').fontSize(10).font('Helvetica-Oblique')
+             .text('Obs: '+r.obs, X+12, yExtra+6, {width:W-24});
+          yExtra += altObs;
+        }
+
+        y += altTotal;
+      });
+
+      y += 20; // espacio entre salones
+    });
+
+    // ── PIE ───────────────────────────────────────────────────
+    const rng = doc.bufferedPageRange();
+    for (let i=0; i<rng.count; i++) {
+      doc.switchToPage(i);
+      doc.rect(0,818,595.28,24).fill('#1a1a1a');
+      doc.fillColor('#666').fontSize(8).font('Helvetica')
+         .text(`NIMANSANMON S.L.  ·  Don Fadrique  ·  Página ${i+1} de ${rng.count}`,
+               X, 824, {align:'center', width:W+5});
+    }
+    doc.end();
+  } catch(e) {
+    console.error('Error listado-pdf:', e);
+    if (!res.headersSent) res.status(500).json({error:'Error generando PDF'});
+  }
+});
+
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });

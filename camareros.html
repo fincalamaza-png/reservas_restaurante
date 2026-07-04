@@ -152,6 +152,12 @@
     .orden-val { color: var(--dark); flex: 1; }
     .orden-bloque.ninos-ev .orden-val { color: #5b2c6f; }
     .refresh-note { text-align: center; font-size: .65rem; color: #bbb; padding: .4rem 0 .5rem; }
+    .btn-listado { display: flex; align-items: center; justify-content: center; gap: .4rem;
+                 width: 100%; margin-bottom: .85rem; background: var(--dark);
+                 border: none; color: var(--gold); border-radius: 8px;
+                 padding: .65rem; font-size: .82rem; font-weight: 600; cursor: pointer;
+                 font-family: inherit; touch-action: manipulation; }
+    .btn-listado:active { background: #333; }
   </style>
 </head>
 <body>
@@ -247,6 +253,7 @@ function renderDia(d){
   const tit=ds[0].toUpperCase()+ds.slice(1)+' '+d+' de '+MESES[mes-1];
   if(!lista.length){document.getElementById('content').innerHTML='<div class="section-head"><h2>'+tit+'</h2></div><div class="vacio"><span>📋</span>Sin reservas</div>';return;}
   let h='<div class="section-head"><h2>'+tit+'</h2><span class="cnt-badge">'+lista.length+(lista.length===1?' reserva':' reservas')+'</span></div>';
+  h+='<button class="btn-listado" onclick="abrirListadoPDF(\''+fStr+'\')">🖨️ Imprimir listado del día</button>';
   lista.forEach((r,i)=>{h+=card(r,i);});
   const n=new Date();
   h+='<div class="refresh-note">Actualizado '+n.getHours()+':'+String(n.getMinutes()).padStart(2,'0')+'</div>';
@@ -261,7 +268,7 @@ function card(r,i){
   let h=`<div class="r-card"><div class="r-head"><span class="r-hora">${hora}</span><span class="r-nombre">${e(r.nombre)}</span><span class="r-badge ${bCls}">${e(bTxt)}</span></div><div class="r-body"><div class="info-row"><div class="info-pill">🏛️&nbsp;<strong>${e(r.salon||'—')}</strong></div><div class="info-pill">👥&nbsp;<strong>${pax}</strong></div>${r.montaje?'<div class="info-pill">📐&nbsp;<strong>'+e(r.montaje)+'</strong></div>':''}</div>`;
   if(r.alergias&&r.alergias.trim())h+=`<div class="alergias"><div class="alergias-ttl">⚠️ Alergias / Intolerancias</div><div class="alergias-txt">${e(r.alergias)}</div></div>`;
   if(r.obs&&r.obs.trim())h+=`<div class="obs">💬 ${e(r.obs)}</div>`;
-  if(ev)h+=`<button class="btn-orden" id="bo${i}" onclick="togOrden(${i})">📋 Ver orden de servicio</button><div class="orden-wrap" id="ow${i}">${orden(r)}</div>`;
+  if(ev)h+=`<button class="btn-orden" onclick="abrirOrdenPDF(${r.id})">📋 Ver orden de servicio</button>`;
   return h+'</div></div>';
 }
 function orden(r){
@@ -275,6 +282,8 @@ function orden(r){
   return h;
 }
 function togOrden(i){const w=document.getElementById('ow'+i),b=document.getElementById('bo'+i),a=w.classList.toggle('visible');b.classList.toggle('abierto',a);b.textContent=a?'▲ Cerrar orden':'📋 Ver orden de servicio';}
+function abrirOrdenPDF(id){ window.open('/api/personal/orden-pdf/'+id+'?pin='+encodeURIComponent(pinOk),'_blank'); }
+function abrirListadoPDF(fecha){ window.open('/api/personal/listado-pdf?pin='+encodeURIComponent(pinOk)+'&fecha='+fecha,'_blank'); }
 function e(t){if(t==null)return'';return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 </script>
 </body>
