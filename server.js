@@ -359,6 +359,60 @@ try { db.exec(`
   db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('campos_barra_recena_v1', '1')").run();
 })();
 
+// Migración: "Menú Chef" — aperitivos, entrantes, carnes y postres con espacio para varios
+// platos ampliables, pescado como plato único, más barra libre y recena.
+(function migrarPlantilla7V2() {
+  const flag = db.prepare("SELECT valor FROM config WHERE clave = 'plantilla7_v2'").get();
+  if (flag && flag.valor === '1') return;
+  const vacios = n => Array.from({ length: n }, () => '');
+  const campos = [
+    { tipo: 'lista', titulo: 'Aperitivos', items: vacios(3) },
+    { tipo: 'lista', titulo: 'Entrantes', items: vacios(4) },
+    { tipo: 'plato', titulo: 'Pescado', texto: '' },
+    { tipo: 'lista', titulo: 'Carnes', items: vacios(3) },
+    { tipo: 'lista', titulo: 'Postres', items: vacios(2) },
+    { tipo: 'barra_libre', titulo: 'Barra libre', horas: '3,5 horas', precio: 29.90, valor: false },
+    { tipo: 'recena', titulo: 'Recena', valor: false, platos: [
+      { nombre: 'Bandeja de minihamburguesas', precio: 0 },
+      { nombre: 'Pizza', precio: 0 },
+      { nombre: 'Montaditos', precio: 0 },
+      { nombre: '', precio: 0 },
+      { nombre: '', precio: 0 },
+      { nombre: '', precio: 0 }
+    ]}
+  ];
+  db.prepare('UPDATE plantillas_menu SET secciones = ? WHERE nombre = ?')
+    .run(JSON.stringify(campos), 'Menú Chef');
+  db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla7_v2', '1')").run();
+})();
+
+// Migración: "Menú Instinto" — misma estructura que el Menú Chef pero con 2 platos más
+// en cada sección (incluido el pescado, que aquí pasa a admitir varias opciones).
+(function migrarPlantilla8V2() {
+  const flag = db.prepare("SELECT valor FROM config WHERE clave = 'plantilla8_v2'").get();
+  if (flag && flag.valor === '1') return;
+  const vacios = n => Array.from({ length: n }, () => '');
+  const campos = [
+    { tipo: 'lista', titulo: 'Aperitivos', items: vacios(5) },
+    { tipo: 'lista', titulo: 'Entrantes', items: vacios(6) },
+    { tipo: 'lista', titulo: 'Pescado', items: vacios(3) },
+    { tipo: 'lista', titulo: 'Carnes', items: vacios(5) },
+    { tipo: 'lista', titulo: 'Postres', items: vacios(4) },
+    { tipo: 'barra_libre', titulo: 'Barra libre', horas: '3,5 horas', precio: 29.90, valor: false },
+    { tipo: 'recena', titulo: 'Recena', valor: false, platos: [
+      { nombre: 'Bandeja de minihamburguesas', precio: 0 },
+      { nombre: 'Pizza', precio: 0 },
+      { nombre: 'Montaditos', precio: 0 },
+      { nombre: '', precio: 0 },
+      { nombre: '', precio: 0 },
+      { nombre: '', precio: 0 }
+    ]}
+  ];
+  db.prepare('UPDATE plantillas_menu SET secciones = ? WHERE nombre = ?')
+    .run(JSON.stringify(campos), 'Menú Instinto');
+  db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla8_v2', '1')").run();
+})();
+
 
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
