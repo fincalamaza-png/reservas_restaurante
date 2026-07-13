@@ -227,6 +227,69 @@ try { db.exec(`
   db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla1_v2', '1')").run();
 })();
 
+// Migración: "Reunión Familiar Tradicional 2" usa la misma estructura que la 1
+// (entrantes con opción de compartir, pescado/carne a elegir, sorbete sí/no, vinos),
+// pero sin platos por defecto rellenados.
+(function migrarPlantilla2V2() {
+  const flag = db.prepare("SELECT valor FROM config WHERE clave = 'plantilla2_v2'").get();
+  if (flag && flag.valor === '1') return;
+  const campos = [
+    { tipo: 'plato', titulo: 'Entrante 1', texto: '', compartir: false },
+    { tipo: 'plato', titulo: 'Entrante 2', texto: '', compartir: false },
+    { tipo: 'plato', titulo: 'Entrante 3', texto: '', compartir: false },
+    { tipo: 'plato', titulo: 'Entrante 4', texto: '', compartir: false },
+    { tipo: 'eleccion', titulo: 'Pescado', elegir: false, opciones: ['', '', ''] },
+    { tipo: 'sino', titulo: 'Sorbete', valor: false },
+    { tipo: 'eleccion', titulo: 'Carne', elegir: false, opciones: ['', '', '', ''] },
+    { tipo: 'plato', titulo: 'Postre', texto: '' },
+    { tipo: 'plato', titulo: 'Vino blanco', texto: '' },
+    { tipo: 'plato', titulo: 'Vino tinto', texto: '' },
+    { tipo: 'plato', titulo: 'Cava', texto: '' }
+  ];
+  db.prepare('UPDATE plantillas_menu SET secciones = ? WHERE nombre = ?')
+    .run(JSON.stringify(campos), 'Reunión Familiar Tradicional 2');
+  db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla2_v2', '1')").run();
+})();
+
+// Migración: "Menú Degustación Tradición" con los platos concretos indicados por Manuel
+(function migrarPlantilla5V2() {
+  const flag = db.prepare("SELECT valor FROM config WHERE clave = 'plantilla5_v2'").get();
+  if (flag && flag.valor === '1') return;
+  const campos = [
+    { tipo: 'plato', titulo: 'Aperitivo', texto: 'Sobrasada casera con encurtidos y miel' },
+    { tipo: 'plato', titulo: 'Aperitivo 2', texto: 'Peces de Alba (solo si los hay)' },
+    { tipo: 'plato', titulo: 'Entrante 1', texto: 'Salmorejo tradicional como se hacía en el huerto' },
+    { tipo: 'plato', titulo: 'Entrante 2', texto: 'Limón serrano al estilo albense' },
+    { tipo: 'plato', titulo: 'Entrante 3', texto: 'Judías verdes de nuestro huerto con pil-pil de jamón' },
+    { tipo: 'plato', titulo: 'Pescado', texto: 'Bacalao a la brasa' },
+    { tipo: 'plato', titulo: 'Carne', texto: 'Chuleta de morucha 100% con patatas y pimientos asados' },
+    { tipo: 'plato', titulo: 'Postre', texto: 'Tarta de queso estilo la viña con helado' }
+  ];
+  db.prepare('UPDATE plantillas_menu SET secciones = ? WHERE nombre = ?')
+    .run(JSON.stringify(campos), 'Menú Degustación Tradición');
+  db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla5_v2', '1')").run();
+})();
+
+// Migración: "Menú Degustación Tradición 2" con la misma estructura que la anterior,
+// pero sin platos por defecto (a rellenar).
+(function migrarPlantilla6V2() {
+  const flag = db.prepare("SELECT valor FROM config WHERE clave = 'plantilla6_v2'").get();
+  if (flag && flag.valor === '1') return;
+  const campos = [
+    { tipo: 'plato', titulo: 'Aperitivo', texto: '' },
+    { tipo: 'plato', titulo: 'Aperitivo 2', texto: '' },
+    { tipo: 'plato', titulo: 'Entrante 1', texto: '' },
+    { tipo: 'plato', titulo: 'Entrante 2', texto: '' },
+    { tipo: 'plato', titulo: 'Entrante 3', texto: '' },
+    { tipo: 'plato', titulo: 'Pescado', texto: '' },
+    { tipo: 'plato', titulo: 'Carne', texto: '' },
+    { tipo: 'plato', titulo: 'Postre', texto: '' }
+  ];
+  db.prepare('UPDATE plantillas_menu SET secciones = ? WHERE nombre = ?')
+    .run(JSON.stringify(campos), 'Menú Degustación Tradición 2');
+  db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla6_v2', '1')").run();
+})();
+
 
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
