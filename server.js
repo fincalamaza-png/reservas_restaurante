@@ -1920,7 +1920,7 @@ function parsePropuesta(r) {
 }
 
 app.get('/api/propuestas', (req, res) => {
-  const rows = db.prepare('SELECT * FROM propuestas ORDER BY created_at DESC').all();
+  const rows = db.prepare("SELECT * FROM propuestas ORDER BY (fecha_evento IS NULL OR fecha_evento = ''), fecha_evento ASC, created_at DESC").all();
   res.json(rows.map(parsePropuesta));
 });
 
