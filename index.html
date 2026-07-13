@@ -291,6 +291,45 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
   </div>
 </div>
 
+<div class="page" id="p-propuestas">
+  <div class="top"><button class="back" onclick="irA('p-config')">&#8592;</button><div style="flex:1;font-size:15px;font-weight:600">Propuestas de menú</div><button onclick="irA('p-propuestas-lista')" style="background:none;border:none;color:#8b1a2a;font-size:20px;cursor:pointer">&#128193;</button></div>
+  <div class="content">
+    <div style="font-size:12px;color:#888;margin-bottom:12px">Elige un menú para preparar y enviar una propuesta al cliente, sin necesidad de crear todavía la reserva.</div>
+    <div id="propuestas-grid"></div>
+  </div>
+</div>
+
+<div class="page" id="p-propuestas-lista">
+  <div class="top"><button class="back" onclick="irA('p-propuestas')">&#8592;</button><div style="flex:1;font-size:15px;font-weight:600">Propuestas enviadas</div></div>
+  <div class="content" id="propuestas-lista-body"></div>
+</div>
+
+<!-- MODAL NUEVA/EDITAR PROPUESTA -->
+<div id="modalPropuesta" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;overflow-y:auto">
+  <div style="background:#fff;max-width:560px;margin:20px auto;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="background:#1a1a1a;color:#b8965a;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:700" id="modalPropuesta-titulo">Propuesta de menú</div>
+      <button onclick="cerrarModalPropuesta()" style="background:none;border:none;color:#b8965a;font-size:22px;cursor:pointer">&#10005;</button>
+    </div>
+    <div style="padding:16px 20px;max-height:75vh;overflow-y:auto" id="modalPropuesta-body"></div>
+    <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;gap:10px">
+      <button class="btn btn-secondary" style="flex:1" onclick="guardarPropuesta(false)">&#128190; Guardar</button>
+      <button class="btn btn-primary" style="flex:1" id="btn-enviar-propuesta" onclick="guardarPropuesta(true)">&#128231; Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE PROPUESTA ENVIADA -->
+<div id="modalPropuestaDetalle" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;overflow-y:auto">
+  <div style="background:#fff;max-width:520px;margin:30px auto;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="background:#1a1a1a;color:#b8965a;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:700">Detalle de propuesta</div>
+      <button onclick="document.getElementById('modalPropuestaDetalle').style.display='none'" style="background:none;border:none;color:#b8965a;font-size:22px;cursor:pointer">&#10005;</button>
+    </div>
+    <div style="padding:16px 20px" id="modalPropuestaDetalle-body"></div>
+  </div>
+</div>
+
 <div class="page" id="p-clientes">
   <div class="top"><button class="back" onclick="irA('p-home')">&#8592;</button><div style="flex:1;font-size:15px;font-weight:600">Clientes</div></div>
   <div class="content" id="cli-body"></div>
@@ -515,6 +554,8 @@ function irA(id){
   if(id==='p-clientes')cargarClientes();
   if(id==='p-config')cargarConfig();
   if(id==='p-menus')renderMenus();
+  if(id==='p-propuestas')renderPropuestasGrid();
+  if(id==='p-propuestas-lista')renderPropuestasLista();
   if(id==='p-extras')renderExtras();
   if(id==='p-extras-dia'){cargarExtrasDia();}
   if(id==='p-orden-pdf'){}
@@ -1233,6 +1274,7 @@ function cargarConfig(){
       html+='</div>';
       html+='<button class="btn btn-primary" onclick="guardarConfig()">Guardar configuracion</button>';
       html+='<div style="margin-top:12px"><button class="btn btn-secondary" onclick="irA(&apos;p-menus&apos;)">Gestionar menus</button></div>';
+      html+='<div style="margin-top:10px"><button class="btn btn-primary" onclick="irA(&apos;p-propuestas&apos;)">Propuestas de menú</button></div>';
       document.getElementById('config-body').innerHTML=html;
     });
 }
@@ -1251,6 +1293,148 @@ function guardarConfig(){
     .then(function(){alert('Configuracion guardada');});
 }
 
+
+// ─── PROPUESTAS DE MENÚ ────────────────────────────────────────────
+S.plantillas = [];
+S.propuestas = [];
+S.propuestaForm = null;
+
+function renderPropuestasGrid(){
+  fetch('/api/plantillas-menu').then(function(r){return r.json();}).then(function(plantillas){
+    S.plantillas = plantillas;
+    var html = '';
+    plantillas.forEach(function(p){
+      html += '<button class="btn btn-secondary" style="margin-bottom:10px;text-align:left;padding:14px 16px" onclick="abrirNuevaPropuesta('+p.id+')">'+p.nombre+'</button>';
+    });
+    document.getElementById('propuestas-grid').innerHTML = html;
+  });
+}
+
+function abrirNuevaPropuesta(plantillaId){
+  var p = S.plantillas.find(function(x){return x.id===plantillaId;});
+  if(!p) return;
+  S.propuestaForm = {
+    id: null,
+    plantilla_id: p.id, plantilla_nombre: p.nombre,
+    cliente:'', telefono:'', email:'', fecha_evento:'', tipo_evento:'',
+    pax:'', precio_persona: p.precio_persona || 0, notas:'',
+    secciones: JSON.parse(JSON.stringify(p.secciones||[]))
+  };
+  renderModalPropuesta();
+  document.getElementById('modalPropuesta').style.display='block';
+}
+
+function renderModalPropuesta(){
+  var f = S.propuestaForm;
+  document.getElementById('modalPropuesta-titulo').textContent = f.plantilla_nombre;
+  var html = '';
+  html += '<div class="field"><label>Nombre del cliente / evento</label><input type="text" id="pf-cliente" value="'+(f.cliente||'')+'" placeholder="Ej: Familia Garcia - Bautizo de Lucia"></div>';
+  html += '<div class="field"><label>Fecha del evento</label><input type="date" id="pf-fecha" value="'+(f.fecha_evento||'')+'"></div>';
+  html += '<div class="field"><label>Tipo de evento</label><input type="text" id="pf-tipo" value="'+(f.tipo_evento||'')+'" placeholder="Bautizo, comunion, boda, cumpleanos..."></div>';
+  html += '<div class="field"><label>Telefono</label><input type="tel" id="pf-tel" value="'+(f.telefono||'')+'"></div>';
+  html += '<div class="field"><label>Email</label><input type="email" id="pf-email" value="'+(f.email||'')+'"></div>';
+  html += '<div class="field"><label>Numero de personas (aprox., opcional)</label><input type="number" id="pf-pax" value="'+(f.pax||'')+'"></div>';
+  html += '<div style="font-weight:600;margin:14px 0 6px;color:#8b1a2a">Contenido del menu</div>';
+  f.secciones.forEach(function(s,i){
+    html += '<div class="field"><label>'+s.titulo+'</label><textarea class="pf-seccion" oninput="S.propuestaForm.secciones['+i+'].texto=this.value">'+(s.texto||'')+'</textarea></div>';
+  });
+  html += '<div class="field"><label>Precio por persona (EUR, opcional)</label><input type="number" step="0.01" id="pf-precio" value="'+(f.precio_persona||0)+'"></div>';
+  html += '<div class="field"><label>Observaciones</label><textarea id="pf-notas">'+(f.notas||'')+'</textarea></div>';
+  document.getElementById('modalPropuesta-body').innerHTML = html;
+}
+
+function cerrarModalPropuesta(){
+  document.getElementById('modalPropuesta').style.display='none';
+}
+
+function recogerDatosPropuesta(){
+  var f = S.propuestaForm;
+  f.cliente = document.getElementById('pf-cliente').value;
+  f.fecha_evento = document.getElementById('pf-fecha').value;
+  f.tipo_evento = document.getElementById('pf-tipo').value;
+  f.telefono = document.getElementById('pf-tel').value;
+  f.email = document.getElementById('pf-email').value;
+  f.pax = document.getElementById('pf-pax').value || null;
+  f.precio_persona = parseFloat(document.getElementById('pf-precio').value) || 0;
+  f.notas = document.getElementById('pf-notas').value;
+  return f;
+}
+
+function guardarPropuesta(enviar){
+  var f = recogerDatosPropuesta();
+  if(!f.cliente){ alert('Indica el nombre del cliente o evento'); return; }
+  if(enviar && !f.email){ if(!confirm('No se ha indicado email de cliente. Se enviara solo a administracion. Continuar?')) return; }
+  var metodo = f.id ? 'PUT' : 'POST';
+  var url = f.id ? '/api/propuestas/'+f.id : '/api/propuestas';
+  fetch(url,{method:metodo,headers:{'Content-Type':'application/json'},body:JSON.stringify(f)})
+    .then(function(r){return r.json();})
+    .then(function(prop){
+      f.id = prop.id;
+      if(!enviar){ alert('Propuesta guardada'); cerrarModalPropuesta(); return; }
+      fetch('/api/propuestas/'+prop.id+'/enviar',{method:'POST'})
+        .then(function(r){return r.json();})
+        .then(function(res){
+          if(res.ok){ alert('Propuesta enviada correctamente'); cerrarModalPropuesta(); }
+          else alert('Error al enviar: '+(res.msg||''));
+        });
+    });
+}
+
+function renderPropuestasLista(){
+  fetch('/api/propuestas').then(function(r){return r.json();}).then(function(props){
+    S.propuestas = props;
+    if(!props.length){
+      document.getElementById('propuestas-lista-body').innerHTML='<div style="text-align:center;color:#999;padding:30px 0">Aun no se ha enviado ninguna propuesta</div>';
+      return;
+    }
+    var html='';
+    props.forEach(function(p){
+      var badge = p.estado==='confirmada' ? 'badge-confirmada' : (p.estado==='enviada' ? 'badge-pendiente' : 'badge-cancelada');
+      var estadoTxt = p.estado==='confirmada' ? 'Confirmada' : (p.estado==='enviada' ? 'Enviada' : 'Borrador');
+      html += '<div class="card" onclick="verDetallePropuesta('+p.id+')">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600">'+(p.cliente||'')+'</div><span class="badge '+badge+'">'+estadoTxt+'</span></div>';
+      html += '<div style="font-size:12px;color:#888;margin-top:4px">'+(p.plantilla_nombre||'')+'</div>';
+      html += '<div style="font-size:12px;color:#888">Evento: '+(p.fecha_evento?fmtFechaCorta(p.fecha_evento):'sin fecha')+'</div>';
+      if(p.fecha_envio) html += '<div style="font-size:11px;color:#aaa">Enviada: '+p.fecha_envio+'</div>';
+      html += '</div>';
+    });
+    document.getElementById('propuestas-lista-body').innerHTML = html;
+  });
+}
+
+function verDetallePropuesta(id){
+  var p = S.propuestas.find(function(x){return x.id===id;});
+  if(!p) return;
+  var html = '<div class="field"><label>Cliente</label><div>'+(p.cliente||'')+'</div></div>';
+  html += '<div class="field"><label>Menu</label><div>'+(p.plantilla_nombre||'')+'</div></div>';
+  html += '<div class="field"><label>Fecha evento</label><div>'+(p.fecha_evento?fmtFechaCorta(p.fecha_evento):'Sin definir')+'</div></div>';
+  html += '<div class="field"><label>Estado</label><div>'+p.estado+'</div></div>';
+  html += '<button class="btn btn-secondary" style="margin-bottom:8px" onclick="window.open(\'/api/propuestas/'+p.id+'/pdf\',\'_blank\')">&#128196; Ver PDF</button>';
+  if(p.estado!=='confirmada'){
+    html += '<button class="btn btn-primary" style="margin-bottom:8px" onclick="confirmarPropuestaComoReserva('+p.id+')">&#10003; Convertir en reserva</button>';
+  }
+  html += '<button class="btn btn-danger" onclick="eliminarPropuesta('+p.id+')">Eliminar</button>';
+  document.getElementById('modalPropuestaDetalle-body').innerHTML = html;
+  document.getElementById('modalPropuestaDetalle').style.display='block';
+}
+
+function confirmarPropuestaComoReserva(id){
+  if(!confirm('Se creara la reserva con este menu ya incorporado. Podras completar salon, hora y el resto de datos despues desde el detalle de la reserva. Continuar?')) return;
+  fetch('/api/propuestas/'+id+'/confirmar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(res.ok){ alert('Reserva creada correctamente'); document.getElementById('modalPropuestaDetalle').style.display='none'; irA('p-home'); }
+      else alert('Error: '+(res.msg||''));
+    });
+}
+
+function eliminarPropuesta(id){
+  if(!confirm('¿Eliminar esta propuesta?')) return;
+  fetch('/api/propuestas/'+id,{method:'DELETE'}).then(function(){
+    document.getElementById('modalPropuestaDetalle').style.display='none';
+    renderPropuestasLista();
+  });
+}
 
 S.extrasTab = 'lista';
 S.extrasDia = new Date().toISOString().slice(0,10);

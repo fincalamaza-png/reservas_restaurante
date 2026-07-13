@@ -98,6 +98,110 @@ try { db.exec("CREATE TABLE IF NOT EXISTS presupuestos (id INTEGER PRIMARY KEY A
   // Ensure presupuestos table exists
   try { db.exec("CREATE TABLE IF NOT EXISTS presupuestos (id INTEGER PRIMARY KEY AUTOINCREMENT, numero TEXT, reserva_id INTEGER, cliente TEXT, fecha_evento TEXT, salon TEXT, pax INTEGER, tipo_evento TEXT, firmante TEXT, lineas TEXT, subtotal REAL, iva REAL, total REAL, obs TEXT, enviado INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime(\'now\')))"); } catch(e) {}
 
+// ─── PROPUESTAS DE MENÚ (envío previo a reserva) ──────────────────────────────
+try { db.exec(`
+  CREATE TABLE IF NOT EXISTS plantillas_menu (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT,
+    tipo TEXT,
+    orden INTEGER DEFAULT 0,
+    secciones TEXT,
+    precio_persona REAL DEFAULT 0,
+    activo INTEGER DEFAULT 1
+  );
+  CREATE TABLE IF NOT EXISTS propuestas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plantilla_id INTEGER,
+    plantilla_nombre TEXT,
+    cliente TEXT,
+    telefono TEXT,
+    email TEXT,
+    fecha_evento TEXT,
+    tipo_evento TEXT,
+    pax INTEGER,
+    secciones TEXT,
+    precio_persona REAL DEFAULT 0,
+    notas TEXT,
+    estado TEXT DEFAULT 'borrador',
+    fecha_envio TEXT,
+    reserva_id INTEGER,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (reserva_id) REFERENCES reservas(id)
+  );
+`); } catch(e) {}
+
+// Sembrar las 8 plantillas base si la tabla está vacía
+(function seedPlantillasMenu() {
+  const n = db.prepare('SELECT COUNT(*) as n FROM plantillas_menu').get().n;
+  if (n > 0) return;
+  const base = [
+    { nombre: 'Reunión Familiar Tradicional 1', tipo: 'comida', secciones: [
+      { titulo: 'Aperitivo', texto: 'Por definir' },
+      { titulo: 'Entrantes', texto: 'Por definir' },
+      { titulo: 'Plato principal', texto: 'Por definir' },
+      { titulo: 'Postre', texto: 'Por definir' },
+      { titulo: 'Bebidas', texto: 'Agua, vino blanco, vino tinto, cava, refrescos, café' }
+    ]},
+    { nombre: 'Reunión Familiar Tradicional 2', tipo: 'comida', secciones: [
+      { titulo: 'Aperitivo', texto: 'Por definir' },
+      { titulo: 'Entrantes', texto: 'Por definir' },
+      { titulo: 'Pescado', texto: 'Por definir' },
+      { titulo: 'Carne', texto: 'Por definir' },
+      { titulo: 'Postre', texto: 'Por definir' },
+      { titulo: 'Bebidas', texto: 'Agua, vino blanco, vino tinto, cava, refrescos, café' }
+    ]},
+    { nombre: 'Cóctel Comida', tipo: 'coctel', secciones: [
+      { titulo: 'Cóctel de bienvenida', texto: 'Por definir' },
+      { titulo: 'Aperitivos variados', texto: 'Por definir' },
+      { titulo: 'Plato principal', texto: 'Por definir' },
+      { titulo: 'Postre', texto: 'Por definir' },
+      { titulo: 'Bebidas', texto: 'Agua, vino blanco, vino tinto, cava, refrescos, café' }
+    ]},
+    { nombre: 'Cóctel con Estaciones', tipo: 'coctel', secciones: [
+      { titulo: 'Estación 1', texto: 'Por definir' },
+      { titulo: 'Estación 2', texto: 'Por definir' },
+      { titulo: 'Estación 3', texto: 'Por definir' },
+      { titulo: 'Postres', texto: 'Por definir' },
+      { titulo: 'Bebidas', texto: 'Agua, vino blanco, vino tinto, cava, refrescos, café' }
+    ]},
+    { nombre: 'Menú Degustación Tradición', tipo: 'degustacion', secciones: [
+      { titulo: 'Aperitivo', texto: 'Por definir' },
+      { titulo: 'Primer plato', texto: 'Por definir' },
+      { titulo: 'Pescado', texto: 'Por definir' },
+      { titulo: 'Carne', texto: 'Por definir' },
+      { titulo: 'Postre', texto: 'Por definir' },
+      { titulo: 'Bebidas', texto: 'Agua, vino blanco, vino tinto, cava, refrescos, café' }
+    ]},
+    { nombre: 'Menú Degustación Tradición 2', tipo: 'degustacion', secciones: [
+      { titulo: 'Aperitivo', texto: 'Por definir' },
+      { titulo: 'Entrante', texto: 'Por definir' },
+      { titulo: 'Pescado', texto: 'Por definir' },
+      { titulo: 'Carne', texto: 'Por definir' },
+      { titulo: 'Pre-postre', texto: 'Por definir' },
+      { titulo: 'Postre', texto: 'Por definir' },
+      { titulo: 'Bebidas', texto: 'Agua, vino blanco, vino tinto, cava, refrescos, café' }
+    ]},
+    { nombre: 'Menú Chef', tipo: 'degustacion', secciones: [
+      { titulo: 'Aperitivo del chef', texto: 'Por definir' },
+      { titulo: 'Entrante', texto: 'Por definir' },
+      { titulo: 'Plato principal', texto: 'Por definir' },
+      { titulo: 'Pre-postre', texto: 'Por definir' },
+      { titulo: 'Postre', texto: 'Por definir' },
+      { titulo: 'Bebidas', texto: 'Agua, vino blanco, vino tinto, cava, refrescos, café' }
+    ]},
+    { nombre: 'Menú Instinto', tipo: 'degustacion', secciones: [
+      { titulo: 'Snacks de bienvenida', texto: 'Por definir' },
+      { titulo: 'Entrante', texto: 'Por definir' },
+      { titulo: 'Pescado', texto: 'Por definir' },
+      { titulo: 'Carne', texto: 'Por definir' },
+      { titulo: 'Postre', texto: 'Por definir' },
+      { titulo: 'Bebidas', texto: 'Agua, vino blanco, vino tinto, cava, refrescos, café' }
+    ]}
+  ];
+  const stmt = db.prepare('INSERT INTO plantillas_menu (nombre, tipo, orden, secciones, precio_persona, activo) VALUES (?,?,?,?,?,1)');
+  base.forEach((p, i) => stmt.run(p.nombre, p.tipo, i, JSON.stringify(p.secciones), 0));
+})();
+
 
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
@@ -1561,6 +1665,265 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
     }]
   });
 }
+
+// ─── API PLANTILLAS DE MENÚ ───────────────────────────────────────────────────
+app.get('/api/plantillas-menu', (req, res) => {
+  const rows = db.prepare('SELECT * FROM plantillas_menu WHERE activo = 1 ORDER BY orden, id').all();
+  res.json(rows.map(r => ({ ...r, secciones: JSON.parse(r.secciones || '[]') })));
+});
+
+app.get('/api/plantillas-menu/:id', (req, res) => {
+  const r = db.prepare('SELECT * FROM plantillas_menu WHERE id = ?').get(req.params.id);
+  if (!r) return res.status(404).json({ error: 'No encontrada' });
+  res.json({ ...r, secciones: JSON.parse(r.secciones || '[]') });
+});
+
+app.put('/api/plantillas-menu/:id', (req, res) => {
+  const d = req.body;
+  db.prepare('UPDATE plantillas_menu SET nombre=?, secciones=?, precio_persona=? WHERE id=?')
+    .run(d.nombre, JSON.stringify(d.secciones || []), d.precio_persona || 0, req.params.id);
+  const r = db.prepare('SELECT * FROM plantillas_menu WHERE id = ?').get(req.params.id);
+  res.json({ ...r, secciones: JSON.parse(r.secciones || '[]') });
+});
+
+// ─── API PROPUESTAS DE MENÚ (envío previo a reserva) ─────────────────────────
+app.get('/api/propuestas', (req, res) => {
+  const rows = db.prepare('SELECT * FROM propuestas ORDER BY created_at DESC').all();
+  res.json(rows.map(r => ({ ...r, secciones: JSON.parse(r.secciones || '[]') })));
+});
+
+app.get('/api/propuestas/:id', (req, res) => {
+  const r = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
+  if (!r) return res.status(404).json({ error: 'No encontrada' });
+  res.json({ ...r, secciones: JSON.parse(r.secciones || '[]') });
+});
+
+app.post('/api/propuestas', (req, res) => {
+  const d = req.body;
+  const result = db.prepare(`
+    INSERT INTO propuestas (plantilla_id, plantilla_nombre, cliente, telefono, email, fecha_evento, tipo_evento, pax, secciones, precio_persona, notas, estado)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador')
+  `).run(
+    d.plantilla_id || null, d.plantilla_nombre || '', d.cliente || '', d.telefono || '', d.email || '',
+    d.fecha_evento || '', d.tipo_evento || '', d.pax || null,
+    JSON.stringify(d.secciones || []), d.precio_persona || 0, d.notas || ''
+  );
+  const nueva = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(result.lastInsertRowid);
+  res.json({ ...nueva, secciones: JSON.parse(nueva.secciones || '[]') });
+});
+
+app.put('/api/propuestas/:id', (req, res) => {
+  const d = req.body;
+  db.prepare(`
+    UPDATE propuestas SET cliente=?, telefono=?, email=?, fecha_evento=?, tipo_evento=?, pax=?, secciones=?, precio_persona=?, notas=?
+    WHERE id=?
+  `).run(
+    d.cliente || '', d.telefono || '', d.email || '', d.fecha_evento || '', d.tipo_evento || '',
+    d.pax || null, JSON.stringify(d.secciones || []), d.precio_persona || 0, d.notas || '', req.params.id
+  );
+  const actualizada = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
+  res.json({ ...actualizada, secciones: JSON.parse(actualizada.secciones || '[]') });
+});
+
+app.delete('/api/propuestas/:id', (req, res) => {
+  db.prepare('DELETE FROM propuestas WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// Genera el PDF de una propuesta (usado tanto para enviar como para volver a consultarlo)
+async function generarPDFPropuesta(prop) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const chunks = [];
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const gold = '#b8965a';
+    const dark = '#2c2c2c';
+    const gray = '#666666';
+    const lightgray = '#f5f2ee';
+    const secciones = typeof prop.secciones === 'string' ? JSON.parse(prop.secciones || '[]') : (prop.secciones || []);
+
+    let fechaTxt = '';
+    if (prop.fecha_evento) {
+      const fechaEvento = new Date(prop.fecha_evento + 'T12:00:00');
+      fechaTxt = fechaEvento.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    // Cabecera dorada
+    doc.rect(50, 50, 495, 80).fill(gold);
+    doc.fillColor('#fff').fontSize(20).font('Helvetica-Bold').text('DON FADRIQUE', 65, 65);
+    doc.fontSize(8).font('Helvetica').text('R E S T A U R A N T E · A L B A D E T O R M E S', 65, 88);
+    doc.fontSize(15).font('Helvetica-Bold').text('PROPUESTA DE MENÚ', 300, 65, { width: 230, align: 'right' });
+    doc.fontSize(11).font('Helvetica').text(prop.plantilla_nombre || '', 300, 88, { width: 230, align: 'right' });
+
+    // Logos
+    let logoY = 140;
+    try {
+      const michelin = path.join(LOGOS_DIR, 'michelin.jpg');
+      const repsol = path.join(LOGOS_DIR, 'repsol.jpg');
+      const tierra = path.join(LOGOS_DIR, 'tierra.png');
+      if (fs.existsSync(michelin)) doc.image(michelin, 65, logoY, { height: 38 });
+      if (fs.existsSync(repsol)) doc.image(repsol, 130, logoY, { height: 38 });
+      if (fs.existsSync(tierra)) doc.image(tierra, 200, logoY, { height: 38 });
+    } catch(e) {}
+
+    // Datos cliente
+    doc.rect(50, 190, 495, 55).fill(lightgray);
+    doc.fillColor(gray).fontSize(9).font('Helvetica');
+    doc.text('CLIENTE', 65, 200).text('FECHA EVENTO', 240, 200).text('TIPO EVENTO', 420, 200);
+    doc.fillColor(dark).fontSize(11).font('Helvetica-Bold');
+    doc.text(prop.cliente || '', 65, 213, { width: 165 })
+       .text(fechaTxt || 'Por confirmar', 240, 213, { width: 165 })
+       .text(prop.tipo_evento || '', 420, 213, { width: 115 });
+
+    // Secciones del menú
+    let y = 265;
+    secciones.forEach((s) => {
+      if (y > 700) { doc.addPage(); y = 60; }
+      doc.fillColor(gold).fontSize(11).font('Helvetica-Bold').text((s.titulo || '').toUpperCase(), 65, y);
+      y += 16;
+      doc.fillColor(dark).fontSize(10).font('Helvetica');
+      const h = doc.heightOfString(s.texto || '', { width: 460 });
+      doc.text(s.texto || '', 65, y, { width: 460 });
+      y += h + 14;
+      doc.moveTo(65, y - 6).lineTo(545, y - 6).strokeColor('#e0dcd6').stroke();
+    });
+
+    // Precio por persona
+    if (prop.precio_persona) {
+      y += 8;
+      if (y > 740) { doc.addPage(); y = 60; }
+      doc.fillColor(dark).fontSize(12).font('Helvetica-Bold')
+        .text('Precio por persona: ' + Number(prop.precio_persona).toFixed(2) + ' € (IVA no incluido)', 65, y);
+      y += 22;
+    }
+
+    if (prop.notas) {
+      if (y > 730) { doc.addPage(); y = 60; }
+      doc.fillColor(gray).fontSize(9).font('Helvetica').text('Observaciones: ' + prop.notas, 65, y, { width: 460 });
+      y += 20;
+    }
+
+    // Condiciones
+    if (y > 720) { doc.addPage(); y = 60; }
+    y += 10;
+    doc.rect(50, y, 495, 55).fill('#f9f9f7');
+    doc.fillColor(gray).fontSize(9).font('Helvetica');
+    doc.text('NIMANSANMON S.L.  ·  CIF: B37297223', 65, y + 10);
+    doc.text('Esta propuesta tiene carácter orientativo. Los platos y precios podrán ajustarse en la confirmación definitiva de la reserva.', 65, y + 23, { width: 460 });
+    doc.text('Validez de la propuesta: 30 días.', 65, y + 40);
+
+    doc.end();
+  });
+}
+
+async function enviarEmailPropuesta(prop, pdfBuffer) {
+  const cfg = getConfig();
+  if (!cfg.email_smtp || !cfg.email_pass) throw new Error('SMTP no configurado');
+
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com', port: 587, secure: false,
+    auth: { user: cfg.email_smtp, pass: cfg.email_pass }
+  });
+
+  const destinatarios = [];
+  if (prop.email) destinatarios.push(prop.email);
+  destinatarios.push('oscar@donfadrique.com');
+  const copias = 'nicocuadri@hotmail.com, fincalamaza@gmail.com';
+
+  let fechaTxt = 'por confirmar';
+  if (prop.fecha_evento) {
+    fechaTxt = new Date(prop.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  const htmlBody = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:sans-serif">
+<div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
+  <div style="background:#b8965a;padding:28px 24px;text-align:center">
+    <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.7)">R E S T A U R A N T E</div>
+    <div style="font-family:Georgia,serif;font-size:28px;color:#fff;letter-spacing:3px;margin:4px 0">Don Fadrique</div>
+    <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.8)">Propuesta de menú: ${prop.plantilla_nombre || ''}</div>
+  </div>
+  <div style="background:#fff;padding:24px;border:1px solid #e0dcd6;border-top:none">
+    <p style="font-size:14px;color:#333">Estimado/a <strong>${prop.cliente || ''}</strong>,</p>
+    <p style="font-size:13px;color:#555">Adjuntamos la propuesta de menú para el evento del <strong>${fechaTxt}</strong>.</p>
+    <p style="font-size:13px;color:#555">Si está de acuerdo, contáctenos por teléfono o email para confirmar la reserva con este menú.</p>
+    <p style="font-size:11px;color:#aaa;margin-top:20px">Restaurante Don Fadrique · NIMANSANMON S.L. · CIF: B37297223 · Alba de Tormes · Tel. 920 37 00 51</p>
+  </div>
+</div></body></html>`;
+
+  await transporter.sendMail({
+    from: `"Don Fadrique" <${cfg.email_smtp}>`,
+    to: destinatarios.join(', '),
+    cc: copias,
+    subject: `Propuesta de menú - ${prop.plantilla_nombre || ''} - ${prop.cliente || ''}`,
+    html: htmlBody,
+    attachments: [{
+      filename: `Propuesta_${(prop.plantilla_nombre||'menu').replace(/\s+/g,'_')}_${(prop.cliente||'cliente').replace(/\s+/g, '_')}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf'
+    }]
+  });
+}
+
+app.post('/api/propuestas/:id/enviar', async (req, res) => {
+  const prop = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
+  if (!prop) return res.json({ ok: false, msg: 'Propuesta no encontrada' });
+  try {
+    const pdfBuffer = await generarPDFPropuesta(prop);
+    await enviarEmailPropuesta(prop, pdfBuffer);
+    db.prepare("UPDATE propuestas SET estado = 'enviada', fecha_envio = datetime('now') WHERE id = ?").run(prop.id);
+    const actualizada = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(prop.id);
+    res.json({ ok: true, propuesta: { ...actualizada, secciones: JSON.parse(actualizada.secciones || '[]') } });
+  } catch(e) {
+    res.json({ ok: false, msg: e.message });
+  }
+});
+
+// Ver / descargar de nuevo el PDF de una propuesta ya generada
+app.get('/api/propuestas/:id/pdf', async (req, res) => {
+  const prop = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
+  if (!prop) return res.status(404).send('Propuesta no encontrada');
+  try {
+    const pdfBuffer = await generarPDFPropuesta(prop);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="Propuesta_${prop.id}.pdf"`);
+    res.send(pdfBuffer);
+  } catch(e) {
+    res.status(500).send('Error generando PDF');
+  }
+});
+
+// Convierte una propuesta (ya decidida por el cliente) en una reserva real, incorporando el menú
+app.post('/api/propuestas/:id/confirmar', (req, res) => {
+  const d = req.body || {};
+  const prop = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
+  if (!prop) return res.json({ ok: false, msg: 'Propuesta no encontrada' });
+
+  const secciones = JSON.parse(prop.secciones || '[]');
+  const menuTexto = secciones.map(s => `${s.titulo}: ${s.texto}`).join('\n');
+
+  const stmt = db.prepare(`
+    INSERT INTO reservas (tipo, salon, mesa, fecha, hora, nombre, tel, email, pax, menu, alergias, obs, estado,
+      tipo_evento, montaje, protocolo, coctel, coctel_det, entrantes, pescado, sorbete, carne, postre,
+      vino_blanco, vino_tinto, vino_cava, vino_extra, copas, fianza, fianza_imp, conf_env, rec_env, menus_detalle)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0,?)
+  `);
+  const result = stmt.run(
+    'evento', d.salon || null, d.mesa || null, prop.fecha_evento, d.hora || '',
+    prop.cliente, prop.telefono || '', prop.email || '', d.pax || prop.pax || 0,
+    prop.plantilla_nombre || '', d.alergias || '', d.obs || prop.notas || '', 'pendiente',
+    prop.tipo_evento || '', d.montaje || 'imperial', 0, 0, '', '', '', 0, '', '',
+    d.vino_blanco || '', d.vino_tinto || '', d.vino_cava || '', d.vino_extra || '', 0,
+    0, null, menuTexto
+  );
+
+  db.prepare("UPDATE propuestas SET estado = 'confirmada', reserva_id = ? WHERE id = ?").run(result.lastInsertRowid, prop.id);
+  const nueva = rowToObj(db.prepare('SELECT * FROM reservas WHERE id = ?').get(result.lastInsertRowid));
+  autoConvocar(nueva.fecha).catch(e => console.error('autoConvocar error:', e.message));
+  res.json({ ok: true, reserva: nueva });
+});
 
 // ─── API ALERTAS CONVOCATORIA ────────────────────────────────────────────────
 // Ver alertas de convocatorias pendientes de confirmar
