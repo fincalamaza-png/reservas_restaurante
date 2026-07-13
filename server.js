@@ -129,6 +129,9 @@ try { db.exec(`
     FOREIGN KEY (reserva_id) REFERENCES reservas(id)
   );
 `); } catch(e) {}
+// Propuestas: soporte para varios menús en un mismo documento + suplementos opcionales con coste adicional
+try { db.exec("ALTER TABLE propuestas ADD COLUMN menus TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE propuestas ADD COLUMN extras TEXT"); } catch(e) {}
 
 // Sembrar las 8 plantillas base si la tabla está vacía
 (function seedPlantillasMenu() {
@@ -1898,42 +1901,56 @@ app.put('/api/plantillas-menu/:id', (req, res) => {
 });
 
 // ─── API PROPUESTAS DE MENÚ (envío previo a reserva) ─────────────────────────
+// Cada propuesta puede incluir varios menús a elegir (menus: array) y una lista
+// de suplementos opcionales con coste adicional (extras: array de {nombre, precio}).
+function parsePropuesta(r) {
+  return {
+    ...r,
+    menus: JSON.parse(r.menus || '[]'),
+    extras: JSON.parse(r.extras || '[]')
+  };
+}
+
 app.get('/api/propuestas', (req, res) => {
   const rows = db.prepare('SELECT * FROM propuestas ORDER BY created_at DESC').all();
-  res.json(rows.map(r => ({ ...r, secciones: JSON.parse(r.secciones || '[]') })));
+  res.json(rows.map(parsePropuesta));
 });
 
 app.get('/api/propuestas/:id', (req, res) => {
   const r = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
   if (!r) return res.status(404).json({ error: 'No encontrada' });
-  res.json({ ...r, secciones: JSON.parse(r.secciones || '[]') });
+  res.json(parsePropuesta(r));
 });
 
 app.post('/api/propuestas', (req, res) => {
   const d = req.body;
+  const menus = d.menus || [];
+  const nombreConjunto = menus.map(m => m.plantilla_nombre).filter(Boolean).join(' / ');
   const result = db.prepare(`
-    INSERT INTO propuestas (plantilla_id, plantilla_nombre, cliente, telefono, email, fecha_evento, tipo_evento, pax, secciones, precio_persona, notas, estado)
+    INSERT INTO propuestas (plantilla_id, plantilla_nombre, cliente, telefono, email, fecha_evento, tipo_evento, pax, menus, extras, notas, estado)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador')
   `).run(
-    d.plantilla_id || null, d.plantilla_nombre || '', d.cliente || '', d.telefono || '', d.email || '',
+    (menus[0] && menus[0].plantilla_id) || null, nombreConjunto, d.cliente || '', d.telefono || '', d.email || '',
     d.fecha_evento || '', d.tipo_evento || '', d.pax || null,
-    JSON.stringify(d.secciones || []), d.precio_persona || 0, d.notas || ''
+    JSON.stringify(menus), JSON.stringify(d.extras || []), d.notas || ''
   );
   const nueva = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(result.lastInsertRowid);
-  res.json({ ...nueva, secciones: JSON.parse(nueva.secciones || '[]') });
+  res.json(parsePropuesta(nueva));
 });
 
 app.put('/api/propuestas/:id', (req, res) => {
   const d = req.body;
+  const menus = d.menus || [];
+  const nombreConjunto = menus.map(m => m.plantilla_nombre).filter(Boolean).join(' / ');
   db.prepare(`
-    UPDATE propuestas SET cliente=?, telefono=?, email=?, fecha_evento=?, tipo_evento=?, pax=?, secciones=?, precio_persona=?, notas=?
+    UPDATE propuestas SET plantilla_nombre=?, cliente=?, telefono=?, email=?, fecha_evento=?, tipo_evento=?, pax=?, menus=?, extras=?, notas=?
     WHERE id=?
   `).run(
-    d.cliente || '', d.telefono || '', d.email || '', d.fecha_evento || '', d.tipo_evento || '',
-    d.pax || null, JSON.stringify(d.secciones || []), d.precio_persona || 0, d.notas || '', req.params.id
+    nombreConjunto, d.cliente || '', d.telefono || '', d.email || '', d.fecha_evento || '', d.tipo_evento || '',
+    d.pax || null, JSON.stringify(menus), JSON.stringify(d.extras || []), d.notas || '', req.params.id
   );
   const actualizada = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
-  res.json({ ...actualizada, secciones: JSON.parse(actualizada.secciones || '[]') });
+  res.json(parsePropuesta(actualizada));
 });
 
 app.delete('/api/propuestas/:id', (req, res) => {
@@ -1941,7 +1958,36 @@ app.delete('/api/propuestas/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// Genera el PDF de una propuesta (usado tanto para enviar como para volver a consultarlo)
+// Devuelve el texto a mostrar (PDF / menú de reserva) para un campo de un menú, según su tipo
+function textoCampoMenu(s) {
+  if (s.tipo === 'eleccion') {
+    if (s.elegir) {
+      const ops = (s.opciones || []).map((o, idx) => (o && o.trim()) ? `${idx + 1}. ${o}` : null).filter(Boolean);
+      return ops.length ? ops.join('\n') : 'Por definir';
+    }
+    return (s.opciones && s.opciones[0]) || 'Por definir';
+  }
+  if (s.tipo === 'sino') return s.valor ? 'Sí' : 'No';
+  if (s.tipo === 'lista') {
+    const items = (s.items || []).filter(it => it && it.trim());
+    return items.length ? items.map(it => `• ${it}`).join('\n') : 'Por definir';
+  }
+  if (s.tipo === 'barra_libre') {
+    return s.valor ? `Incluida (${s.horas} · ${Number(s.precio).toFixed(2)} €/persona)` : 'No incluida';
+  }
+  if (s.tipo === 'recena') {
+    if (!s.valor) return 'No incluida';
+    const platos = (s.platos || []).filter(p => p.nombre && p.nombre.trim());
+    return platos.length
+      ? platos.map(p => `• ${p.nombre}${p.precio ? ` (${Number(p.precio).toFixed(2)} €)` : ''}`).join('\n')
+      : 'Incluida';
+  }
+  return s.texto || '';
+}
+
+// Genera el PDF de una propuesta: portada + una página por cada menú incluido + página
+// final con suplementos, observaciones y condiciones. Usado tanto para enviar como para
+// volver a consultar la propuesta más tarde.
 async function generarPDFPropuesta(prop) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -1953,8 +1999,9 @@ async function generarPDFPropuesta(prop) {
     const gold = '#b8965a';
     const dark = '#2c2c2c';
     const gray = '#666666';
-    const lightgray = '#f5f2ee';
-    const secciones = typeof prop.secciones === 'string' ? JSON.parse(prop.secciones || '[]') : (prop.secciones || []);
+
+    const menus = typeof prop.menus === 'string' ? JSON.parse(prop.menus || '[]') : (prop.menus || []);
+    const extras = typeof prop.extras === 'string' ? JSON.parse(prop.extras || '[]') : (prop.extras || []);
 
     let fechaTxt = '';
     if (prop.fecha_evento) {
@@ -1962,99 +2009,91 @@ async function generarPDFPropuesta(prop) {
       fechaTxt = fechaEvento.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    // Cabecera dorada
-    doc.rect(50, 50, 495, 80).fill(gold);
-    doc.fillColor('#fff').fontSize(20).font('Helvetica-Bold').text('DON FADRIQUE', 65, 65);
-    doc.fontSize(8).font('Helvetica').text('R E S T A U R A N T E · A L B A D E T O R M E S', 65, 88);
-    doc.fontSize(15).font('Helvetica-Bold').text('PROPUESTA DE MENÚ', 300, 65, { width: 230, align: 'right' });
-    doc.fontSize(11).font('Helvetica').text(prop.plantilla_nombre || '', 300, 88, { width: 230, align: 'right' });
+    // ── PORTADA (minimalista y elegante) ──────────────────────────────────────
+    const pw = doc.page.width, ph = doc.page.height;
+    doc.rect(0, 0, pw, ph).fill('#faf7f2');
+    doc.rect(0, 0, pw, 5).fill(gold);
+    doc.rect(0, ph - 5, pw, 5).fill(gold);
 
-    // Logos
-    let logoY = 140;
+    doc.fillColor(gold).font('Helvetica-Bold').fontSize(36).text('DON FADRIQUE', 0, ph / 2 - 170, { align: 'center', width: pw });
+    doc.fillColor(gray).font('Helvetica').fontSize(10)
+      .text('R E S T A U R A N T E   ·   A L B A   D E   T O R M E S', 0, ph / 2 - 120, { align: 'center', width: pw });
+
+    doc.moveTo(pw / 2 - 50, ph / 2 - 95).lineTo(pw / 2 + 50, ph / 2 - 95).strokeColor(gold).lineWidth(1).stroke();
+
+    doc.fillColor(dark).font('Helvetica-Bold').fontSize(19).text('PROPUESTA DE MENÚ', 0, ph / 2 - 65, { align: 'center', width: pw });
+
+    doc.fillColor(dark).font('Helvetica-Bold').fontSize(14).text(prop.cliente || '', 0, ph / 2 - 10, { align: 'center', width: pw });
+    let subY = ph / 2 + 12;
+    if (fechaTxt) { doc.fillColor(gray).font('Helvetica').fontSize(11).text(fechaTxt, 0, subY, { align: 'center', width: pw }); subY += 18; }
+    if (prop.tipo_evento) { doc.fillColor(gray).font('Helvetica').fontSize(11).text(prop.tipo_evento, 0, subY, { align: 'center', width: pw }); }
+
     try {
       const michelin = path.join(LOGOS_DIR, 'michelin.jpg');
       const repsol = path.join(LOGOS_DIR, 'repsol.jpg');
       const tierra = path.join(LOGOS_DIR, 'tierra.png');
-      if (fs.existsSync(michelin)) doc.image(michelin, 65, logoY, { height: 38 });
-      if (fs.existsSync(repsol)) doc.image(repsol, 130, logoY, { height: 38 });
-      if (fs.existsSync(tierra)) doc.image(tierra, 200, logoY, { height: 38 });
+      const logoY = ph - 110;
+      if (fs.existsSync(michelin)) doc.image(michelin, pw / 2 - 100, logoY, { height: 32 });
+      if (fs.existsSync(repsol)) doc.image(repsol, pw / 2 - 20, logoY, { height: 32 });
+      if (fs.existsSync(tierra)) doc.image(tierra, pw / 2 + 55, logoY, { height: 32 });
     } catch(e) {}
 
-    // Datos cliente
-    doc.rect(50, 190, 495, 55).fill(lightgray);
-    doc.fillColor(gray).fontSize(9).font('Helvetica');
-    doc.text('CLIENTE', 65, 200).text('FECHA EVENTO', 240, 200).text('TIPO EVENTO', 420, 200);
-    doc.fillColor(dark).fontSize(11).font('Helvetica-Bold');
-    doc.text(prop.cliente || '', 65, 213, { width: 165 })
-       .text(fechaTxt || 'Por confirmar', 240, 213, { width: 165 })
-       .text(prop.tipo_evento || '', 420, 213, { width: 115 });
+    // ── UNA PÁGINA POR CADA MENÚ INCLUIDO ─────────────────────────────────────
+    menus.forEach((menu) => {
+      doc.addPage();
+      doc.rect(50, 50, 495, 42).fill(gold);
+      doc.fillColor('#fff').font('Helvetica-Bold').fontSize(14).text((menu.plantilla_nombre || '').toUpperCase(), 65, 65, { width: 465 });
 
-    // Secciones del menú
-    let y = 265;
-    secciones.forEach((s) => {
-      if (y > 700) { doc.addPage(); y = 60; }
-      const compartirTag = (s.tipo === 'plato' && s.compartir) ? ' (PARA COMPARTIR)' : '';
-      doc.fillColor(gold).fontSize(11).font('Helvetica-Bold').text((s.titulo || '').toUpperCase() + compartirTag, 65, y);
-      y += 16;
+      let y = 112;
+      const secciones = menu.secciones || [];
+      secciones.forEach((s) => {
+        const compartirTag = (s.tipo === 'plato' && s.compartir) ? ' (para compartir)' : '';
+        doc.fillColor(gold).font('Helvetica-Bold').fontSize(9.5).text((s.titulo || '').toUpperCase() + compartirTag, 65, y);
+        y += 13;
+        const texto = textoCampoMenu(s);
+        doc.fillColor(dark).font('Helvetica').fontSize(8.5);
+        const h = doc.heightOfString(texto, { width: 460 });
+        doc.text(texto, 65, y, { width: 460 });
+        y += h + 8;
+      });
 
-      let texto = '';
-      if (s.tipo === 'eleccion') {
-        if (s.elegir) {
-          const ops = (s.opciones || []).map((o, idx) => (o && o.trim()) ? `${idx + 1}. ${o}` : null).filter(Boolean);
-          texto = ops.length ? ops.join('\n') : 'Por definir';
-        } else {
-          texto = (s.opciones && s.opciones[0]) || 'Por definir';
-        }
-      } else if (s.tipo === 'sino') {
-        texto = s.valor ? 'Sí' : 'No';
-      } else if (s.tipo === 'lista') {
-        const items = (s.items || []).filter(it => it && it.trim());
-        texto = items.length ? items.map(it => `• ${it}`).join('\n') : 'Por definir';
-      } else if (s.tipo === 'barra_libre') {
-        texto = s.valor ? `Incluida (${s.horas} · ${Number(s.precio).toFixed(2)} €/persona)` : 'No incluida';
-      } else if (s.tipo === 'recena') {
-        if (s.valor) {
-          const platos = (s.platos || []).filter(p => p.nombre && p.nombre.trim());
-          texto = platos.length
-            ? platos.map(p => `• ${p.nombre}${p.precio ? ` (${Number(p.precio).toFixed(2)} €)` : ''}`).join('\n')
-            : 'Incluida';
-        } else {
-          texto = 'No incluida';
-        }
-      } else {
-        texto = s.texto || '';
-      }
-
-      doc.fillColor(dark).fontSize(10).font('Helvetica');
-      const h = doc.heightOfString(texto, { width: 460 });
-      doc.text(texto, 65, y, { width: 460 });
-      y += h + 14;
-      doc.moveTo(65, y - 6).lineTo(545, y - 6).strokeColor('#e0dcd6').stroke();
+      y += 6;
+      doc.moveTo(65, y).lineTo(545, y).strokeColor('#e0dcd6').stroke();
+      y += 12;
+      doc.fillColor(dark).font('Helvetica-Bold').fontSize(11.5)
+        .text('Precio por persona: ' + Number(menu.precio_persona || 0).toFixed(2) + ' €', 65, y);
+      doc.fillColor(gray).font('Helvetica').fontSize(8).text('IVA 10% no incluido', 65, y + 15);
     });
 
-    // Precio por persona
-    if (prop.precio_persona) {
-      y += 8;
-      if (y > 740) { doc.addPage(); y = 60; }
-      doc.fillColor(dark).fontSize(12).font('Helvetica-Bold')
-        .text('Precio por persona: ' + Number(prop.precio_persona).toFixed(2) + ' € (IVA no incluido)', 65, y);
-      y += 22;
+    // ── PÁGINA FINAL: SUPLEMENTOS, OBSERVACIONES Y CONDICIONES ────────────────
+    doc.addPage();
+    let y = 60;
+    const extrasConTexto = (extras || []).filter(e => e.nombre && e.nombre.trim());
+    if (extrasConTexto.length) {
+      doc.fillColor(gold).font('Helvetica-Bold').fontSize(12).text('SUPLEMENTOS OPCIONALES', 65, y);
+      y += 20;
+      doc.fillColor(gray).font('Helvetica').fontSize(9).text('Se añaden al precio por persona del menú elegido, si el cliente los solicita.', 65, y, { width: 460 });
+      y += 20;
+      extrasConTexto.forEach((e) => {
+        doc.fillColor(dark).font('Helvetica').fontSize(10.5)
+          .text(`•  ${e.nombre}   +${Number(e.precio || 0).toFixed(2)} €`, 65, y, { width: 460 });
+        y += 18;
+      });
+      y += 15;
     }
 
     if (prop.notas) {
-      if (y > 730) { doc.addPage(); y = 60; }
-      doc.fillColor(gray).fontSize(9).font('Helvetica').text('Observaciones: ' + prop.notas, 65, y, { width: 460 });
-      y += 20;
+      doc.fillColor(gold).font('Helvetica-Bold').fontSize(11).text('OBSERVACIONES', 65, y);
+      y += 16;
+      doc.fillColor(dark).font('Helvetica').fontSize(9.5).text(prop.notas, 65, y, { width: 460 });
+      y += doc.heightOfString(prop.notas, { width: 460 }) + 20;
     }
 
-    // Condiciones
     if (y > 720) { doc.addPage(); y = 60; }
-    y += 10;
     doc.rect(50, y, 495, 55).fill('#f9f9f7');
-    doc.fillColor(gray).fontSize(9).font('Helvetica');
-    doc.text('NIMANSANMON S.L.  ·  CIF: B37297223', 65, y + 10);
-    doc.text('Esta propuesta tiene carácter orientativo. Los platos y precios podrán ajustarse en la confirmación definitiva de la reserva.', 65, y + 23, { width: 460 });
-    doc.text('Validez de la propuesta: 30 días.', 65, y + 40);
+    doc.fillColor(gray).font('Helvetica').fontSize(9);
+    doc.text('NIMANSANMON S.L.  ·  CIF: B37297223', 65, y + 12);
+    doc.text('Precios sin IVA (10% no incluido). Validez de la propuesta: 30 días.', 65, y + 28);
 
     doc.end();
   });
@@ -2089,7 +2128,7 @@ async function enviarEmailPropuesta(prop, pdfBuffer) {
   <div style="background:#fff;padding:24px;border:1px solid #e0dcd6;border-top:none">
     <p style="font-size:14px;color:#333">Estimado/a <strong>${prop.cliente || ''}</strong>,</p>
     <p style="font-size:13px;color:#555">Adjuntamos la propuesta de menú para el evento del <strong>${fechaTxt}</strong>.</p>
-    <p style="font-size:13px;color:#555">Si está de acuerdo, contáctenos por teléfono o email para confirmar la reserva con este menú.</p>
+    <p style="font-size:13px;color:#555">Si está de acuerdo, contáctenos por teléfono o email para confirmar la reserva con el menú elegido.</p>
     <p style="font-size:11px;color:#aaa;margin-top:20px">Restaurante Don Fadrique · NIMANSANMON S.L. · CIF: B37297223 · Alba de Tormes · Tel. 920 37 00 51</p>
   </div>
 </div></body></html>`;
@@ -2101,7 +2140,7 @@ async function enviarEmailPropuesta(prop, pdfBuffer) {
     subject: `Propuesta de menú - ${prop.plantilla_nombre || ''} - ${prop.cliente || ''}`,
     html: htmlBody,
     attachments: [{
-      filename: `Propuesta_${(prop.plantilla_nombre||'menu').replace(/\s+/g,'_')}_${(prop.cliente||'cliente').replace(/\s+/g, '_')}.pdf`,
+      filename: `Propuesta_${(prop.cliente||'cliente').replace(/\s+/g, '_')}.pdf`,
       content: pdfBuffer,
       contentType: 'application/pdf'
     }]
@@ -2116,7 +2155,7 @@ app.post('/api/propuestas/:id/enviar', async (req, res) => {
     await enviarEmailPropuesta(prop, pdfBuffer);
     db.prepare("UPDATE propuestas SET estado = 'enviada', fecha_envio = datetime('now') WHERE id = ?").run(prop.id);
     const actualizada = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(prop.id);
-    res.json({ ok: true, propuesta: { ...actualizada, secciones: JSON.parse(actualizada.secciones || '[]') } });
+    res.json({ ok: true, propuesta: parsePropuesta(actualizada) });
   } catch(e) {
     res.json({ ok: false, msg: e.message });
   }
@@ -2136,37 +2175,25 @@ app.get('/api/propuestas/:id/pdf', async (req, res) => {
   }
 });
 
-// Convierte una propuesta (ya decidida por el cliente) en una reserva real, incorporando el menú
+// Convierte una propuesta (ya decidida por el cliente) en una reserva real, incorporando
+// el menú elegido (si había varios en la propuesta, se indica menu_index) + suplementos.
 app.post('/api/propuestas/:id/confirmar', (req, res) => {
   const d = req.body || {};
   const prop = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
   if (!prop) return res.json({ ok: false, msg: 'Propuesta no encontrada' });
 
-  const secciones = JSON.parse(prop.secciones || '[]');
-  const menuTexto = secciones.map(s => {
-    if (s.tipo === 'eleccion') {
-      if (s.elegir) {
-        const ops = (s.opciones || []).filter(o => o && o.trim());
-        return `${s.titulo} (a elegir): ${ops.join(' / ')}`;
-      }
-      return `${s.titulo}: ${(s.opciones && s.opciones[0]) || ''}`;
-    }
-    if (s.tipo === 'sino') return `${s.titulo}: ${s.valor ? 'Sí' : 'No'}`;
-    if (s.tipo === 'lista') {
-      const items = (s.items || []).filter(it => it && it.trim());
-      return `${s.titulo}: ${items.join(', ')}`;
-    }
-    if (s.tipo === 'barra_libre') {
-      return `${s.titulo}: ${s.valor ? `Sí (${s.horas} - ${Number(s.precio).toFixed(2)} €/persona)` : 'No'}`;
-    }
-    if (s.tipo === 'recena') {
-      if (!s.valor) return `${s.titulo}: No`;
-      const platos = (s.platos || []).filter(p => p.nombre && p.nombre.trim());
-      return `${s.titulo}: ${platos.map(p => `${p.nombre}${p.precio ? ` (${Number(p.precio).toFixed(2)} €)` : ''}`).join(', ')}`;
-    }
-    const compartirTag = s.compartir ? ' (para compartir)' : '';
-    return `${s.titulo}${compartirTag}: ${s.texto || ''}`;
-  }).join('\n');
+  const menus = JSON.parse(prop.menus || '[]');
+  const extras = JSON.parse(prop.extras || '[]');
+  const menuElegido = menus[d.menu_index || 0] || menus[0];
+  if (!menuElegido) return res.json({ ok: false, msg: 'La propuesta no tiene ningún menú' });
+
+  const secciones = menuElegido.secciones || [];
+  let menuTexto = `${menuElegido.plantilla_nombre || ''} (${Number(menuElegido.precio_persona || 0).toFixed(2)} €/persona)\n`;
+  menuTexto += secciones.map(s => `${s.titulo}: ${textoCampoMenu(s)}`).join('\n');
+  const extrasConTexto = extras.filter(e => e.nombre && e.nombre.trim());
+  if (extrasConTexto.length) {
+    menuTexto += '\nSuplementos: ' + extrasConTexto.map(e => `${e.nombre} (+${Number(e.precio || 0).toFixed(2)} €)`).join(', ');
+  }
 
   const stmt = db.prepare(`
     INSERT INTO reservas (tipo, salon, mesa, fecha, hora, nombre, tel, email, pax, menu, alergias, obs, estado,
@@ -2177,7 +2204,7 @@ app.post('/api/propuestas/:id/confirmar', (req, res) => {
   const result = stmt.run(
     'evento', d.salon || null, d.mesa || null, prop.fecha_evento, d.hora || '',
     prop.cliente, prop.telefono || '', prop.email || '', d.pax || prop.pax || 0,
-    prop.plantilla_nombre || '', d.alergias || '', d.obs || prop.notas || '', 'pendiente',
+    menuElegido.plantilla_nombre || '', d.alergias || '', d.obs || prop.notas || '', 'pendiente',
     prop.tipo_evento || '', d.montaje || 'imperial', 0, 0, '', '', '', 0, '', '',
     d.vino_blanco || '', d.vino_tinto || '', d.vino_cava || '', d.vino_extra || '', 0,
     0, null, menuTexto
