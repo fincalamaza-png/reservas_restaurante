@@ -1365,6 +1365,13 @@ function renderModalPropuesta(){
 }
 
 function renderCampoPropuesta(s, i){
+  if (s.tipo === 'lista') {
+    var html = '<div class="field"><label>'+s.titulo+'</label>';
+    html += '<div id="pf-lista-'+i+'">'+renderListaPropuesta(s, i)+'</div>';
+    html += '<button type="button" class="btn btn-secondary" style="margin-top:4px;padding:8px;font-size:13px" onclick="addItemLista('+i+')">+ Añadir plato</button>';
+    html += '</div>';
+    return html;
+  }
   if (s.tipo === 'eleccion') {
     var html = '<div class="field"><label>'+s.titulo+'</label>';
     html += '<div class="sw-row"><span style="font-size:13px">A elegir entre varias opciones</span>';
@@ -1386,6 +1393,27 @@ function renderCampoPropuesta(s, i){
   }
   html += '</div>';
   return html;
+}
+
+function renderListaPropuesta(s, i){
+  var html = '';
+  (s.items||[]).forEach(function(it, j){
+    html += '<div style="display:flex;gap:6px;margin-bottom:6px">';
+    html += '<input type="text" style="flex:1" value="'+(it||'')+'" oninput="S.propuestaForm.secciones['+i+'].items['+j+']=this.value">';
+    html += '<button type="button" onclick="removeItemLista('+i+','+j+')" style="background:none;border:none;color:#dc3545;font-size:18px;cursor:pointer;padding:0 4px">&#10005;</button>';
+    html += '</div>';
+  });
+  return html;
+}
+
+function addItemLista(i){
+  S.propuestaForm.secciones[i].items.push('');
+  document.getElementById('pf-lista-'+i).innerHTML = renderListaPropuesta(S.propuestaForm.secciones[i], i);
+}
+
+function removeItemLista(i, j){
+  S.propuestaForm.secciones[i].items.splice(j, 1);
+  document.getElementById('pf-lista-'+i).innerHTML = renderListaPropuesta(S.propuestaForm.secciones[i], i);
 }
 
 function renderOpcionesPropuesta(s, i){

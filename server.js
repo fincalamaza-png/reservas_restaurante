@@ -290,6 +290,31 @@ try { db.exec(`
   db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla6_v2', '1')").run();
 })();
 
+// Migración: "Cóctel Comida" con listas de platos (aperitivos fríos, calientes y postres),
+// cada una editable y ampliable con un botón "+ Añadir plato".
+(function migrarPlantilla3V2() {
+  const flag = db.prepare("SELECT valor FROM config WHERE clave = 'plantilla3_v2'").get();
+  if (flag && flag.valor === '1') return;
+  const campos = [
+    { tipo: 'lista', titulo: 'Aperitivos fríos', items: [
+      'Ensalada de ventresca', 'Rulo de salmón con chocolate', 'Carpaccio de presa',
+      'Anchoa con pimiento dulce', 'Tosta de jamón y foie', 'Yogur de bacalao',
+      'Gallo en escabeche con alioli', 'Gildas'
+    ]},
+    { tipo: 'lista', titulo: 'Aperitivos calientes', items: [
+      'Croqueta de jamón', 'Croqueta de bacalao', 'Croquetas de capón',
+      'Morcilla con pistacho', 'Caramelo de farinato', 'Verduras en tempura',
+      'Falsas patatas de berenjena', 'Nuestro huerto en miniatura', 'Saam de panceta', 'Carne a la brasa'
+    ]},
+    { tipo: 'lista', titulo: 'Postres', items: [
+      'Tarta de queso', 'Arroz con leche', 'Crème brûlée', 'Brownie', 'Fruta de temporada en brochetas'
+    ]}
+  ];
+  db.prepare('UPDATE plantillas_menu SET secciones = ? WHERE nombre = ?')
+    .run(JSON.stringify(campos), 'Cóctel Comida');
+  db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla3_v2', '1')").run();
+})();
+
 
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
@@ -1884,6 +1909,9 @@ async function generarPDFPropuesta(prop) {
         }
       } else if (s.tipo === 'sino') {
         texto = s.valor ? 'Sí' : 'No';
+      } else if (s.tipo === 'lista') {
+        const items = (s.items || []).filter(it => it && it.trim());
+        texto = items.length ? items.map(it => `• ${it}`).join('\n') : 'Por definir';
       } else {
         texto = s.texto || '';
       }
@@ -2015,6 +2043,10 @@ app.post('/api/propuestas/:id/confirmar', (req, res) => {
       return `${s.titulo}: ${(s.opciones && s.opciones[0]) || ''}`;
     }
     if (s.tipo === 'sino') return `${s.titulo}: ${s.valor ? 'Sí' : 'No'}`;
+    if (s.tipo === 'lista') {
+      const items = (s.items || []).filter(it => it && it.trim());
+      return `${s.titulo}: ${items.join(', ')}`;
+    }
     const compartirTag = s.compartir ? ' (para compartir)' : '';
     return `${s.titulo}${compartirTag}: ${s.texto || ''}`;
   }).join('\n');
