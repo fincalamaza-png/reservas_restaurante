@@ -202,6 +202,31 @@ try { db.exec(`
   base.forEach((p, i) => stmt.run(p.nombre, p.tipo, i, JSON.stringify(p.secciones), 0));
 })();
 
+// Migración: estructura detallada por campos para "Reunión Familiar Tradicional 1"
+// (entrantes editables con opción "para compartir", pescado/carne "a elegir" con varias
+// opciones, sorbete sí/no, vinos). Se aplica una sola vez, controlada por config, para no
+// pisar ediciones manuales posteriores de Manuel.
+(function migrarPlantilla1V2() {
+  const flag = db.prepare("SELECT valor FROM config WHERE clave = 'plantilla1_v2'").get();
+  if (flag && flag.valor === '1') return;
+  const campos = [
+    { tipo: 'plato', titulo: 'Entrante 1', texto: 'Jamón y lomo ibéricos de bellota', compartir: false },
+    { tipo: 'plato', titulo: 'Entrante 2', texto: 'Gamba blanca', compartir: false },
+    { tipo: 'plato', titulo: 'Entrante 3', texto: 'Croquetas variadas', compartir: false },
+    { tipo: 'plato', titulo: 'Entrante 4', texto: '', compartir: false },
+    { tipo: 'eleccion', titulo: 'Pescado', elegir: false, opciones: ['', '', ''] },
+    { tipo: 'sino', titulo: 'Sorbete', valor: false },
+    { tipo: 'eleccion', titulo: 'Carne', elegir: false, opciones: ['', '', '', ''] },
+    { tipo: 'plato', titulo: 'Postre', texto: '' },
+    { tipo: 'plato', titulo: 'Vino blanco', texto: '' },
+    { tipo: 'plato', titulo: 'Vino tinto', texto: '' },
+    { tipo: 'plato', titulo: 'Cava', texto: '' }
+  ];
+  db.prepare('UPDATE plantillas_menu SET secciones = ? WHERE nombre = ?')
+    .run(JSON.stringify(campos), 'Reunión Familiar Tradicional 1');
+  db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla1_v2', '1')").run();
+})();
+
 
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
@@ -1782,11 +1807,27 @@ async function generarPDFPropuesta(prop) {
     let y = 265;
     secciones.forEach((s) => {
       if (y > 700) { doc.addPage(); y = 60; }
-      doc.fillColor(gold).fontSize(11).font('Helvetica-Bold').text((s.titulo || '').toUpperCase(), 65, y);
+      const compartirTag = (s.tipo === 'plato' && s.compartir) ? ' (PARA COMPARTIR)' : '';
+      doc.fillColor(gold).fontSize(11).font('Helvetica-Bold').text((s.titulo || '').toUpperCase() + compartirTag, 65, y);
       y += 16;
+
+      let texto = '';
+      if (s.tipo === 'eleccion') {
+        if (s.elegir) {
+          const ops = (s.opciones || []).map((o, idx) => (o && o.trim()) ? `${idx + 1}. ${o}` : null).filter(Boolean);
+          texto = ops.length ? ops.join('\n') : 'Por definir';
+        } else {
+          texto = (s.opciones && s.opciones[0]) || 'Por definir';
+        }
+      } else if (s.tipo === 'sino') {
+        texto = s.valor ? 'Sí' : 'No';
+      } else {
+        texto = s.texto || '';
+      }
+
       doc.fillColor(dark).fontSize(10).font('Helvetica');
-      const h = doc.heightOfString(s.texto || '', { width: 460 });
-      doc.text(s.texto || '', 65, y, { width: 460 });
+      const h = doc.heightOfString(texto, { width: 460 });
+      doc.text(texto, 65, y, { width: 460 });
       y += h + 14;
       doc.moveTo(65, y - 6).lineTo(545, y - 6).strokeColor('#e0dcd6').stroke();
     });
@@ -1902,7 +1943,18 @@ app.post('/api/propuestas/:id/confirmar', (req, res) => {
   if (!prop) return res.json({ ok: false, msg: 'Propuesta no encontrada' });
 
   const secciones = JSON.parse(prop.secciones || '[]');
-  const menuTexto = secciones.map(s => `${s.titulo}: ${s.texto}`).join('\n');
+  const menuTexto = secciones.map(s => {
+    if (s.tipo === 'eleccion') {
+      if (s.elegir) {
+        const ops = (s.opciones || []).filter(o => o && o.trim());
+        return `${s.titulo} (a elegir): ${ops.join(' / ')}`;
+      }
+      return `${s.titulo}: ${(s.opciones && s.opciones[0]) || ''}`;
+    }
+    if (s.tipo === 'sino') return `${s.titulo}: ${s.valor ? 'Sí' : 'No'}`;
+    const compartirTag = s.compartir ? ' (para compartir)' : '';
+    return `${s.titulo}${compartirTag}: ${s.texto || ''}`;
+  }).join('\n');
 
   const stmt = db.prepare(`
     INSERT INTO reservas (tipo, salon, mesa, fecha, hora, nombre, tel, email, pax, menu, alergias, obs, estado,
