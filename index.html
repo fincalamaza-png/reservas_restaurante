@@ -60,6 +60,8 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
 .cal-day.seleccionado{background:#f5ecd8;color:#b8965a;font-weight:700}
 .cal-day.tiene-reservas::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:#8b1a2a}
 .cal-day.hoy.tiene-reservas::after{background:#f0ede8}
+.cal-day.tiene-propuesta::before{content:'';position:absolute;top:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:#b8965a}
+.cal-day.hoy.tiene-propuesta::before{background:#fff}
 .cal-day.otro-mes{color:#ccc}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 
@@ -627,6 +629,19 @@ function renderCalendario(){
         if(r.fecha>=primerDia && r.fecha<=ultimoDia) diasConReservas[r.fecha]=true;
       });
 
+      fetch('/api/propuestas')
+        .then(function(r){return r.json();})
+        .then(function(props){
+          var diasConPropuesta={};
+          props.forEach(function(p){
+            if(p.estado==='enviada' && p.fecha_evento>=primerDia && p.fecha_evento<=ultimoDia) diasConPropuesta[p.fecha_evento]=true;
+          });
+          pintarCalendario(anio, mes, hoy, selec, diasConReservas, diasConPropuesta);
+        });
+    });
+}
+
+function pintarCalendario(anio, mes, hoy, selec, diasConReservas, diasConPropuesta){
       var html='';
       var dias=['L','M','X','J','V','S','D'];
       dias.forEach(function(d){html+='<div class="cal-head">'+d+'</div>';});
@@ -644,10 +659,10 @@ function renderCalendario(){
         if(fecha===hoy) cls+=' hoy';
         else if(fecha===selec) cls+=' seleccionado';
         if(diasConReservas[fecha]) cls+=' tiene-reservas';
+        if(diasConPropuesta[fecha]) cls+=' tiene-propuesta';
         html+='<div class="'+cls+'" onclick="seleccionarDia(&quot;'+fecha+'&quot;)">'+dia+'</div>';
       }
       document.getElementById('cal-grid').innerHTML=html;
-    });
 }
 
 function seleccionarDia(fecha){
@@ -700,6 +715,7 @@ function cargarHome(){
       el.innerHTML=html;
     });
   comprobarAlertasExtras();
+  comprobarPropuestasPendientes();
 }
 
 function abrirDetalle(id){
@@ -2082,6 +2098,27 @@ function comprobarAlertasExtras() {
       // Comprobar avisos de cancelacion tardia
       comprobarAvisosCancelacion();
       comprobarAlertasConvocatoria();
+    });
+}
+
+function comprobarPropuestasPendientes() {
+  fetch('/api/propuestas')
+    .then(function(r){return r.json();})
+    .then(function(props){
+      var pendientes = props.filter(function(p){ return p.estado === 'enviada'; });
+      var cont = document.getElementById('home-alertas');
+      if(!cont) return;
+      var previo = document.getElementById('aviso-propuestas');
+      if(previo) previo.parentNode.removeChild(previo);
+      if(!pendientes.length) return;
+      var n = pendientes.length;
+      var txt = n === 1 ? '1 propuesta de menú enviada, pendiente de respuesta' : n + ' propuestas de menú enviadas, pendientes de respuesta';
+      var html = '<div id="aviso-propuestas" style="display:flex;align-items:center;gap:10px;background:#f3eee6;border:1px solid #ddc9a3;border-radius:10px;padding:10px 14px;margin-bottom:8px">';
+      html += '<span style="font-size:18px">&#127860;</span>';
+      html += '<span style="flex:1;font-size:13px;color:#7a5a1a;font-weight:600">' + txt + '</span>';
+      html += '<button onclick="irA(\'p-propuestas-lista\')" style="background:#b8965a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">Ver</button>';
+      html += '</div>';
+      cont.innerHTML = html + cont.innerHTML;
     });
 }
 

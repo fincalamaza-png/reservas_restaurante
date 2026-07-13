@@ -5,6 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const LOGOS_DIR = path.join(__dirname, 'logos');
 
@@ -132,6 +133,13 @@ try { db.exec(`
 // Propuestas: soporte para varios menús en un mismo documento + suplementos opcionales con coste adicional
 try { db.exec("ALTER TABLE propuestas ADD COLUMN menus TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE propuestas ADD COLUMN extras TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE propuestas ADD COLUMN token TEXT"); } catch(e) {}
+// Generar token para propuestas antiguas que no lo tengan aún (enlace público de confirmación)
+(function generarTokensFaltantes() {
+  const rows = db.prepare('SELECT id FROM propuestas WHERE token IS NULL OR token = ?').all('');
+  const upd = db.prepare('UPDATE propuestas SET token = ? WHERE id = ?');
+  rows.forEach(r => upd.run(crypto.randomBytes(16).toString('hex'), r.id));
+})();
 
 // Sembrar las 8 plantillas base si la tabla está vacía
 (function seedPlantillasMenu() {
@@ -1926,13 +1934,14 @@ app.post('/api/propuestas', (req, res) => {
   const d = req.body;
   const menus = d.menus || [];
   const nombreConjunto = menus.map(m => m.plantilla_nombre).filter(Boolean).join(' / ');
+  const token = crypto.randomBytes(16).toString('hex');
   const result = db.prepare(`
-    INSERT INTO propuestas (plantilla_id, plantilla_nombre, cliente, telefono, email, fecha_evento, tipo_evento, pax, menus, extras, notas, estado)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador')
+    INSERT INTO propuestas (plantilla_id, plantilla_nombre, cliente, telefono, email, fecha_evento, tipo_evento, pax, menus, extras, notas, estado, token)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador', ?)
   `).run(
     (menus[0] && menus[0].plantilla_id) || null, nombreConjunto, d.cliente || '', d.telefono || '', d.email || '',
     d.fecha_evento || '', d.tipo_evento || '', d.pax || null,
-    JSON.stringify(menus), JSON.stringify(d.extras || []), d.notas || ''
+    JSON.stringify(menus), JSON.stringify(d.extras || []), d.notas || '', token
   );
   const nueva = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(result.lastInsertRowid);
   res.json(parsePropuesta(nueva));
@@ -1999,6 +2008,8 @@ async function generarPDFPropuesta(prop) {
     const gold = '#b8965a';
     const dark = '#2c2c2c';
     const gray = '#666666';
+    const baseUrl = 'https://restaurantefadrique.palaciocondealdana.com';
+    const confirmUrl = `${baseUrl}/confirmar/${prop.token}`;
 
     const menus = typeof prop.menus === 'string' ? JSON.parse(prop.menus || '[]') : (prop.menus || []);
     const extras = typeof prop.extras === 'string' ? JSON.parse(prop.extras || '[]') : (prop.extras || []);
@@ -2007,6 +2018,18 @@ async function generarPDFPropuesta(prop) {
     if (prop.fecha_evento) {
       const fechaEvento = new Date(prop.fecha_evento + 'T12:00:00');
       fechaTxt = fechaEvento.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function dibujarLogos(y) {
+      try {
+        const michelin = path.join(LOGOS_DIR, 'michelin.jpg');
+        const repsol = path.join(LOGOS_DIR, 'repsol.jpg');
+        const tierra = path.join(LOGOS_DIR, 'tierra.png');
+        const pw2 = doc.page.width;
+        if (fs.existsSync(michelin)) doc.image(michelin, pw2 / 2 - 85, y, { height: 26 });
+        if (fs.existsSync(repsol)) doc.image(repsol, pw2 / 2 - 15, y, { height: 26 });
+        if (fs.existsSync(tierra)) doc.image(tierra, pw2 / 2 + 50, y, { height: 26 });
+      } catch(e) {}
     }
 
     // ── PORTADA (minimalista y elegante) ──────────────────────────────────────
@@ -2028,15 +2051,7 @@ async function generarPDFPropuesta(prop) {
     if (fechaTxt) { doc.fillColor(gray).font('Helvetica').fontSize(11).text(fechaTxt, 0, subY, { align: 'center', width: pw }); subY += 18; }
     if (prop.tipo_evento) { doc.fillColor(gray).font('Helvetica').fontSize(11).text(prop.tipo_evento, 0, subY, { align: 'center', width: pw }); }
 
-    try {
-      const michelin = path.join(LOGOS_DIR, 'michelin.jpg');
-      const repsol = path.join(LOGOS_DIR, 'repsol.jpg');
-      const tierra = path.join(LOGOS_DIR, 'tierra.png');
-      const logoY = ph - 110;
-      if (fs.existsSync(michelin)) doc.image(michelin, pw / 2 - 100, logoY, { height: 32 });
-      if (fs.existsSync(repsol)) doc.image(repsol, pw / 2 - 20, logoY, { height: 32 });
-      if (fs.existsSync(tierra)) doc.image(tierra, pw / 2 + 55, logoY, { height: 32 });
-    } catch(e) {}
+    dibujarLogos(ph - 110);
 
     // ── UNA PÁGINA POR CADA MENÚ INCLUIDO ─────────────────────────────────────
     menus.forEach((menu) => {
@@ -2063,9 +2078,11 @@ async function generarPDFPropuesta(prop) {
       doc.fillColor(dark).font('Helvetica-Bold').fontSize(11.5)
         .text('Precio por persona: ' + Number(menu.precio_persona || 0).toFixed(2) + ' €', 65, y);
       doc.fillColor(gray).font('Helvetica').fontSize(8).text('IVA 10% no incluido', 65, y + 15);
+
+      dibujarLogos(ph - 65);
     });
 
-    // ── PÁGINA FINAL: SUPLEMENTOS, OBSERVACIONES Y CONDICIONES ────────────────
+    // ── PÁGINA FINAL: SUPLEMENTOS, OBSERVACIONES, CONFIRMACIÓN Y CONDICIONES ──
     doc.addPage();
     let y = 60;
     const extrasConTexto = (extras || []).filter(e => e.nombre && e.nombre.trim());
@@ -2089,11 +2106,26 @@ async function generarPDFPropuesta(prop) {
       y += doc.heightOfString(prop.notas, { width: 460 }) + 20;
     }
 
+    // Botón de confirmación (enlace a la página pública de confirmación)
+    if (y > 680) { doc.addPage(); y = 60; }
+    y += 10;
+    const btnX = 50, btnW = 495, btnH = 42;
+    doc.rect(btnX, y, btnW, btnH).fill(gold);
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(12)
+      .text('CONFIRMAR MI RESERVA CON ESTE MENÚ', btnX, y + 14, { width: btnW, align: 'center' });
+    doc.link(btnX, y, btnW, btnH, confirmUrl);
+    y += btnH + 10;
+    doc.fillColor(gray).font('Helvetica').fontSize(8)
+      .text('Pulse el botón para confirmar online, o visite: ' + confirmUrl, 65, y, { width: 460, align: 'center' });
+    y += 24;
+
     if (y > 720) { doc.addPage(); y = 60; }
     doc.rect(50, y, 495, 55).fill('#f9f9f7');
     doc.fillColor(gray).font('Helvetica').fontSize(9);
     doc.text('NIMANSANMON S.L.  ·  CIF: B37297223', 65, y + 12);
     doc.text('Precios sin IVA (10% no incluido). Validez de la propuesta: 30 días.', 65, y + 28);
+
+    dibujarLogos(ph - 65);
 
     doc.end();
   });
@@ -2117,6 +2149,7 @@ async function enviarEmailPropuesta(prop, pdfBuffer) {
   if (prop.fecha_evento) {
     fechaTxt = new Date(prop.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   }
+  const confirmUrl = `https://restaurantefadrique.palaciocondealdana.com/confirmar/${prop.token}`;
 
   const htmlBody = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:sans-serif">
 <div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
@@ -2128,7 +2161,10 @@ async function enviarEmailPropuesta(prop, pdfBuffer) {
   <div style="background:#fff;padding:24px;border:1px solid #e0dcd6;border-top:none">
     <p style="font-size:14px;color:#333">Estimado/a <strong>${prop.cliente || ''}</strong>,</p>
     <p style="font-size:13px;color:#555">Adjuntamos la propuesta de menú para el evento del <strong>${fechaTxt}</strong>.</p>
-    <p style="font-size:13px;color:#555">Si está de acuerdo, contáctenos por teléfono o email para confirmar la reserva con el menú elegido.</p>
+    <p style="font-size:13px;color:#555">Si está de acuerdo, puede confirmar su reserva y el menú elegido directamente pulsando el siguiente botón:</p>
+    <div style="text-align:center;margin:22px 0">
+      <a href="${confirmUrl}" style="background:#b8965a;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-size:14px;font-weight:bold;display:inline-block">Confirmar mi reserva</a>
+    </div>
     <p style="font-size:11px;color:#aaa;margin-top:20px">Restaurante Don Fadrique · NIMANSANMON S.L. · CIF: B37297223 · Alba de Tormes · Tel. 920 37 00 51</p>
   </div>
 </div></body></html>`;
@@ -2177,15 +2213,12 @@ app.get('/api/propuestas/:id/pdf', async (req, res) => {
 
 // Convierte una propuesta (ya decidida por el cliente) en una reserva real, incorporando
 // el menú elegido (si había varios en la propuesta, se indica menu_index) + suplementos.
-app.post('/api/propuestas/:id/confirmar', (req, res) => {
-  const d = req.body || {};
-  const prop = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
-  if (!prop) return res.json({ ok: false, msg: 'Propuesta no encontrada' });
-
+// Lógica compartida: crea la reserva a partir de una propuesta ya decidida (menú elegido + suplementos)
+function confirmarPropuestaEnReserva(prop, d) {
   const menus = JSON.parse(prop.menus || '[]');
   const extras = JSON.parse(prop.extras || '[]');
   const menuElegido = menus[d.menu_index || 0] || menus[0];
-  if (!menuElegido) return res.json({ ok: false, msg: 'La propuesta no tiene ningún menú' });
+  if (!menuElegido) return { ok: false, msg: 'La propuesta no tiene ningún menú' };
 
   const secciones = menuElegido.secciones || [];
   let menuTexto = `${menuElegido.plantilla_nombre || ''} (${Number(menuElegido.precio_persona || 0).toFixed(2)} €/persona)\n`;
@@ -2213,8 +2246,121 @@ app.post('/api/propuestas/:id/confirmar', (req, res) => {
   db.prepare("UPDATE propuestas SET estado = 'confirmada', reserva_id = ? WHERE id = ?").run(result.lastInsertRowid, prop.id);
   const nueva = rowToObj(db.prepare('SELECT * FROM reservas WHERE id = ?').get(result.lastInsertRowid));
   autoConvocar(nueva.fecha).catch(e => console.error('autoConvocar error:', e.message));
-  res.json({ ok: true, reserva: nueva });
+  return { ok: true, reserva: nueva, menuElegido };
+}
+
+app.post('/api/propuestas/:id/confirmar', (req, res) => {
+  const d = req.body || {};
+  const prop = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
+  if (!prop) return res.json({ ok: false, msg: 'Propuesta no encontrada' });
+  const resultado = confirmarPropuestaEnReserva(prop, d);
+  res.json(resultado);
 });
+
+// ── PÁGINA PÚBLICA DE CONFIRMACIÓN (para el cliente, desde el botón del PDF/email) ──
+app.get('/confirmar/:token', (req, res) => {
+  const prop = db.prepare('SELECT * FROM propuestas WHERE token = ?').get(req.params.token);
+  if (!prop) {
+    return res.status(404).send(paginaConfirmacionHTML('Enlace no válido', '<p>Este enlace de confirmación no es válido o ha caducado.</p>'));
+  }
+  if (prop.estado === 'confirmada') {
+    return res.send(paginaConfirmacionHTML('Reserva ya confirmada', '<p>Esta propuesta ya fue confirmada anteriormente. Si necesita algún cambio, contacte con nosotros en el <strong>920 37 00 51</strong>.</p>'));
+  }
+  const menus = JSON.parse(prop.menus || '[]');
+  let fechaTxt = 'por confirmar';
+  if (prop.fecha_evento) {
+    fechaTxt = new Date(prop.fecha_evento + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  let opcionesHtml = '';
+  if (menus.length > 1) {
+    opcionesHtml += '<div class="campo"><label>Elija el menú que desea confirmar</label>';
+    menus.forEach((m, idx) => {
+      opcionesHtml += `<label class="opcion-menu"><input type="radio" name="menu_index" value="${idx}" ${idx === 0 ? 'checked' : ''}> ${m.plantilla_nombre} — ${Number(m.precio_persona || 0).toFixed(2)} €/persona</label>`;
+    });
+    opcionesHtml += '</div>';
+  } else if (menus.length === 1) {
+    opcionesHtml += `<div class="campo"><label>Menú</label><div class="valor">${menus[0].plantilla_nombre} — ${Number(menus[0].precio_persona || 0).toFixed(2)} €/persona</div><input type="hidden" name="menu_index" value="0"></div>`;
+  }
+
+  const cuerpo = `
+    <p>Estimado/a <strong>${prop.cliente || ''}</strong>,</p>
+    <p>Revise los datos de su evento y confirme su reserva pulsando el botón de abajo.</p>
+    <div class="campo"><label>Fecha del evento</label><div class="valor">${fechaTxt}</div></div>
+    ${prop.tipo_evento ? `<div class="campo"><label>Tipo de evento</label><div class="valor">${prop.tipo_evento}</div></div>` : ''}
+    ${opcionesHtml}
+    <form method="POST" action="/confirmar/${prop.token}">
+      <button type="submit" class="boton">Confirmar mi reserva</button>
+    </form>
+    <p class="nota">Si tiene cualquier duda antes de confirmar, puede llamarnos al 920 37 00 51.</p>
+  `;
+  res.send(paginaConfirmacionHTML('Confirmar reserva', cuerpo));
+});
+
+app.post('/confirmar/:token', express.urlencoded({ extended: true }), async (req, res) => {
+  const prop = db.prepare('SELECT * FROM propuestas WHERE token = ?').get(req.params.token);
+  if (!prop) {
+    return res.status(404).send(paginaConfirmacionHTML('Enlace no válido', '<p>Este enlace de confirmación no es válido o ha caducado.</p>'));
+  }
+  if (prop.estado === 'confirmada') {
+    return res.send(paginaConfirmacionHTML('Reserva ya confirmada', '<p>Esta propuesta ya fue confirmada anteriormente. Si necesita algún cambio, contacte con nosotros en el <strong>920 37 00 51</strong>.</p>'));
+  }
+  const menuIndex = parseInt(req.body.menu_index, 10) || 0;
+  const resultado = confirmarPropuestaEnReserva(prop, { menu_index: menuIndex });
+  if (!resultado.ok) {
+    return res.status(400).send(paginaConfirmacionHTML('No se pudo confirmar', `<p>${resultado.msg}</p>`));
+  }
+
+  // Avisar a administración de que el cliente ha confirmado desde el enlace público
+  try {
+    const cfg = getConfig();
+    if (cfg.email_smtp && cfg.email_pass) {
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com', port: 587, secure: false,
+        auth: { user: cfg.email_smtp, pass: cfg.email_pass }
+      });
+      await transporter.sendMail({
+        from: `"Don Fadrique" <${cfg.email_smtp}>`,
+        to: 'oscar@donfadrique.com',
+        cc: 'nicocuadri@hotmail.com, fincalamaza@gmail.com',
+        subject: `✅ Reserva confirmada online - ${prop.cliente || ''}`,
+        html: `<p><strong>${prop.cliente || ''}</strong> ha confirmado su reserva online con el menú <strong>${resultado.menuElegido.plantilla_nombre}</strong> para el evento del ${prop.fecha_evento || 'sin fecha'}.</p><p>Ya se ha creado la reserva en el sistema, pendiente de completar salón, hora y demás detalles.</p>`
+      });
+    }
+  } catch(e) { console.error('Error notificando confirmación online:', e.message); }
+
+  res.send(paginaConfirmacionHTML('¡Reserva confirmada!', '<p>Gracias, su reserva ha quedado registrada. En breve nos pondremos en contacto para terminar de concretar todos los detalles.</p>'));
+});
+
+// Plantilla HTML simple y de marca para las páginas públicas de confirmación
+function paginaConfirmacionHTML(titulo, cuerpoHtml) {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${titulo} · Don Fadrique</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,sans-serif;background:#f5f2ee;margin:0;padding:24px 16px;color:#2c2c2c}
+    .card{max-width:480px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08)}
+    .top{background:#b8965a;padding:26px 20px;text-align:center;color:#fff}
+    .top .marca{font-size:24px;letter-spacing:2px;margin-bottom:4px}
+    .top .sub{font-size:10px;letter-spacing:2px;opacity:.8}
+    .body{padding:24px 22px}
+    .body h1{font-size:17px;margin:0 0 12px}
+    .campo{margin-bottom:14px}
+    .campo label{display:block;font-size:11px;color:#888;margin-bottom:3px;font-weight:600}
+    .campo .valor{font-size:14px;font-weight:600}
+    .opcion-menu{display:block;font-size:13px;padding:8px 0;border-bottom:1px solid #eee}
+    .boton{width:100%;padding:13px;border:none;border-radius:10px;background:#b8965a;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+    .nota{font-size:11px;color:#999;margin-top:16px}
+    p{font-size:14px;line-height:1.5}
+  </style></head>
+  <body>
+    <div class="card">
+      <div class="top"><div class="marca">DON FADRIQUE</div><div class="sub">R E S T A U R A N T E &middot; A L B A  D E  T O R M E S</div></div>
+      <div class="body"><h1>${titulo}</h1>${cuerpoHtml}</div>
+    </div>
+  </body></html>`;
+}
 
 // ─── API ALERTAS CONVOCATORIA ────────────────────────────────────────────────
 // Ver alertas de convocatorias pendientes de confirmar
