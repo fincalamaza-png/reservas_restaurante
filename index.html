@@ -356,6 +356,31 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
   </div>
 </div>
 
+<!-- MODAL FIRMA PROPUESTA -->
+<div id="modalFirmaPropuesta" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;overflow-y:auto">
+  <div style="background:#fff;max-width:420px;margin:30px auto;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="background:#1a1a1a;color:#b8965a;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:700">Firmar propuesta</div>
+      <button onclick="document.getElementById('modalFirmaPropuesta').style.display='none'" style="background:none;border:none;color:#b8965a;font-size:22px;cursor:pointer">&#10005;</button>
+    </div>
+    <div style="padding:16px 20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div style="text-align:center">
+          <div style="font-size:11px;color:#888;margin-bottom:6px">Don Fadrique</div>
+          <canvas id="canvas-prop-restaurante" width="140" height="70" style="border:1px solid #ccc;border-radius:6px;touch-action:none;cursor:crosshair;background:#fff"></canvas>
+          <button onclick="limpiarFirma('prop-restaurante')" style="font-size:11px;color:#842029;background:none;border:none;cursor:pointer;margin-top:4px">&#10005; Limpiar</button>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:#888;margin-bottom:6px" id="firma-prop-cliente-label">Cliente</div>
+          <canvas id="canvas-prop-cliente" width="140" height="70" style="border:1px solid #ccc;border-radius:6px;touch-action:none;cursor:crosshair;background:#fff"></canvas>
+          <button onclick="limpiarFirma('prop-cliente')" style="font-size:11px;color:#842029;background:none;border:none;cursor:pointer;margin-top:4px">&#10005; Limpiar</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:18px" onclick="guardarFirmasPropuesta()">Guardar firmas</button>
+    </div>
+  </div>
+</div>
+
 <div class="page" id="p-clientes">
   <div class="top"><button class="back" onclick="irA('p-home')">&#8592;</button><div style="flex:1;font-size:15px;font-weight:600">Clientes</div></div>
   <div class="content" id="cli-body"></div>
@@ -1618,11 +1643,14 @@ function renderPropuestasLista(){
     props.forEach(function(p){
       var badge = p.estado==='confirmada' ? 'badge-confirmada' : (p.estado==='enviada' ? 'badge-pendiente' : 'badge-cancelada');
       var estadoTxt = p.estado==='confirmada' ? 'Confirmada' : (p.estado==='enviada' ? 'Enviada' : 'Borrador');
-      html += '<div class="card" onclick="verDetallePropuesta('+p.id+')">';
+      html += '<div class="card">';
+      html += '<div onclick="verDetallePropuesta('+p.id+')" style="cursor:pointer">';
       html += '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600">'+(p.cliente||'')+'</div><span class="badge '+badge+'">'+estadoTxt+'</span></div>';
       html += '<div style="font-size:12px;color:#888;margin-top:4px">'+(p.plantilla_nombre||'')+'</div>';
       html += '<div style="font-size:12px;color:#888">Evento: '+(p.fecha_evento?fmtFechaCorta(p.fecha_evento):'sin fecha')+'</div>';
       if(p.fecha_envio) html += '<div style="font-size:11px;color:#aaa">Enviada: '+p.fecha_envio+'</div>';
+      html += '</div>';
+      html += '<button class="btn btn-secondary" style="margin-top:8px;padding:8px;font-size:12px" onclick="event.stopPropagation();window.open(\'/api/propuestas/'+p.id+'/pdf\',\'_blank\')">&#128196; Ver PDF</button>';
       html += '</div>';
     });
     document.getElementById('propuestas-lista-body').innerHTML = html;
@@ -1637,6 +1665,7 @@ function verDetallePropuesta(id){
   html += '<div class="field"><label>Fecha evento</label><div>'+(p.fecha_evento?fmtFechaCorta(p.fecha_evento):'Sin definir')+'</div></div>';
   html += '<div class="field"><label>Estado</label><div>'+p.estado+'</div></div>';
   html += '<button class="btn btn-secondary" style="margin-bottom:8px" onclick="window.open(\'/api/propuestas/'+p.id+'/pdf\',\'_blank\')">&#128196; Ver PDF</button>';
+  html += '<button class="btn btn-secondary" style="margin-bottom:8px" onclick="abrirFirmaPropuesta('+p.id+')">&#9998; Firmar (restaurante y cliente)</button>';
   if(p.estado!=='confirmada'){
     if(p.menus && p.menus.length>1){
       html += '<div class="field"><label>Menu que ha elegido el cliente</label><select id="det-menu-elegido">';
@@ -1648,6 +1677,37 @@ function verDetallePropuesta(id){
   html += '<button class="btn btn-danger" onclick="eliminarPropuesta('+p.id+')">Eliminar</button>';
   document.getElementById('modalPropuestaDetalle-body').innerHTML = html;
   document.getElementById('modalPropuestaDetalle').style.display='block';
+}
+
+function abrirFirmaPropuesta(id){
+  var p = S.propuestas.find(function(x){return x.id===id;});
+  if(!p) return;
+  S.propuestaFirmaId = id;
+  document.getElementById('firma-prop-cliente-label').textContent = p.cliente || 'Cliente';
+  document.getElementById('modalFirmaPropuesta').style.display='block';
+  setTimeout(function(){
+    limpiarFirma('prop-restaurante');
+    limpiarFirma('prop-cliente');
+    iniciarFirma('prop-restaurante');
+    iniciarFirma('prop-cliente');
+    if(p.firma_restaurante) dibujarFirmaEnCanvas('prop-restaurante', p.firma_restaurante);
+    if(p.firma_cliente) dibujarFirmaEnCanvas('prop-cliente', p.firma_cliente);
+  }, 50);
+}
+
+function guardarFirmasPropuesta(){
+  var firmaRest = obtenerFirma('prop-restaurante');
+  var firmaCli = obtenerFirma('prop-cliente');
+  fetch('/api/propuestas/'+S.propuestaFirmaId+'/firmas', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ firma_restaurante: firmaRest, firma_cliente: firmaCli })
+  })
+    .then(function(r){return r.json();})
+    .then(function(){
+      alert('Firmas guardadas correctamente');
+      document.getElementById('modalFirmaPropuesta').style.display='none';
+      renderPropuestasLista();
+    });
 }
 
 function confirmarPropuestaComoReserva(id){

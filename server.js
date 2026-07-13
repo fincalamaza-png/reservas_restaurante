@@ -134,6 +134,9 @@ try { db.exec(`
 try { db.exec("ALTER TABLE propuestas ADD COLUMN menus TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE propuestas ADD COLUMN extras TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE propuestas ADD COLUMN token TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE propuestas ADD COLUMN firma_cliente TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE propuestas ADD COLUMN fecha_confirmacion TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE propuestas ADD COLUMN firma_restaurante TEXT"); } catch(e) {}
 // Generar token para propuestas antiguas que no lo tengan aún (enlace público de confirmación)
 (function generarTokensFaltantes() {
   const rows = db.prepare('SELECT id FROM propuestas WHERE token IS NULL OR token = ?').all('');
@@ -1967,6 +1970,15 @@ app.delete('/api/propuestas/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// Guardar las firmas (restaurante y/o cliente) de una propuesta, para dejar constancia
+// de que se ha firmado en el momento de entregarla o de confirmarla en persona.
+app.post('/api/propuestas/:id/firmas', (req, res) => {
+  const { firma_restaurante, firma_cliente } = req.body;
+  db.prepare('UPDATE propuestas SET firma_restaurante=?, firma_cliente=? WHERE id=?')
+    .run(firma_restaurante || null, firma_cliente || null, req.params.id);
+  res.json({ ok: true });
+});
+
 // Devuelve el texto a mostrar (PDF / menú de reserva) para un campo de un menú, según su tipo
 function textoCampoMenu(s) {
   if (s.tipo === 'eleccion') {
@@ -2077,7 +2089,7 @@ async function generarPDFPropuesta(prop) {
       y += 12;
       doc.fillColor(dark).font('Helvetica-Bold').fontSize(11.5)
         .text('Precio por persona: ' + Number(menu.precio_persona || 0).toFixed(2) + ' €', 65, y);
-      doc.fillColor(gray).font('Helvetica').fontSize(8).text('IVA 10% no incluido', 65, y + 15);
+      doc.fillColor(gray).font('Helvetica').fontSize(8).text('IVA 10% no incluido  ·  Los consumos extra no incluidos en el menú se facturarán aparte', 65, y + 15);
 
       dibujarLogos(ph - 65);
     });
@@ -2120,10 +2132,38 @@ async function generarPDFPropuesta(prop) {
     y += 24;
 
     if (y > 720) { doc.addPage(); y = 60; }
-    doc.rect(50, y, 495, 55).fill('#f9f9f7');
+    doc.rect(50, y, 495, 68).fill('#f9f9f7');
     doc.fillColor(gray).font('Helvetica').fontSize(9);
     doc.text('NIMANSANMON S.L.  ·  CIF: B37297223', 65, y + 12);
     doc.text('Precios sin IVA (10% no incluido). Validez de la propuesta: 30 días.', 65, y + 28);
+    doc.text('Los consumos extra no incluidos en el menú (bebidas, rondas, etc.) se facturarán aparte.', 65, y + 44);
+    y += 68 + 25;
+
+    // Firmas (restaurante y cliente) — igual que en los presupuestos, para dejar constancia
+    if (y > 740) { doc.addPage(); y = 60; }
+    const xRest = 65, xCli = 310, wFirma = 220;
+    doc.fillColor(gray).fontSize(8).font('Helvetica');
+    doc.text('FIRMA DEL RESTAURANTE', xRest, y, { width: wFirma, align: 'center' });
+    doc.text('FIRMA DEL CLIENTE', xCli, y, { width: wFirma, align: 'center' });
+    y += 12;
+
+    const drawFirmaBox = (x, nombre, yPos) => {
+      doc.rect(x, yPos, wFirma, 55).stroke('#cccccc');
+      doc.fillColor(gray).fontSize(9).font('Helvetica').text(nombre, x, yPos + 60, { width: wFirma, align: 'center' });
+    };
+    const dibujarFirmaImg = (dataUrl, x, yPos) => {
+      if (!dataUrl) return;
+      try {
+        const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+        const buf = Buffer.from(base64, 'base64');
+        doc.image(buf, x + 5, yPos + 3, { width: wFirma - 10, height: 49, fit: [wFirma - 10, 49] });
+      } catch(e) {}
+    };
+
+    drawFirmaBox(xRest, 'Don Fadrique', y);
+    drawFirmaBox(xCli, prop.cliente || '', y);
+    dibujarFirmaImg(prop.firma_restaurante, xRest, y);
+    dibujarFirmaImg(prop.firma_cliente, xCli, y);
 
     dibujarLogos(ph - 65);
 
@@ -2285,19 +2325,59 @@ app.get('/confirmar/:token', (req, res) => {
 
   const cuerpo = `
     <p>Estimado/a <strong>${prop.cliente || ''}</strong>,</p>
-    <p>Revise los datos de su evento y confirme su reserva pulsando el botón de abajo.</p>
+    <p>Revise los datos de su evento, firme abajo y confirme su reserva.</p>
     <div class="campo"><label>Fecha del evento</label><div class="valor">${fechaTxt}</div></div>
     ${prop.tipo_evento ? `<div class="campo"><label>Tipo de evento</label><div class="valor">${prop.tipo_evento}</div></div>` : ''}
     ${opcionesHtml}
-    <form method="POST" action="/confirmar/${prop.token}">
-      <button type="submit" class="boton">Confirmar mi reserva</button>
+    <form method="POST" action="/confirmar/${prop.token}" id="form-confirmar">
+      <div class="campo">
+        <label>Firme aquí para confirmar</label>
+        <canvas id="firma-canvas" width="400" height="150" style="width:100%;height:150px;border:1.5px dashed #cbb98a;border-radius:8px;background:#fdfbf7;touch-action:none"></canvas>
+        <button type="button" id="btn-limpiar-firma" style="margin-top:6px;background:none;border:none;color:#b8965a;font-size:12px;cursor:pointer">Borrar y firmar de nuevo</button>
+      </div>
+      <input type="hidden" name="firma_cliente" id="firma_cliente_input">
+      <button type="submit" class="boton" id="btn-confirmar">Confirmar mi reserva</button>
     </form>
     <p class="nota">Si tiene cualquier duda antes de confirmar, puede llamarnos al 920 37 00 51.</p>
   `;
-  res.send(paginaConfirmacionHTML('Confirmar reserva', cuerpo));
+  const script = `
+    (function(){
+      var canvas = document.getElementById('firma-canvas');
+      var ctx = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+      ctx.strokeStyle = '#2c2c2c'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      var dibujando = false, haFirmado = false;
+      function pos(e){
+        var r = canvas.getBoundingClientRect();
+        var p = e.touches ? e.touches[0] : e;
+        return { x: p.clientX - r.left, y: p.clientY - r.top };
+      }
+      function empezar(e){ dibujando = true; haFirmado = true; var p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+      function mover(e){ if(!dibujando) return; var p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); }
+      function terminar(){ dibujando = false; }
+      canvas.addEventListener('mousedown', empezar);
+      canvas.addEventListener('mousemove', mover);
+      window.addEventListener('mouseup', terminar);
+      canvas.addEventListener('touchstart', empezar);
+      canvas.addEventListener('touchmove', mover);
+      canvas.addEventListener('touchend', terminar);
+      document.getElementById('btn-limpiar-firma').addEventListener('click', function(){
+        ctx.clearRect(0,0,canvas.width,canvas.height); haFirmado = false;
+      });
+      document.getElementById('form-confirmar').addEventListener('submit', function(ev){
+        if(!haFirmado){
+          ev.preventDefault();
+          alert('Por favor, firme en el recuadro antes de confirmar.');
+          return;
+        }
+        document.getElementById('firma_cliente_input').value = canvas.toDataURL('image/png');
+      });
+    })();
+  `;
+  res.send(paginaConfirmacionHTML('Confirmar reserva', cuerpo, script));
 });
 
-app.post('/confirmar/:token', express.urlencoded({ extended: true }), async (req, res) => {
+app.post('/confirmar/:token', express.urlencoded({ extended: true, limit: '2mb' }), async (req, res) => {
   const prop = db.prepare('SELECT * FROM propuestas WHERE token = ?').get(req.params.token);
   if (!prop) {
     return res.status(404).send(paginaConfirmacionHTML('Enlace no válido', '<p>Este enlace de confirmación no es válido o ha caducado.</p>'));
@@ -2309,6 +2389,11 @@ app.post('/confirmar/:token', express.urlencoded({ extended: true }), async (req
   const resultado = confirmarPropuestaEnReserva(prop, { menu_index: menuIndex });
   if (!resultado.ok) {
     return res.status(400).send(paginaConfirmacionHTML('No se pudo confirmar', `<p>${resultado.msg}</p>`));
+  }
+
+  if (req.body.firma_cliente) {
+    db.prepare("UPDATE propuestas SET firma_cliente = ?, fecha_confirmacion = datetime('now') WHERE id = ?")
+      .run(req.body.firma_cliente, prop.id);
   }
 
   // Avisar a administración de que el cliente ha confirmado desde el enlace público
@@ -2324,16 +2409,16 @@ app.post('/confirmar/:token', express.urlencoded({ extended: true }), async (req
         to: 'oscar@donfadrique.com',
         cc: 'nicocuadri@hotmail.com, fincalamaza@gmail.com',
         subject: `✅ Reserva confirmada online - ${prop.cliente || ''}`,
-        html: `<p><strong>${prop.cliente || ''}</strong> ha confirmado su reserva online con el menú <strong>${resultado.menuElegido.plantilla_nombre}</strong> para el evento del ${prop.fecha_evento || 'sin fecha'}.</p><p>Ya se ha creado la reserva en el sistema, pendiente de completar salón, hora y demás detalles.</p>`
+        html: `<p><strong>${prop.cliente || ''}</strong> ha confirmado y firmado su reserva online con el menú <strong>${resultado.menuElegido.plantilla_nombre}</strong> para el evento del ${prop.fecha_evento || 'sin fecha'}.</p><p>Ya se ha creado la reserva en el sistema, pendiente de completar salón, hora y demás detalles. Puede ver la firma en el PDF de la propuesta, en la carpeta de Entregados.</p>`
       });
     }
   } catch(e) { console.error('Error notificando confirmación online:', e.message); }
 
-  res.send(paginaConfirmacionHTML('¡Reserva confirmada!', '<p>Gracias, su reserva ha quedado registrada. En breve nos pondremos en contacto para terminar de concretar todos los detalles.</p>'));
+  res.send(paginaConfirmacionHTML('¡Reserva confirmada!', '<p>Gracias, su reserva y su firma han quedado registradas. En breve nos pondremos en contacto para terminar de concretar todos los detalles.</p>'));
 });
 
 // Plantilla HTML simple y de marca para las páginas públicas de confirmación
-function paginaConfirmacionHTML(titulo, cuerpoHtml) {
+function paginaConfirmacionHTML(titulo, cuerpoHtml, scriptExtra) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${titulo} · Don Fadrique</title>
@@ -2359,6 +2444,7 @@ function paginaConfirmacionHTML(titulo, cuerpoHtml) {
       <div class="top"><div class="marca">DON FADRIQUE</div><div class="sub">R E S T A U R A N T E &middot; A L B A  D E  T O R M E S</div></div>
       <div class="body"><h1>${titulo}</h1>${cuerpoHtml}</div>
     </div>
+    ${scriptExtra ? `<script>${scriptExtra}</script>` : ''}
   </body></html>`;
 }
 
