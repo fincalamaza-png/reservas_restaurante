@@ -315,6 +315,50 @@ try { db.exec(`
   db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla3_v2', '1')").run();
 })();
 
+// Migración: "Cóctel con Estaciones" — 6 estaciones, cada una con espacio para varios
+// productos editables y ampliables (+ Añadir plato).
+(function migrarPlantilla4V2() {
+  const flag = db.prepare("SELECT valor FROM config WHERE clave = 'plantilla4_v2'").get();
+  if (flag && flag.valor === '1') return;
+  const vacios = n => Array.from({ length: n }, () => '');
+  const campos = [
+    { tipo: 'lista', titulo: 'Estación Ibéricos', items: vacios(5) },
+    { tipo: 'lista', titulo: 'Estación Tradicional', items: vacios(5) },
+    { tipo: 'lista', titulo: 'Estación Quesos', items: vacios(8) },
+    { tipo: 'lista', titulo: 'Estación Marisco', items: vacios(8) },
+    { tipo: 'lista', titulo: 'Estación Carnes', items: vacios(5) },
+    { tipo: 'lista', titulo: 'Estación Postres', items: vacios(6) }
+  ];
+  db.prepare('UPDATE plantillas_menu SET secciones = ? WHERE nombre = ?')
+    .run(JSON.stringify(campos), 'Cóctel con Estaciones');
+  db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('plantilla4_v2', '1')").run();
+})();
+
+// Migración global: añade "Barra libre" y "Recena" al final de TODAS las plantillas
+// (se ejecuta una sola vez, controlada por config, para no duplicarlos en reinicios futuros).
+(function migrarBarraLibreRecenaV1() {
+  const flag = db.prepare("SELECT valor FROM config WHERE clave = 'campos_barra_recena_v1'").get();
+  if (flag && flag.valor === '1') return;
+  const barraLibre = () => ({ tipo: 'barra_libre', titulo: 'Barra libre', horas: '3,5 horas', precio: 29.90, valor: false });
+  const recena = () => ({ tipo: 'recena', titulo: 'Recena', valor: false, platos: [
+    { nombre: 'Bandeja de minihamburguesas', precio: 0 },
+    { nombre: 'Pizza', precio: 0 },
+    { nombre: 'Montaditos', precio: 0 },
+    { nombre: '', precio: 0 },
+    { nombre: '', precio: 0 },
+    { nombre: '', precio: 0 }
+  ]});
+  const rows = db.prepare('SELECT id, secciones FROM plantillas_menu').all();
+  const upd = db.prepare('UPDATE plantillas_menu SET secciones = ? WHERE id = ?');
+  rows.forEach(r => {
+    const secciones = JSON.parse(r.secciones || '[]');
+    secciones.push(barraLibre());
+    secciones.push(recena());
+    upd.run(JSON.stringify(secciones), r.id);
+  });
+  db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('campos_barra_recena_v1', '1')").run();
+})();
+
 
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
@@ -1912,6 +1956,17 @@ async function generarPDFPropuesta(prop) {
       } else if (s.tipo === 'lista') {
         const items = (s.items || []).filter(it => it && it.trim());
         texto = items.length ? items.map(it => `• ${it}`).join('\n') : 'Por definir';
+      } else if (s.tipo === 'barra_libre') {
+        texto = s.valor ? `Incluida (${s.horas} · ${Number(s.precio).toFixed(2)} €/persona)` : 'No incluida';
+      } else if (s.tipo === 'recena') {
+        if (s.valor) {
+          const platos = (s.platos || []).filter(p => p.nombre && p.nombre.trim());
+          texto = platos.length
+            ? platos.map(p => `• ${p.nombre}${p.precio ? ` (${Number(p.precio).toFixed(2)} €)` : ''}`).join('\n')
+            : 'Incluida';
+        } else {
+          texto = 'No incluida';
+        }
       } else {
         texto = s.texto || '';
       }
@@ -2046,6 +2101,14 @@ app.post('/api/propuestas/:id/confirmar', (req, res) => {
     if (s.tipo === 'lista') {
       const items = (s.items || []).filter(it => it && it.trim());
       return `${s.titulo}: ${items.join(', ')}`;
+    }
+    if (s.tipo === 'barra_libre') {
+      return `${s.titulo}: ${s.valor ? `Sí (${s.horas} - ${Number(s.precio).toFixed(2)} €/persona)` : 'No'}`;
+    }
+    if (s.tipo === 'recena') {
+      if (!s.valor) return `${s.titulo}: No`;
+      const platos = (s.platos || []).filter(p => p.nombre && p.nombre.trim());
+      return `${s.titulo}: ${platos.map(p => `${p.nombre}${p.precio ? ` (${Number(p.precio).toFixed(2)} €)` : ''}`).join(', ')}`;
     }
     const compartirTag = s.compartir ? ' (para compartir)' : '';
     return `${s.titulo}${compartirTag}: ${s.texto || ''}`;
