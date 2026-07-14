@@ -1665,6 +1665,9 @@ function verDetallePropuesta(id){
   html += '<div class="field"><label>Fecha evento</label><div>'+(p.fecha_evento?fmtFechaCorta(p.fecha_evento):'Sin definir')+'</div></div>';
   html += '<div class="field"><label>Estado</label><div>'+p.estado+'</div></div>';
   html += '<button class="btn btn-secondary" style="margin-bottom:8px" onclick="window.open(\'/api/propuestas/'+p.id+'/pdf\',\'_blank\')">&#128196; Ver PDF</button>';
+  if(p.estado!=='confirmada'){
+    html += '<button class="btn btn-secondary" style="margin-bottom:8px" onclick="editarPropuesta('+p.id+')">&#9998; Modificar</button>';
+  }
   html += '<button class="btn btn-secondary" style="margin-bottom:8px" onclick="abrirFirmaPropuesta('+p.id+')">&#9998; Firmar (restaurante y cliente)</button>';
   if(p.estado!=='confirmada'){
     if(p.menus && p.menus.length>1){
@@ -1677,6 +1680,26 @@ function verDetallePropuesta(id){
   html += '<button class="btn btn-danger" onclick="eliminarPropuesta('+p.id+')">Eliminar</button>';
   document.getElementById('modalPropuestaDetalle-body').innerHTML = html;
   document.getElementById('modalPropuestaDetalle').style.display='block';
+}
+
+function editarPropuesta(id){
+  var p = S.propuestas.find(function(x){return x.id===id;});
+  if(!p) return;
+  S.propuestaForm = {
+    id: p.id,
+    cliente: p.cliente || '',
+    telefono: p.telefono || '',
+    email: p.email || '',
+    fecha_evento: p.fecha_evento || '',
+    tipo_evento: p.tipo_evento || '',
+    pax: p.pax || '',
+    notas: p.notas || '',
+    menus: JSON.parse(JSON.stringify(p.menus || [])),
+    extras: JSON.parse(JSON.stringify(p.extras || []))
+  };
+  document.getElementById('modalPropuestaDetalle').style.display = 'none';
+  renderModalPropuesta();
+  document.getElementById('modalPropuesta').style.display = 'block';
 }
 
 function abrirFirmaPropuesta(id){
