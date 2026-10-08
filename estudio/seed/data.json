@@ -1,0 +1,1289 @@
+{
+ "docs": {
+  "presupuestos": {
+   "d4nuhi3jn4uc": {
+    "actualizado": "2026-10-07T20:40:46.037Z",
+    "autoSeguimiento": true,
+    "cliente": "Manuel Sánchez",
+    "creado": "2026-10-07T20:40:01.860Z",
+    "email": "",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "2026-10-15",
+    "foto": "plato",
+    "historial": [
+     {
+      "at": "2026-10-07T20:40:01.868Z",
+      "txt": "Creado desde texto pegado"
+     }
+    ],
+    "hora": "",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "",
+    "notas": "",
+    "notasInternas": "",
+    "pasarAReservas": false,
+    "pax": "",
+    "precio": 85,
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Tosta de jamón y foie",
+       "Salpicón",
+       "Croquetas"
+      ],
+      "titulo": "Entrantes"
+     },
+     {
+      "platos": [
+       "Bacalao a la brasa"
+      ],
+      "titulo": "Pescado"
+     },
+     {
+      "platos": [
+       "Chuleta de ternera"
+      ],
+      "titulo": "Carne"
+     },
+     {
+      "platos": [
+       "Torrija caramelizada"
+      ],
+      "titulo": "Postre"
+     },
+     {
+      "platos": [
+       "Palo cortado",
+       "Díscolo tinto",
+       "Champagne Laurent-Perrier"
+      ],
+      "titulo": "Bodega"
+     },
+     {
+      "platos": [
+       "Agua, pan y vino"
+      ],
+      "titulo": "Incluye"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "",
+    "tipo": "Menú",
+    "titulo": "*Menú*"
+   },
+   "190bwnxe8vwi": {
+    "actualizado": "2026-10-07T20:59:24.518Z",
+    "autoSeguimiento": true,
+    "cliente": "Teresa Vicente",
+    "creado": "2026-10-07T20:56:56.706Z",
+    "email": "fincalamaza@gmail.com",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "2026-10-10",
+    "foto": "auto",
+    "historial": [
+     {
+      "at": "2026-10-07T20:57:02.249Z",
+      "txt": "Creado desde texto pegado (revisado por Claude)"
+     }
+    ],
+    "hora": "12:00",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "",
+    "notas": "Almuerzo",
+    "notasInternas": "",
+    "pasarAReservas": false,
+    "pax": "25",
+    "precio": 85,
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Tosta de jamón y foie",
+       "Salpicón",
+       "Croquetas"
+      ],
+      "titulo": "Entrantes"
+     },
+     {
+      "platos": [
+       "Bacalao a la brasa"
+      ],
+      "titulo": "Pescado"
+     },
+     {
+      "platos": [
+       "Chuleta de ternera"
+      ],
+      "titulo": "Carne"
+     },
+     {
+      "platos": [
+       "Torrija caramelizada"
+      ],
+      "titulo": "Postre"
+     },
+     {
+      "platos": [
+       "Palo cortado",
+       "Díscolo tinto",
+       "Champagne Lauret Perrier"
+      ],
+      "titulo": "Bodega"
+     },
+     {
+      "platos": [
+       "Agua, pan y vino"
+      ],
+      "titulo": "Incluye"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "650488113",
+    "textoOriginal": "Menú día 10 10 2026\nBODAS DE PLATA\nAlmuerzo\nTERESA VICENTE\n\nEntrantes \nTosta de jamón y foie \nSalpicón \nCroquetas \n\nBacalao brasa \n\nChuleta ternera \n\nTorrija caramelizada \n\nPalo cortado\nDíscolo tinto \nChampagne laurret perrier \n\nPrecio 85€ \n\nIncluye agua pan y vino",
+    "tipo": "Almuerzo",
+    "titulo": "Bodas de *Plata*"
+   },
+   "6qext8j02jb2": {
+    "actualizado": "2026-10-07T20:52:53.182Z",
+    "autoSeguimiento": true,
+    "cliente": "Manuel ",
+    "creado": "2026-10-07T20:52:00.446Z",
+    "email": "fincalamaza@gmail.com",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "",
+    "foto": "tuetano",
+    "historial": [],
+    "hora": "14:00",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "notas": "",
+    "notasInternas": "",
+    "pasarAReservas": false,
+    "pax": "8",
+    "plantilla": "MENÚ TRADICIÓN ",
+    "precio": "",
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Ensaladilla con encurtidos",
+       ""
+      ],
+      "titulo": "Entrante"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "650488113",
+    "tipo": "Menú degustación",
+    "titulo": "Menú"
+   },
+   "p_pregon": {
+    "actualizado": "2026-10-07T06:59:17.550317Z",
+    "autoSeguimiento": true,
+    "cliente": "",
+    "creado": "2026-10-07T06:59:17.550317Z",
+    "email": "",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "2026-10-14",
+    "foto": "jamon",
+    "historial": [
+     {
+      "at": "2026-10-07T06:59:17.550317Z",
+      "txt": "Creado"
+     }
+    ],
+    "hora": "20:00",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "notas": "",
+    "notasInternas": "",
+    "pasarAReservas": false,
+    "pax": 75,
+    "plantilla": "Cóctel de 13 bocados",
+    "precio": 2000,
+    "precioModo": "total",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Salmón con chocolate",
+       "Yogur de setas",
+       "Sobrasada con higo",
+       "Steak de salchichón con pan tierno",
+       "Tartare de Piszolla",
+       "Carpaccio con queso de Arribes"
+      ],
+      "titulo": "Fríos"
+     },
+     {
+      "platos": [
+       "Croqueta de jamón",
+       "Croqueta de bacalao",
+       "Morcilla con pistacho",
+       "Caramelo de farinato",
+       "Bikini de ibérico",
+       "Mollete de morucha",
+       "Mollete de gallo de corral"
+      ],
+      "titulo": "Calientes"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "",
+    "tipo": "Cóctel",
+    "titulo": "Pregón de *Alba de Tormes*"
+   },
+   "amfj819adsdg": {
+    "actualizado": "2026-10-07T20:32:59.525Z",
+    "autoSeguimiento": true,
+    "cliente": "Manuel",
+    "creado": "2026-10-07T20:32:45.796Z",
+    "email": "fincalamaza@gmail.com",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "2026-10-11",
+    "foto": "auto",
+    "historial": [
+     {
+      "at": "2026-10-07T20:32:45.808Z",
+      "txt": "Creado desde texto pegado"
+     }
+    ],
+    "hora": "14:00",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "",
+    "notas": "10 adultos y 1 niño.",
+    "notasInternas": "",
+    "pasarAReservas": false,
+    "pax": 10,
+    "precio": 65,
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Jamón y lomo",
+       "Croquetas",
+       "Gambas"
+      ],
+      "titulo": "Entrantes a compartir"
+     },
+     {
+      "platos": [
+       "Salmorejo"
+      ],
+      "titulo": "Entrante individual"
+     },
+     {
+      "platos": [
+       "Tostón",
+       "Presa",
+       "Merluza rellena"
+      ],
+      "titulo": "Plato principal"
+     },
+     {
+      "platos": [
+       "Tarta Regina con helado (grande para todos)"
+      ],
+      "titulo": "Postre"
+     },
+     {
+      "platos": [
+       "Agua, pan y vino"
+      ],
+      "titulo": "Incluye"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "650488113",
+    "tipo": "Menú",
+    "titulo": "Bodas de oro *Ramonin*"
+   },
+   "p_ramonin": {
+    "actualizado": "2026-10-07T08:58:28.246Z",
+    "autoSeguimiento": true,
+    "cliente": "",
+    "creado": "2026-10-07T08:58:28.246Z",
+    "email": "",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "2026-10-11",
+    "foto": "mesa",
+    "historial": [
+     {
+      "at": "2026-10-07T08:58:28.249Z",
+      "txt": "Creado desde texto pegado"
+     }
+    ],
+    "hora": "14:00",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "",
+    "notas": "10 adultos y 1 niño.",
+    "notasInternas": "",
+    "pasarAReservas": false,
+    "pax": 10,
+    "precio": 65,
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Jamón y lomo",
+       "Croquetas",
+       "Gambas"
+      ],
+      "titulo": "Entrantes a compartir"
+     },
+     {
+      "platos": [
+       "Salmorejo"
+      ],
+      "titulo": "Entrante individual"
+     },
+     {
+      "platos": [
+       "Tostón",
+       "Presa",
+       "Merluza rellena"
+      ],
+      "titulo": "Plato principal"
+     },
+     {
+      "platos": [
+       "Tarta Regina con helado (grande para todos)"
+      ],
+      "titulo": "Postre"
+     },
+     {
+      "platos": [
+       "Agua, pan y vino"
+      ],
+      "titulo": "Incluye"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "",
+    "tipo": "Menú",
+    "titulo": "Bodas de oro *Ramonin*"
+   },
+   "p_pedro": {
+    "actualizado": "2026-10-07T06:59:17.550317Z",
+    "autoSeguimiento": true,
+    "cliente": "Pedro",
+    "creado": "2026-10-07T06:59:17.550317Z",
+    "email": "pedrito_ext@hotmail.com",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "2026-10-17",
+    "foto": "mesa",
+    "historial": [
+     {
+      "at": "2026-10-07T06:59:17.550317Z",
+      "txt": "Creado"
+     }
+    ],
+    "hora": "",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "notas": "",
+    "notasInternas": "",
+    "pasarAReservas": false,
+    "pax": 20,
+    "plantilla": "Menú de grupo 60 €",
+    "precio": 60,
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Jamón y lomo",
+       "Croquetas de jamón artesanas",
+       "Croqueta de bacalao",
+       "Morcilla con pistacho"
+      ],
+      "titulo": "Entrantes a compartir"
+     },
+     {
+      "platos": [
+       "Parmentier ahumada con huevo y trompeta negra"
+      ],
+      "titulo": "Entrante individual"
+     },
+     {
+      "platos": [
+       "Cochinillo asado en horno de leña",
+       "Presa a la brasa",
+       "Bacalao a la brasa"
+      ],
+      "titulo": "Plato principal a elegir"
+     },
+     {
+      "platos": [
+       "Mazapán carmelita"
+      ],
+      "titulo": "Postre"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "645619483",
+    "tipo": "Menú",
+    "titulo": "Menú para *Pedro*"
+   }
+  },
+  "plantillas": {
+   "f58mp3d4zsh3": {
+    "actualizado": "2026-10-07T20:50:57.146Z",
+    "autoSeguimiento": true,
+    "cliente": "",
+    "creado": "2026-10-07T20:49:52.359Z",
+    "email": "",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "",
+    "foto": "tuetano",
+    "grupo": "",
+    "historial": [],
+    "hora": "",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "MENÚ TRADICIÓN ",
+    "notas": "",
+    "notasInternas": "",
+    "pasarAReservas": false,
+    "pax": "",
+    "precio": "",
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       ""
+      ],
+      "titulo": "Entrante"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "",
+    "tipo": "Menú degustación",
+    "titulo": "Menú"
+   },
+   "jroxghk7akz2": {
+    "actualizado": "2026-10-07T09:18:26.211Z",
+    "autoSeguimiento": true,
+    "cliente": "",
+    "creado": "2026-10-07T09:18:25.454Z",
+    "email": "",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "",
+    "foto": "tuetano",
+    "grupo": "Otros",
+    "historial": [],
+    "hora": "",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "Nueva plantilla",
+    "notas": "",
+    "notasInternas": "",
+    "pasarAReservas": false,
+    "pax": "",
+    "precio": "",
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       ""
+      ],
+      "titulo": "Entrante"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "",
+    "tipo": "Menú",
+    "titulo": "Menú"
+   },
+   "grupo60": {
+    "actualizado": "2026-10-07T06:59:17.550317Z",
+    "autoSeguimiento": true,
+    "cliente": "",
+    "creado": "2026-10-07T06:59:17.550317Z",
+    "email": "",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "",
+    "foto": "mesa",
+    "grupo": "Grupos",
+    "historial": [],
+    "hora": "",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "Menú de grupo 60 €",
+    "notas": "",
+    "notasInternas": "",
+    "orden": 1,
+    "pasarAReservas": false,
+    "pax": "",
+    "precio": 60,
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Jamón y lomo",
+       "Croquetas de jamón artesanas",
+       "Croqueta de bacalao",
+       "Morcilla con pistacho"
+      ],
+      "titulo": "Entrantes a compartir"
+     },
+     {
+      "platos": [
+       "Parmentier ahumada con huevo y trompeta negra"
+      ],
+      "titulo": "Entrante individual"
+     },
+     {
+      "platos": [
+       "Cochinillo asado en horno de leña",
+       "Presa a la brasa",
+       "Bacalao a la brasa"
+      ],
+      "titulo": "Plato principal a elegir"
+     },
+     {
+      "platos": [
+       "Mazapán carmelita"
+      ],
+      "titulo": "Postre"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "",
+    "tipo": "Menú",
+    "titulo": "*Menú*"
+   },
+   "coctel13": {
+    "actualizado": "2026-10-07T06:59:17.550317Z",
+    "autoSeguimiento": true,
+    "cliente": "",
+    "creado": "2026-10-07T06:59:17.550317Z",
+    "email": "",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "",
+    "foto": "jamon",
+    "grupo": "Cócteles",
+    "historial": [],
+    "hora": "",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "Cóctel de 13 bocados",
+    "notas": "",
+    "notasInternas": "",
+    "orden": 1,
+    "pasarAReservas": false,
+    "pax": "",
+    "precio": 2000,
+    "precioModo": "total",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Salmón con chocolate",
+       "Yogur de setas",
+       "Sobrasada con higo",
+       "Steak de salchichón con pan tierno",
+       "Tartare de Piszolla",
+       "Carpaccio con queso de Arribes"
+      ],
+      "titulo": "Fríos"
+     },
+     {
+      "platos": [
+       "Croqueta de jamón",
+       "Croqueta de bacalao",
+       "Morcilla con pistacho",
+       "Caramelo de farinato",
+       "Bikini de ibérico",
+       "Mollete de morucha",
+       "Mollete de gallo de corral"
+      ],
+      "titulo": "Calientes"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "",
+    "tipo": "Cóctel",
+    "titulo": "*Cóctel*"
+   },
+   "pilar": {
+    "actualizado": "2026-10-07T06:59:17.550317Z",
+    "autoSeguimiento": true,
+    "cliente": "",
+    "creado": "2026-10-07T06:59:17.550317Z",
+    "email": "",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "2026-10-12",
+    "foto": "tuetano",
+    "grupo": "Menús de temporada",
+    "historial": [],
+    "hora": "",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "Menú día del Pilar",
+    "notas": "",
+    "notasInternas": "",
+    "orden": 1,
+    "pasarAReservas": false,
+    "pax": "",
+    "precio": 60,
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Sobrasada",
+       "Steak de salchichón"
+      ],
+      "titulo": "Aperitivo"
+     },
+     {
+      "platos": [
+       "Ensaladilla con encurtidos",
+       "Infusión ahumada de trompeta negra y castaña con huevo"
+      ],
+      "titulo": "Entrante"
+     },
+     {
+      "platos": [
+       "Potaje carmelita con berza"
+      ],
+      "titulo": "De cuchara"
+     },
+     {
+      "platos": [
+       "Puzzle de pescado con espinaca"
+      ],
+      "titulo": "Pescado"
+     },
+     {
+      "platos": [
+       "Cochinillo asado tradicional"
+      ],
+      "titulo": "Carne"
+     },
+     {
+      "platos": [
+       "Mazapán carmelita"
+      ],
+      "titulo": "Postre"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "",
+    "tipo": "Menú",
+    "titulo": "Menú día del *Pilar*"
+   },
+   "coctelDF": {
+    "actualizado": "2026-10-07T06:59:17.550317Z",
+    "autoSeguimiento": true,
+    "cliente": "",
+    "creado": "2026-10-07T06:59:17.550317Z",
+    "email": "",
+    "estado": "borrador",
+    "extras": [],
+    "fecha": "",
+    "foto": "frutas",
+    "grupo": "Cócteles",
+    "historial": [],
+    "hora": "",
+    "iva": "incluido",
+    "mostrarPrecio": true,
+    "nombre": "Cóctel de bienvenida DF",
+    "notas": "",
+    "notasInternas": "",
+    "orden": 2,
+    "pasarAReservas": false,
+    "pax": "",
+    "precio": 29.5,
+    "precioModo": "persona",
+    "proximoSeguimiento": "",
+    "secciones": [
+     {
+      "platos": [
+       "Gazpacho tradicional",
+       "Gazpacho de sandía",
+       "Ajoblanco de almendras",
+       "Gazpacho de mango"
+      ],
+      "titulo": "Red de gazpachos"
+     },
+     {
+      "platos": [
+       "Yogur de boletus",
+       "Yogur de bacalao",
+       "Fruta con micuit",
+       "Tomate con ventresca",
+       "Salmón con chocolate blanco",
+       "Milhoja de manzana y queso",
+       "Carpaccio de ibérico con queso de Hinojosa"
+      ],
+      "titulo": "Bandeja Don Fadrique"
+     },
+     {
+      "platos": [
+       "Tosta de jamón y foie",
+       "Tortilla s. XXI",
+       "Anchoa con pimiento dulce"
+      ],
+      "titulo": "Imprescindibles"
+     },
+     {
+      "platos": [
+       "Croqueta de jamón",
+       "Croqueta de bacalao",
+       "Morcilla con pistacho",
+       "Caramelo de farinato",
+       "Rosquilla de sobrasada y queso",
+       "Tempura de cebolla dulce",
+       "Tortillita fina de bacalao",
+       "Empanadas al vapor"
+      ],
+      "titulo": "Aperitivos calientes"
+     }
+    ],
+    "seguimientosEnviados": 0,
+    "telefono": "",
+    "tipo": "Cóctel",
+    "titulo": "Cóctel de bienvenida *DF*"
+   }
+  },
+  "platos": {
+   "pl029": {
+    "categoria": "Cóctel frío",
+    "nombre": "Ajoblanco de almendras",
+    "precio": null
+   },
+   "pl065": {
+    "categoria": "Entrante",
+    "nombre": "Ensalada de langostinos con melón osmotizado y alioli de ajonegro",
+    "precio": null
+   },
+   "pl041": {
+    "categoria": "Cóctel caliente",
+    "nombre": "Rosquilla de sobrasada y queso",
+    "precio": null
+   },
+   "pl035": {
+    "categoria": "Cóctel frío",
+    "nombre": "Salmón con chocolate blanco",
+    "precio": null
+   },
+   "pl037": {
+    "categoria": "Cóctel frío",
+    "nombre": "Carpaccio de ibérico con queso de Hinojosa",
+    "precio": null
+   },
+   "pl058": {
+    "categoria": "Entrante",
+    "nombre": "Pasta fina con langostino, secreto y cangrejo",
+    "precio": null
+   },
+   "pl090": {
+    "categoria": "Carne",
+    "nombre": "Bacalao con pilpil ligero y seta de primavera",
+    "precio": null
+   },
+   "pl083": {
+    "categoria": "Carne",
+    "nombre": "Cordero lechal al horno de leña con patata",
+    "precio": null
+   },
+   "pl003": {
+    "categoria": "Entrante",
+    "nombre": "Infusión ahumada de trompeta negra y castaña con huevo",
+    "precio": null
+   },
+   "pl059": {
+    "categoria": "Pescado",
+    "nombre": "Lubina salvaje con matices cítricos de mano de Buda, kéfir y lemongrass",
+    "precio": null
+   },
+   "pl026": {
+    "categoria": "Cóctel caliente",
+    "nombre": "Mollete de gallo de corral",
+    "precio": null
+   },
+   "pl087": {
+    "categoria": "Carne",
+    "nombre": "Solomillo a la brasa",
+    "precio": null
+   },
+   "pl021": {
+    "categoria": "Cóctel frío",
+    "nombre": "Carpaccio con queso de Arribes",
+    "precio": null
+   },
+   "pl020": {
+    "categoria": "Cóctel frío",
+    "nombre": "Tartare de Piszolla",
+    "precio": null
+   },
+   "pl019": {
+    "categoria": "Cóctel frío",
+    "nombre": "Steak de salchichón con pan tierno",
+    "precio": null
+   },
+   "pl050": {
+    "categoria": "Entrante",
+    "nombre": "Salmorejo rústico, solamente majado, como se hacía en el propio huerto, con virutas de jamón",
+    "precio": null
+   },
+   "pl057": {
+    "categoria": "Postre",
+    "nombre": "Chocolate y queso, igual que un beso",
+    "precio": null
+   },
+   "pl048": {
+    "categoria": "Entrante",
+    "nombre": "Terrina de manzana caramelizada con queso y paté al Armagnac",
+    "precio": null
+   },
+   "pl033": {
+    "categoria": "Cóctel frío",
+    "nombre": "Fruta con micuit",
+    "precio": null
+   },
+   "pl080": {
+    "categoria": "Carne",
+    "nombre": "Lubina salvaje con matices cítricos",
+    "precio": null
+   },
+   "pl005": {
+    "categoria": "Pescado",
+    "nombre": "Puzzle de pescado con espinaca",
+    "precio": null
+   },
+   "pl002": {
+    "categoria": "Entrante",
+    "nombre": "Ensaladilla con encurtidos",
+    "precio": null
+   },
+   "pl006": {
+    "categoria": "Carne",
+    "nombre": "Cochinillo asado tradicional",
+    "precio": null
+   },
+   "pl036": {
+    "categoria": "Cóctel frío",
+    "nombre": "Milhoja de manzana y queso",
+    "precio": null
+   },
+   "pl001": {
+    "categoria": "Aperitivo",
+    "nombre": "Steak de salchichón",
+    "precio": null
+   },
+   "pl072": {
+    "categoria": "Carne",
+    "nombre": "Lomo de venado con frutas del bosque y regaliz",
+    "precio": null
+   },
+   "pl032": {
+    "categoria": "Cóctel frío",
+    "nombre": "Yogur de bacalao",
+    "precio": null
+   },
+   "pl034": {
+    "categoria": "Cóctel frío",
+    "nombre": "Tomate con ventresca",
+    "precio": null
+   },
+   "pl028": {
+    "categoria": "Cóctel frío",
+    "nombre": "Gazpacho de sandía",
+    "precio": null
+   },
+   "pl086": {
+    "categoria": "Carne",
+    "nombre": "Pluma ibérica macerada en hierbas con boniato y chips de boniato",
+    "precio": null
+   },
+   "pl088": {
+    "categoria": "Postre",
+    "nombre": "Tarta de queso fluida",
+    "precio": null
+   },
+   "pl025": {
+    "categoria": "Cóctel caliente",
+    "nombre": "Mollete de morucha",
+    "precio": null
+   },
+   "pl081": {
+    "categoria": "Postre",
+    "nombre": "Milhoja de café con chocolate y helado de nata",
+    "precio": null
+   },
+   "pl044": {
+    "categoria": "Cóctel caliente",
+    "nombre": "Empanadas al vapor",
+    "precio": null
+   },
+   "pl049": {
+    "categoria": "Postre",
+    "nombre": "Crème brûlée con helado de nata",
+    "precio": null
+   },
+   "pl066": {
+    "categoria": "Carne",
+    "nombre": "Lomo de orza con manteca vegetal, cebolleta encurtida y crujiente de patatas meneadas",
+    "precio": null
+   },
+   "pl018": {
+    "categoria": "Cóctel frío",
+    "nombre": "Sobrasada con higo",
+    "precio": null
+   },
+   "pl030": {
+    "categoria": "Cóctel frío",
+    "nombre": "Gazpacho de mango",
+    "precio": null
+   },
+   "pl085": {
+    "categoria": "Carne",
+    "nombre": "Pez de San Pedro",
+    "precio": null
+   },
+   "pl010": {
+    "categoria": "Entrante",
+    "nombre": "Croqueta de bacalao",
+    "precio": null
+   },
+   "pl013": {
+    "categoria": "Carne",
+    "nombre": "Cochinillo asado en horno de leña",
+    "precio": null
+   },
+   "pl071": {
+    "categoria": "Entrante",
+    "nombre": "Langosta escalopada con membrillo agridulce",
+    "precio": null
+   },
+   "pl047": {
+    "categoria": "Postre",
+    "nombre": "Milhoja de hojaldre con crema de café y helado de turrón",
+    "precio": null
+   },
+   "pl063": {
+    "categoria": "Pescado",
+    "nombre": "Bacalao a la brasa con guiso de oreja",
+    "precio": null
+   },
+   "pl084": {
+    "categoria": "Postre",
+    "nombre": "Blanco y negro de chocolate con helado de Oreo",
+    "precio": null
+   },
+   "pl040": {
+    "categoria": "Cóctel frío",
+    "nombre": "Anchoa con pimiento dulce",
+    "precio": null
+   },
+   "pl011": {
+    "categoria": "Entrante",
+    "nombre": "Morcilla con pistacho",
+    "precio": null
+   },
+   "pl014": {
+    "categoria": "Carne",
+    "nombre": "Presa a la brasa",
+    "precio": null
+   },
+   "pl008": {
+    "categoria": "Entrante",
+    "nombre": "Jamón y lomo",
+    "precio": null
+   },
+   "pl054": {
+    "categoria": "Entrante",
+    "nombre": "Raviolis de remolacha con queso y rúcula",
+    "precio": null
+   },
+   "pl078": {
+    "categoria": "Postre",
+    "nombre": "Milhoja de hojaldre con chocolate y helado de nata",
+    "precio": null
+   },
+   "pl039": {
+    "categoria": "Cóctel frío",
+    "nombre": "Tortilla s. XXI",
+    "precio": null
+   },
+   "pl089": {
+    "categoria": "Entrante",
+    "nombre": "Mar y montaña de langostino, secreto y cangrejo",
+    "precio": null
+   },
+   "pl075": {
+    "categoria": "Entrante",
+    "nombre": "Jamón y lomo ibéricos",
+    "precio": null
+   },
+   "pl046": {
+    "categoria": "Carne",
+    "nombre": "Cochinillo asado tradicional con patata al tomillo y cogollo aliñado",
+    "precio": null
+   },
+   "pl012": {
+    "categoria": "Entrante",
+    "nombre": "Parmentier ahumada con huevo y trompeta negra",
+    "precio": null
+   },
+   "pl015": {
+    "categoria": "Carne",
+    "nombre": "Bacalao a la brasa",
+    "precio": null
+   },
+   "pl068": {
+    "categoria": "Entrante",
+    "nombre": "Bogavante con perlas de su coral y aromáticas",
+    "precio": null
+   },
+   "pl053": {
+    "categoria": "Postre",
+    "nombre": "Lingote de chocolate con oro de kilates y helado de chocolate",
+    "precio": null
+   },
+   "pl017": {
+    "categoria": "Cóctel frío",
+    "nombre": "Yogur de setas",
+    "precio": null
+   },
+   "pl009": {
+    "categoria": "Entrante",
+    "nombre": "Croquetas de jamón artesanas",
+    "precio": null
+   },
+   "pl079": {
+    "categoria": "Entrante",
+    "nombre": "Ensalada de langostinos con melón-lima y alioli de ajo negro",
+    "precio": null
+   },
+   "pl027": {
+    "categoria": "Cóctel frío",
+    "nombre": "Gazpacho tradicional",
+    "precio": null
+   },
+   "pl052": {
+    "categoria": "Carne",
+    "nombre": "Presa ibérica de bellota con boniato y sus chips",
+    "precio": null
+   },
+   "pl056": {
+    "categoria": "Carne",
+    "nombre": "Rulo de cochinillo con manzana especiada y juliana de cebolla morada",
+    "precio": null
+   },
+   "pl023": {
+    "categoria": "Cóctel caliente",
+    "nombre": "Caramelo de farinato",
+    "precio": null
+   },
+   "pl000": {
+    "categoria": "Aperitivo",
+    "nombre": "Sobrasada",
+    "precio": null
+   },
+   "pl024": {
+    "categoria": "Cóctel caliente",
+    "nombre": "Bikini de ibérico",
+    "precio": null
+   },
+   "pl031": {
+    "categoria": "Cóctel frío",
+    "nombre": "Yogur de boletus",
+    "precio": null
+   },
+   "pl076": {
+    "categoria": "Carne",
+    "nombre": "Merluza Don Fadrique",
+    "precio": null
+   },
+   "pl043": {
+    "categoria": "Cóctel caliente",
+    "nombre": "Tortillita fina de bacalao",
+    "precio": null
+   },
+   "pl064": {
+    "categoria": "Carne",
+    "nombre": "Cordero lechal cocinado en papillote de barro con patata y berza",
+    "precio": null
+   },
+   "pl045": {
+    "categoria": "Entrante",
+    "nombre": "Ajoblanco con tomates cherry aromatizados y granizado de mosto",
+    "precio": null
+   },
+   "pl070": {
+    "categoria": "Postre",
+    "nombre": "Uvas con champagne y fresas",
+    "precio": null
+   },
+   "pl038": {
+    "categoria": "Cóctel frío",
+    "nombre": "Tosta de jamón y foie",
+    "precio": null
+   },
+   "pl004": {
+    "categoria": "De cuchara",
+    "nombre": "Potaje carmelita con berza",
+    "precio": null
+   },
+   "pl055": {
+    "categoria": "Pescado",
+    "nombre": "Rodaballo con picada de tomate y albahaca y aceituna negra",
+    "precio": null
+   },
+   "pl022": {
+    "categoria": "Cóctel caliente",
+    "nombre": "Croqueta de jamón",
+    "precio": null
+   },
+   "pl067": {
+    "categoria": "Postre",
+    "nombre": "Higos, manzanas y nueces con miel y membrillo",
+    "precio": null
+   },
+   "pl069": {
+    "categoria": "Carne",
+    "nombre": "Jarrete de morucha con verduras escalivadas y romesco",
+    "precio": null
+   },
+   "pl074": {
+    "categoria": "Entrante",
+    "nombre": "Salmorejo rústico, como se hace en el propio huerto",
+    "precio": null
+   },
+   "pl060": {
+    "categoria": "Carne",
+    "nombre": "Solomillo de morucha hecho en la parrilla de encina",
+    "precio": null
+   },
+   "pl061": {
+    "categoria": "Postre",
+    "nombre": "Gianduja de chocolate con frutos secos y helado de regaliz",
+    "precio": null
+   },
+   "pl007": {
+    "categoria": "Postre",
+    "nombre": "Mazapán carmelita",
+    "precio": null
+   },
+   "pl073": {
+    "categoria": "Postre",
+    "nombre": "Lingote de chocolate Manjari con naranja",
+    "precio": null
+   },
+   "pl091": {
+    "categoria": "Carne",
+    "nombre": "Centro de chuleta a la brasa de encina",
+    "precio": null
+   },
+   "pl077": {
+    "categoria": "Carne",
+    "nombre": "Cochinillo asado con patatas al tomillo y cogollo aliñado",
+    "precio": null
+   },
+   "pl051": {
+    "categoria": "Pescado",
+    "nombre": "Merluza Don Fadrique con marisco dentro",
+    "precio": null
+   },
+   "pl082": {
+    "categoria": "Carne",
+    "nombre": "Rodaballo con picada de tomate y albahaca y polvo de aceituna negra",
+    "precio": null
+   },
+   "pl016": {
+    "categoria": "Cóctel frío",
+    "nombre": "Salmón con chocolate",
+    "precio": null
+   },
+   "pl042": {
+    "categoria": "Cóctel caliente",
+    "nombre": "Tempura de cebolla dulce",
+    "precio": null
+   },
+   "pl062": {
+    "categoria": "Entrante",
+    "nombre": "Sopa fría (puede ser caliente) de brotes de hinojo con moluscos",
+    "precio": null
+   }
+  },
+  "dossieres": {
+   "comuniones2027": {
+    "actualizado": "2026-10-07T07:20:00Z",
+    "archivo": "Dossier_Comuniones_2027_Don_Fadrique.pdf",
+    "assetId": "98415521d39cc675ed58a57b77a6d7c7",
+    "envios": [],
+    "foto": "fachada",
+    "nombre": "Dossier Comuniones 2027",
+    "orden": 2,
+    "paginas": 13,
+    "tamano": 5629845,
+    "tema": "comuniones 2027"
+   },
+   "bodas2027": {
+    "actualizado": "2026-10-07T07:20:00Z",
+    "archivo": "Dossier_Bodas_2027_Don_Fadrique.pdf",
+    "assetId": "570579d12473efae1bc2a83a72284fe4",
+    "envios": [],
+    "foto": "jardin",
+    "nombre": "Dossier Bodas 2027",
+    "orden": 1,
+    "paginas": 20,
+    "tamano": 9218453,
+    "tema": "bodas 2027"
+   }
+  },
+  "ajustes": {
+   "general": {
+    "avisoEmail": "fincalamaza@gmail.com",
+    "diasSeguimiento": 3,
+    "maxSeguimientos": 2,
+    "remitente": "reservas@donfadrique.com"
+   }
+  }
+ },
+ "blobs": [
+  {
+   "id": "98415521d39cc675ed58a57b77a6d7c7",
+   "file": "98415521d39cc675ed58a57b77a6d7c7.pdf",
+   "nombre": "Dossier_Comuniones_2027_Don_Fadrique.pdf",
+   "tipo": "application/pdf",
+   "tamano": 5629845
+  },
+  {
+   "id": "570579d12473efae1bc2a83a72284fe4",
+   "file": "570579d12473efae1bc2a83a72284fe4.pdf",
+   "nombre": "Dossier_Bodas_2027_Don_Fadrique.pdf",
+   "tipo": "application/pdf",
+   "tamano": 9218453
+  }
+ ]
+}

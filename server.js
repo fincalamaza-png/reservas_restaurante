@@ -441,7 +441,9 @@ try {
 
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
-app.use(express.json());
+const jsonNormal = express.json();
+const jsonGrande = express.json({ limit: '60mb' });
+app.use((req, res, next) => (req.path === '/api/estudio-email' ? jsonGrande : jsonNormal)(req, res, next));
 
 // ─── ACCESO CON PIN (panel de administración) ─────────────────────
 db.exec(`CREATE TABLE IF NOT EXISTS sesiones (
@@ -516,7 +518,7 @@ app.get('/api/sesion', (req, res) => {
 });
 
 // Archivos del servidor que nunca deben descargarse
-const PRIVADOS = /^\/(server\.js|package(-lock)?\.json|Dockerfile|start\.sh|.*\.db(-wal|-shm)?|\.git(\/.*)?|node_modules(\/.*)?|\.env.*)$/i;
+const PRIVADOS = /^\/(estudio(\/.*)?|scripts(\/.*)?|server\.js|package(-lock)?\.json|Dockerfile|start\.sh|.*\.db(-wal|-shm)?|\.git(\/.*)?|node_modules(\/.*)?|\.env.*)$/i;
 app.use((req, res, next) => {
   if (PRIVADOS.test(req.path)) return res.status(404).send('Not found');
   next();
@@ -2384,7 +2386,7 @@ async function enviarSeguimientoPropuesta(prop) {
   await sm.t.sendMail({ from: `"Don Fadrique" <${sm.cfg.email_smtp}>`, to: prop.email, subject: `Tu propuesta de menú · Don Fadrique`, html });
   db.prepare("UPDATE propuestas SET seguimientos = COALESCE(seguimientos,0) + 1, ultimo_seguimiento = datetime('now') WHERE id = ?").run(prop.id);
 }
-async function enviarResumenDiario(enviadosHoy) {
+async function enviarResumenDiario(enviadosHoy, estudioManuales) {
   const sm = transporterSMTP();
   const cfg = getConfig();
   if (!sm || cfg.resumen_diario === '0' || !cfg.email_resumen) return;
@@ -2400,6 +2402,7 @@ async function enviarResumenDiario(enviadosHoy) {
   const html = [
     bloque('Seguimientos automáticos enviados hoy', enviadosHoy.map(p => li(`${p.cliente || 'Sin nombre'} · ${p.email}`))),
     bloque('Propuestas sin respuesta: llamar o escribir por WhatsApp', sinRespuesta.map(p => li(`${p.cliente || 'Sin nombre'} · evento ${fechaLarga(p.fecha_evento)} · tel. ${p.telefono || '—'} · enviada hace ${diasDesde(p.fecha_envio)} días`))),
+    bloque('Presupuestos sin respuesta: llamar o escribir por WhatsApp', (estudioManuales || []).map(p => li(`${(p.cliente || 'Sin nombre')} · ${String(p.titulo || '').replace(/\*/g, '')} · ${fechaLarga(p.fecha)} · tel. ${p.telefono || '—'}`))),
     bloque('Borradores sin enviar', borradores.map(p => li(`${p.cliente || 'Sin nombre'} · ${fechaLarga(p.fecha_evento)}`))),
     bloque('Eventos de los próximos 14 días', eventos.map(r => li(`${fechaLarga(r.fecha)}${r.hora ? ' · ' + r.hora : ''} · ${r.nombre || ''} · ${r.pax || '?'} pax${r.salon ? ' · ' + r.salon : ''}`)))
   ].join('');
@@ -2422,10 +2425,164 @@ async function tareaDiariaPropuestas(forzar) {
       if (!p.email || p.seguimiento_auto === 0 || (p.seguimientos || 0) >= max) continue;
       try { await enviarSeguimientoPropuesta(p); enviados.push(p); } catch (e) { console.error('Seguimiento propuesta', p.id, e.message); }
     }
-    await enviarResumenDiario(enviados);
-    return { ok: true, enviados: enviados.length };
+    let est = { enviados: [], manuales: [] };
+    try { est = await estudioSeguimientos(); } catch (e) { console.error('estudioSeguimientos:', e.message); }
+    await enviarResumenDiario(enviados.concat(est.enviados), est.manuales);
+    return { ok: true, enviados: enviados.length + est.enviados.length };
   } catch (e) { console.error('tareaDiariaPropuestas:', e.message); return { ok: false, msg: e.message }; }
 }
+
+// ─── ESTUDIO: presupuestos con diseño, dossieres, platos e imágenes para redes ────
+db.exec(`CREATE TABLE IF NOT EXISTS estudio_docs (
+  col TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL,
+  actualizado TEXT DEFAULT (datetime('now')), usuario TEXT,
+  PRIMARY KEY (col, id)
+)`);
+db.exec(`CREATE TABLE IF NOT EXISTS estudio_blobs (
+  id TEXT PRIMARY KEY, nombre TEXT, tipo TEXT, tamano INTEGER, creado TEXT DEFAULT (datetime('now'))
+)`);
+const ESTUDIO_COLS = ['presupuestos', 'plantillas', 'platos', 'dossieres', 'fotos', 'ajustes'];
+const ESTUDIO_DIR = path.join(__dirname, 'estudio');
+const BLOBS_DIR = path.join(path.dirname(process.env.DB_PATH || '/data/reservas.db'), 'estudio_blobs');
+try { fs.mkdirSync(BLOBS_DIR, { recursive: true }); } catch (e) { console.error('No se pudo crear', BLOBS_DIR, e.message); }
+
+(function sembrarEstudio() {
+  try {
+    const hay = db.prepare('SELECT COUNT(*) n FROM estudio_docs').get().n;
+    const seedFile = path.join(ESTUDIO_DIR, 'seed', 'data.json');
+    if (hay || !fs.existsSync(seedFile)) return;
+    const seed = JSON.parse(fs.readFileSync(seedFile, 'utf8'));
+    const ins = db.prepare('INSERT OR IGNORE INTO estudio_docs (col, id, data) VALUES (?, ?, ?)');
+    db.transaction(() => {
+      for (const col of Object.keys(seed.docs || {})) for (const [id, data] of Object.entries(seed.docs[col])) ins.run(col, id, JSON.stringify(data));
+    })();
+    for (const b of seed.blobs || []) {
+      const src = path.join(ESTUDIO_DIR, 'seed', 'blobs', b.file);
+      const dst = path.join(BLOBS_DIR, b.id);
+      if (fs.existsSync(src) && !fs.existsSync(dst)) fs.copyFileSync(src, dst);
+      db.prepare('INSERT OR IGNORE INTO estudio_blobs (id, nombre, tipo, tamano) VALUES (?, ?, ?, ?)').run(b.id, b.nombre, b.tipo, b.tamano);
+    }
+    console.log('Estudio: datos iniciales cargados');
+  } catch (e) { console.error('sembrarEstudio:', e.message); }
+})();
+
+function estudioLista(col) {
+  return db.prepare('SELECT id, data FROM estudio_docs WHERE col = ?').all(col).map(r => ({ id: r.id, ...JSON.parse(r.data) }));
+}
+function estudioGuardar(col, id, data, usuario) {
+  db.prepare("INSERT OR REPLACE INTO estudio_docs (col, id, data, actualizado, usuario) VALUES (?, ?, ?, datetime('now'), ?)").run(col, id, JSON.stringify(data), usuario || null);
+}
+
+app.get('/presupuestos', (req, res) => {
+  if (!usuarioSesion(req)) return res.redirect('/');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(ESTUDIO_DIR, 'index.html'));
+});
+
+app.get('/api/estudio/:col', (req, res) => {
+  if (!ESTUDIO_COLS.includes(req.params.col)) return res.status(404).json({ error: 'Colección desconocida' });
+  res.json(estudioLista(req.params.col));
+});
+app.put('/api/estudio/:col/:id', (req, res) => {
+  if (!ESTUDIO_COLS.includes(req.params.col)) return res.status(404).json({ error: 'Colección desconocida' });
+  const data = { ...(req.body || {}) }; delete data.id;
+  estudioGuardar(req.params.col, req.params.id, data, req.usuario);
+  res.json({ ok: true });
+});
+app.delete('/api/estudio/:col/:id', (req, res) => {
+  db.prepare('DELETE FROM estudio_docs WHERE col = ? AND id = ?').run(req.params.col, req.params.id);
+  res.json({ ok: true });
+});
+
+app.post('/api/estudio-blob', express.raw({ type: () => true, limit: '30mb' }), (req, res) => {
+  if (!req.body || !req.body.length) return res.status(400).json({ error: 'Archivo vacío' });
+  const id = crypto.randomBytes(16).toString('hex');
+  fs.writeFileSync(path.join(BLOBS_DIR, id), req.body);
+  let nombre = ''; try { nombre = decodeURIComponent(req.headers['x-nombre'] || ''); } catch (e) {}
+  db.prepare('INSERT INTO estudio_blobs (id, nombre, tipo, tamano) VALUES (?, ?, ?, ?)').run(id, nombre, req.headers['content-type'] || 'application/octet-stream', req.body.length);
+  res.json({ id, sizeBytes: req.body.length });
+});
+function enviarBlob(res, id, nombreDescarga) {
+  if (!/^[a-f0-9]{32}$/.test(id)) return res.status(404).send('No encontrado');
+  const meta = db.prepare('SELECT * FROM estudio_blobs WHERE id = ?').get(id);
+  const f = path.join(BLOBS_DIR, id);
+  if (!meta || !fs.existsSync(f)) return res.status(404).send('No encontrado');
+  res.setHeader('Content-Type', meta.tipo || 'application/octet-stream');
+  res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+  if (nombreDescarga) res.setHeader('Content-Disposition', `inline; filename="${String(nombreDescarga).replace(/[^\w.\- ]/g, '_')}"`);
+  res.sendFile(f);
+}
+app.get('/_blob/:id', (req, res) => {
+  if (!usuarioSesion(req)) return res.status(401).send('Sin sesión');
+  enviarBlob(res, req.params.id);
+});
+// Enlace público para que el cliente abra el dossier desde WhatsApp
+app.get('/dossier/:id', (req, res) => {
+  const row = db.prepare("SELECT data FROM estudio_docs WHERE col = 'dossieres' AND id = ?").get(req.params.id);
+  if (!row) return res.status(404).send('Dossier no encontrado');
+  const d = JSON.parse(row.data);
+  enviarBlob(res, d.assetId, d.archivo || 'Dossier_Don_Fadrique.pdf');
+});
+
+function textoAHtml(t) {
+  const e = String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  return e.replace(/(https?:\/\/[^\s<]+)/g, u => {
+    const wa = /wa\.me\/34661724158/.test(u);
+    return wa ? `<a href="${u}" style="display:inline-block;background:#2f6b4f;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:bold">Aceptar el presupuesto por WhatsApp</a>`
+      : `<a href="${u}" style="color:#6e5158">${u.length > 60 ? 'Abrir enlace' : u}</a>`;
+  }).replace(/\n/g, '<br>');
+}
+async function estudioEmail({ to, subject, body, attachments }) {
+  const sm = transporterSMTP();
+  if (!sm) { const e = new Error('El email del restaurante no está configurado (Config → email y contraseña).'); e.code = 'server_not_connected'; throw e; }
+  const dest = (Array.isArray(to) ? to : [to]).filter(Boolean);
+  if (!dest.length) throw new Error('Falta el email del cliente');
+  await sm.t.sendMail({
+    from: `"Don Fadrique" <${sm.cfg.email_smtp}>`, to: dest.join(', '), replyTo: sm.cfg.email_rest || undefined, subject, text: body,
+    html: `<div style="font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#2a2325;max-width:600px">${textoAHtml(body)}</div>`,
+    attachments: (attachments || []).map(a => ({ filename: a.filename, content: Buffer.from(a.base64, 'base64'), contentType: a.mimeType }))
+  });
+}
+app.post('/api/estudio-email', async (req, res) => {
+  try { await estudioEmail(req.body || {}); res.json({ ok: true }); }
+  catch (e) { console.error('estudio-email:', e.message); res.status(500).json({ error: e.message, code: e.code || 'error' }); }
+});
+
+// Seguimiento automático de los presupuestos del estudio (lo llama la tarea diaria)
+const ESTUDIO_TXT_SEG = 'Hola {cliente}:\n\nTe escribimos para saber si pudiste revisar el presupuesto que te enviamos para {evento} el {fecha}. Si quieres cambiar algún plato o ajustar el número de personas, dínoslo y lo preparamos. Si ya te encaja, puedes aceptarlo aquí: {aceptar}\n\nUn saludo,\nDon Fadrique\nreservas@donfadrique.com · WhatsApp 650 488 113 / 661 724 158';
+function estudioAjustes() {
+  const r = db.prepare("SELECT data FROM estudio_docs WHERE col = 'ajustes' AND id = 'general'").get();
+  return { diasSeguimiento: 3, maxSeguimientos: 2, asunto: 'Presupuesto {evento} · Don Fadrique', textoSeguimiento: ESTUDIO_TXT_SEG, ...(r ? JSON.parse(r.data) : {}) };
+}
+function estudioRellenar(tpl, p) {
+  const plain = s => String(s || '').replace(/\*/g, '');
+  const acc = `https://wa.me/${WA_RESERVAS}?text=${encodeURIComponent(`Hola, acepto el presupuesto de Don Fadrique: ${plain(p.titulo)}${p.fecha ? ' el ' + fechaLarga(p.fecha) : ''}${p.pax ? ', ' + p.pax + ' personas' : ''}${p.cliente ? '. ' + p.cliente : ''}. Ref. ${p.id}`)}`;
+  return String(tpl).replace(/\{cliente\}/g, (p.cliente || '').split(' ')[0] || 'hola').replace(/\{evento\}/g, plain(p.titulo) || 'vuestro evento')
+    .replace(/\{fecha\}/g, fechaLarga(p.fecha)).replace(/\{hora\}/g, p.hora ? ` a las ${p.hora} h` : '').replace(/\{aceptar\}/g, acc)
+    .replace(/\{alergias\}/g, TEXTO_ALERGIAS).replace(/\{pax\}/g, p.pax || '—').replace(/\{menu\}/g, '').replace(/\{precio\}/g, '');
+}
+function estudioPendientes() {
+  const hoy = hoyMadrid();
+  return estudioLista('presupuestos').filter(p => p.estado === 'enviado' && p.proximoSeguimiento && p.proximoSeguimiento <= hoy && (!p.fecha || p.fecha >= hoy));
+}
+async function estudioSeguimientos() {
+  const aj = estudioAjustes(), max = +aj.maxSeguimientos || 2, dias = +aj.diasSeguimiento || 3;
+  const enviados = [], manuales = [];
+  for (const p of estudioPendientes()) {
+    if (!p.email || p.autoSeguimiento === false || (p.seguimientosEnviados || 0) >= max) { manuales.push(p); continue; }
+    try {
+      await estudioEmail({ to: [p.email], subject: estudioRellenar(aj.asunto, p), body: estudioRellenar(aj.textoSeguimiento || ESTUDIO_TXT_SEG, p) });
+      p.seguimientosEnviados = (p.seguimientosEnviados || 0) + 1;
+      const sig = new Date(hoyMadrid() + 'T12:00:00'); sig.setDate(sig.getDate() + dias);
+      p.proximoSeguimiento = p.seguimientosEnviados >= max ? '' : sig.toISOString().slice(0, 10);
+      p.historial = [...(p.historial || []), { at: new Date().toISOString(), txt: 'Seguimiento automático enviado por email' }];
+      const { id, ...data } = p; estudioGuardar('presupuestos', id, data, 'automático');
+      enviados.push({ cliente: p.cliente, email: p.email });
+    } catch (e) { console.error('Seguimiento estudio', p.id, e.message); manuales.push(p); }
+  }
+  return { enviados, manuales };
+}
+
 setInterval(() => tareaDiariaPropuestas(false), 30 * 60 * 1000);
 setTimeout(() => tareaDiariaPropuestas(false), 60 * 1000);
 

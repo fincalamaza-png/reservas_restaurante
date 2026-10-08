@@ -318,6 +318,7 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
 <div class="page" id="p-propuestas">
   <div class="top"><button class="back" onclick="irA('p-config')">&#8592;</button><div style="flex:1;font-size:15px;font-weight:600">Propuestas de menú</div><button onclick="irA('p-propuestas-lista')" style="background:none;border:none;color:#8b1a2a;font-size:20px;cursor:pointer">&#128193;</button></div>
   <div class="content">
+    <a href="/presupuestos" style="display:block;text-decoration:none;background:#1a1a1a;color:#fff;border-radius:12px;padding:14px 16px;margin-bottom:12px"><div style="font-size:15px;font-weight:700;color:#b8965a">&#127912; Presupuestos con diseño</div><div style="font-size:12px;color:#ccc;margin-top:3px">Presupuesto A4, imágenes para Instagram, dossieres de bodas y comuniones, platos y fotos</div></a>
     <button class="btn btn-primary" style="margin-bottom:12px" onclick="abrirPegarMenu()">&#128203; Pegar menú de WhatsApp o de una nota</button>
     <div style="font-size:12px;color:#888;margin-bottom:12px">O elige un menú para preparar y enviar una propuesta al cliente, sin necesidad de crear todavía la reserva.</div>
     <div id="propuestas-grid"></div>
@@ -1443,6 +1444,7 @@ function cargarConfig(){
       html+='<button class="btn btn-primary" onclick="guardarConfig()">Guardar configuracion</button>';
       html+='<div style="margin-top:12px"><button class="btn btn-secondary" onclick="irA(&apos;p-menus&apos;)">Gestionar menus</button></div>';
       html+='<div style="margin-top:10px"><button class="btn btn-primary" onclick="irA(&apos;p-propuestas&apos;)">Propuestas de menú</button></div>';
+      html+='<div style="margin-top:10px"><a class="btn btn-primary" style="display:block;text-align:center;text-decoration:none" href="/presupuestos">Presupuestos con diseño y dossieres</a></div>';
       html+='<div style="margin-top:22px;text-align:center;font-size:12px;color:#888">Sesión iniciada: <strong>'+(window.DF_USUARIO||'')+'</strong></div>';
       html+='<div style="margin-top:8px"><button class="btn btn-secondary" onclick="cerrarSesion()">Cerrar sesión</button></div>';
       document.getElementById('config-body').innerHTML=html;
