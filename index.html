@@ -216,6 +216,14 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
 </style>
 </head>
 <body>
+<div id="pin-login" style="display:none;position:fixed;inset:0;z-index:99999;background:#1a1a1a;color:#fff;flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,sans-serif">
+  <div style="font-size:11px;letter-spacing:4px;color:#b8965a;margin-bottom:6px">RESTAURANTE</div>
+  <div style="font-size:30px;font-weight:900;letter-spacing:3px;margin-bottom:28px">DON FADRIQUE</div>
+  <div style="font-size:14px;color:#bbb;margin-bottom:14px">Introduce tu PIN</div>
+  <div id="pin-puntos" style="display:flex;gap:14px;margin-bottom:10px"></div>
+  <div id="pin-error" style="height:20px;font-size:13px;color:#e88;margin-bottom:12px"></div>
+  <div id="pin-teclado" style="display:grid;grid-template-columns:repeat(3,76px);gap:14px"></div>
+</div>
 <div class="app" id="app">
 
 <div class="page active" id="p-home">
@@ -599,6 +607,67 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
   </div>
 </div>
 
+<script>
+// ─── Acceso con PIN ───
+(function(){
+  var _fetch = window.fetch.bind(window);
+  var pin = '', enviando = false;
+  window.fetch = function(url, opts){
+    return _fetch(url, opts).then(function(r){
+      var u = typeof url === 'string' ? url : (url && url.url) || '';
+      if (r.status === 401 && u.indexOf('/api/') === 0 && u.indexOf('/api/login') !== 0 && u.indexOf('/api/sesion') !== 0) mostrarPin();
+      return r;
+    });
+  };
+  function pintar(){
+    var p = document.getElementById('pin-puntos'); p.innerHTML = '';
+    for (var i = 0; i < 4; i++) { var d = document.createElement('div'); d.style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid #b8965a;' + (i < pin.length ? 'background:#b8965a' : ''); p.appendChild(d); }
+  }
+  function tecla(k){
+    if (enviando) return;
+    document.getElementById('pin-error').textContent = '';
+    if (k === '⌫') pin = pin.slice(0, -1); else if (pin.length < 4) pin += k;
+    pintar();
+    if (pin.length === 4) entrar();
+  }
+  function entrar(){
+    enviando = true;
+    _fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pin: pin})})
+      .then(function(r){ return r.json().then(function(d){ return {ok: r.ok, d: d}; }); })
+      .then(function(x){
+        enviando = false;
+        if (x.ok) { try { localStorage.setItem('df_usuario', x.d.usuario); } catch(e) {} location.reload(); }
+        else { pin = ''; pintar(); document.getElementById('pin-error').textContent = x.d.error || 'PIN incorrecto'; }
+      }).catch(function(){ enviando = false; pin = ''; pintar(); document.getElementById('pin-error').textContent = 'Sin conexión'; });
+  }
+  function mostrarPin(){
+    var o = document.getElementById('pin-login');
+    if (o.style.display === 'flex') return;
+    var t = document.getElementById('pin-teclado'); t.innerHTML = '';
+    ['1','2','3','4','5','6','7','8','9','','0','⌫'].forEach(function(k){
+      var b = document.createElement('button');
+      b.textContent = k; b.type = 'button';
+      b.style.cssText = 'height:76px;border-radius:50%;border:none;font-size:26px;color:#fff;background:' + (k ? '#2c2c2c' : 'transparent') + ';cursor:pointer';
+      if (k) b.onclick = function(){ tecla(k); }; else b.disabled = true;
+      t.appendChild(b);
+    });
+    pin = ''; pintar(); o.style.display = 'flex';
+  }
+  document.addEventListener('keydown', function(e){
+    if (document.getElementById('pin-login').style.display !== 'flex') return;
+    if (/^[0-9]$/.test(e.key)) tecla(e.key); else if (e.key === 'Backspace') tecla('⌫');
+  });
+  window.cerrarSesion = function(){
+    if (!confirm('¿Cerrar sesión en este dispositivo?')) return;
+    _fetch('/api/logout', {method:'POST'}).then(function(){ location.reload(); });
+  };
+  window.mostrarPin = mostrarPin;
+  window.DF_SESION = _fetch('/api/sesion').then(function(r){
+    if (!r.ok) { mostrarPin(); throw new Error('sin sesion'); }
+    return r.json();
+  }).then(function(d){ window.DF_USUARIO = d.usuario; return d.usuario; });
+})();
+</script>
 <script>
 var S={
   dia:new Date().toISOString().slice(0,10),
@@ -1374,6 +1443,8 @@ function cargarConfig(){
       html+='<button class="btn btn-primary" onclick="guardarConfig()">Guardar configuracion</button>';
       html+='<div style="margin-top:12px"><button class="btn btn-secondary" onclick="irA(&apos;p-menus&apos;)">Gestionar menus</button></div>';
       html+='<div style="margin-top:10px"><button class="btn btn-primary" onclick="irA(&apos;p-propuestas&apos;)">Propuestas de menú</button></div>';
+      html+='<div style="margin-top:22px;text-align:center;font-size:12px;color:#888">Sesión iniciada: <strong>'+(window.DF_USUARIO||'')+'</strong></div>';
+      html+='<div style="margin-top:8px"><button class="btn btn-secondary" onclick="cerrarSesion()">Cerrar sesión</button></div>';
       document.getElementById('config-body').innerHTML=html;
     });
 }
@@ -2889,7 +2960,7 @@ function enviarOrdenEmail() {
     .then(function(res){return res.json();})
     .then(function(d){ alert(d.ok ? 'Orden enviada por email' : 'Error: ' + d.msg); });
 }
-window.addEventListener('DOMContentLoaded',function(){renderCalendario();cargarHome();comprobarAlertasExtras();});
+window.addEventListener('DOMContentLoaded',function(){window.DF_SESION.then(function(){renderCalendario();cargarHome();comprobarAlertasExtras();}).catch(function(){});});
 
 // ─── ENTRANTES ────────────────────────────────────────────────────
 function getEntrantesArr() {

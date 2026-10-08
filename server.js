@@ -441,8 +441,102 @@ try {
 
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
-app.use(cors());
 app.use(express.json());
+
+// ─── ACCESO CON PIN (panel de administración) ─────────────────────
+db.exec(`CREATE TABLE IF NOT EXISTS sesiones (
+  token TEXT PRIMARY KEY,
+  usuario TEXT NOT NULL,
+  creada TEXT DEFAULT (datetime('now')),
+  ultimo_uso TEXT DEFAULT (datetime('now'))
+)`);
+db.prepare("INSERT OR IGNORE INTO config (clave, valor) VALUES ('pin_admin', ?)")
+  .run(JSON.stringify({ 'Manuel': '1510', 'Nicolás': '2609' }));
+// Las sesiones caducan tras 90 días sin uso
+try { db.exec("DELETE FROM sesiones WHERE ultimo_uso < datetime('now', '-90 days')"); } catch(e) {}
+
+const COOKIE_SESION = 'df_sesion';
+const intentosPin = new Map(); // ip -> { fallos, hasta }
+
+function leerCookie(req, nombre) {
+  const c = req.headers.cookie || '';
+  for (const parte of c.split(';')) {
+    const i = parte.indexOf('=');
+    if (i > -1 && parte.slice(0, i).trim() === nombre) return decodeURIComponent(parte.slice(i + 1).trim());
+  }
+  return null;
+}
+function usuarioSesion(req) {
+  const t = leerCookie(req, COOKIE_SESION);
+  if (!t) return null;
+  const s = db.prepare('SELECT usuario FROM sesiones WHERE token = ?').get(t);
+  if (!s) return null;
+  db.prepare("UPDATE sesiones SET ultimo_uso = datetime('now') WHERE token = ?").run(t);
+  return s.usuario;
+}
+function pinesAdmin() {
+  try { return JSON.parse(db.prepare("SELECT valor FROM config WHERE clave = 'pin_admin'").get().valor || '{}'); }
+  catch(e) { return {}; }
+}
+
+app.post('/api/login', (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || '';
+  const reg = intentosPin.get(ip) || { fallos: 0, hasta: 0 };
+  if (reg.hasta > Date.now()) {
+    const min = Math.ceil((reg.hasta - Date.now()) / 60000);
+    return res.status(429).json({ error: `Demasiados intentos. Espera ${min} min.` });
+  }
+  const pin = String((req.body && req.body.pin) || '').trim();
+  const usuario = Object.keys(pinesAdmin()).find(n => pinesAdmin()[n] === pin);
+  if (!pin || !usuario) {
+    reg.fallos++;
+    if (reg.fallos >= 5) { reg.hasta = Date.now() + 10 * 60000; reg.fallos = 0; }
+    intentosPin.set(ip, reg);
+    return res.status(401).json({ error: 'PIN incorrecto' });
+  }
+  intentosPin.delete(ip);
+  const token = crypto.randomBytes(32).toString('hex');
+  db.prepare('INSERT INTO sesiones (token, usuario) VALUES (?, ?)').run(token, usuario);
+  const segura = (req.headers['x-forwarded-proto'] === 'https' || req.secure) ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${COOKIE_SESION}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60*60*24*365}${segura}`);
+  res.json({ ok: true, usuario });
+});
+
+app.post('/api/logout', (req, res) => {
+  const t = leerCookie(req, COOKIE_SESION);
+  if (t) db.prepare('DELETE FROM sesiones WHERE token = ?').run(t);
+  res.setHeader('Set-Cookie', `${COOKIE_SESION}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  res.json({ ok: true });
+});
+
+app.get('/api/sesion', (req, res) => {
+  const u = usuarioSesion(req);
+  if (!u) return res.status(401).json({ error: 'Sin sesión' });
+  res.json({ usuario: u });
+});
+
+// Archivos del servidor que nunca deben descargarse
+const PRIVADOS = /^\/(server\.js|package(-lock)?\.json|Dockerfile|start\.sh|.*\.db(-wal|-shm)?|\.git(\/.*)?|node_modules(\/.*)?|\.env.*)$/i;
+app.use((req, res, next) => {
+  if (PRIVADOS.test(req.path)) return res.status(404).send('Not found');
+  next();
+});
+
+// Rutas públicas: portal del personal, respuestas de extras por email y confirmación del cliente
+const RUTAS_PUBLICAS = [/^\/api\/personal\//, /^\/api\/extras\/respuesta\//];
+app.use('/api', (req, res, next) => {
+  const ruta = req.originalUrl.split('?')[0];
+  if (RUTAS_PUBLICAS.some(r => r.test(ruta))) return next();
+  const u = usuarioSesion(req);
+  if (!u) return res.status(401).json({ error: 'Sesión caducada. Introduce tu PIN.' });
+  req.usuario = u;
+  next();
+});
+app.use(['/minuta-print'], (req, res, next) => {
+  if (!usuarioSesion(req)) return res.redirect('/');
+  next();
+});
+
 app.use(express.static(path.join(__dirname)));
 
 // ─── HELPERS ─────────────────────────────────────────────────────
@@ -1587,6 +1681,7 @@ app.get('/api/config', (req, res) => {
   const cfg = getConfig();
   const safe = { ...cfg };
   if (safe.email_pass) safe.email_pass = '••••••••';
+  delete safe.pin_admin;
   res.json(safe);
 });
 
