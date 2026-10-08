@@ -231,7 +231,7 @@ td .s{font-size:13px;color:var(--muted)}
 .doc.portada .data{display:grid;grid-template-columns:repeat(3,1fr);margin-top:calc(44px*var(--k));border-top:1px solid var(--paper-rule)}
 .doc.portada .data div{padding:14px 6px;border-bottom:1px solid var(--paper-rule)}
 .doc.portada .data b{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:19px}
-.doc.portada .aten{font-size:11px;letter-spacing:.06em;color:var(--paper-soft);margin-top:18px;font-style:italic}
+.doc.portada .aten{font-size:12px;letter-spacing:.1em;color:var(--paper-soft);margin-top:18px}
 .doc.portada .bot img{height:62px;display:block;margin:0 auto}
 .doc.portada .ct{font-size:10.5px;letter-spacing:.12em;color:var(--paper-soft);margin-top:16px}
 .doc.cierre .band{height:112px;padding:0 60px}
@@ -555,6 +555,9 @@ function refPresupuesto(p) {
   const d = (p.creado || new Date().toISOString()).slice(0, 10).replace(/-/g, '');
   return `DF-${d.slice(2)}-${String(p.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 3).toUpperCase()}`;
 }
+const NOMBRES_FIRMA = {'Manuel': 'Manuel Sánchez', 'Nicolás': 'Nicolás Sánchez'};
+function nombreFirma() { const u = window.DF_USUARIO || ''; return NOMBRES_FIRMA[u] || u; }
+function fechaCorta(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? `${+m[3]}/${+m[2]}/${m[1]}` : ''; }
 function fechaEmision(p) { return (p.enviadoEn || '').slice(0, 10) || todayISO(); }
 function validoHasta(p) { const v = addDays(fechaEmision(p), +S.ajustes.validezDias || 15); return p.fecha && p.fecha > fechaEmision(p) && p.fecha < v ? p.fecha : v; }
 function ivaFrase(p) { return p.iva === 'incluido' ? 'incluyen el 10 % de IVA' : p.iva === 'no' ? 'no incluyen el 10 % de IVA, que se añadirá en la factura' : 'se indican sin desglose de IVA'; }
@@ -577,10 +580,10 @@ function portadaHTML(p) {
     <div class="cab"><div class="wm">DONFADRIQUE</div><div class="sub">Restaurante · Alba de Tormes · Salamanca</div></div>
     <div class="mid"><div class="rule"></div><div class="tag">Propuesta de evento</div>
     <div class="ti">${emph(p.titulo || 'Menú')}</div>
-    ${p.cliente ? `<div class="para"><span>Preparada para</span><b>${esc(p.cliente)}</b></div>` : ''}
+    ${p.cliente ? `<div class="para"><b>${esc(p.cliente)}</b></div>` : ''}
     <div class="data">${cel('Fecha del evento', fmtDate(p.fecha))}${cel('Hora', p.hora ? p.hora + ' h' : '')}${cel('Comensales', p.pax ? p.pax + ' personas' : '')}
       ${cel('Servicio', p.tipo)}${cel('Presupuesto nº', refPresupuesto(p))}${cel('Válido hasta', fmtDate(validoHasta(p)))}</div>
-    <div class="aten">Emitido el ${esc(fmtDate(fechaEmision(p)))}${window.DF_USUARIO ? ` · Atendido por ${esc(window.DF_USUARIO)}` : ''}</div></div>
+    <div class="aten">${esc([fechaCorta(fechaEmision(p)), nombreFirma()].filter(Boolean).join(' · '))}</div></div>
     <div class="bot"><img alt="Guía Michelin · Guía Repsol · Tierra de Sabor" src="${ASSETS.badgesT}">
     <div class="ct">reservas@donfadrique.com · WhatsApp 650 488 113 · 661 724 158 · 923 37 00 76</div></div>
     </div></div>`;
@@ -607,7 +610,7 @@ function cierreHTML(p) {
     <div><div class="h">Condiciones</div>${ul(lineasCond(S.ajustes.condiciones, p))}</div></div>
     <div class="h">Aceptación</div>
     <p class="acp">Con su firma, el cliente acepta este presupuesto y las condiciones indicadas, y Don Fadrique se compromete a prestar el servicio descrito en la fecha acordada.</p>
-    <div class="firmas">${firma('Por el cliente', p.cliente, '')}${firma('Por Don Fadrique', window.DF_USUARIO ? window.DF_USUARIO + ' · Don Fadrique' : 'Don Fadrique', fmtDate(fechaEmision(p)))}</div>
+    <div class="firmas">${firma('Por el cliente', p.cliente, '')}${firma('Por Don Fadrique', nombreFirma() ? nombreFirma() + ' · Don Fadrique' : 'Don Fadrique', fmtDate(fechaEmision(p)))}</div>
     <div class="wa"><div class="acc" data-accept="1">Aceptar presupuesto por WhatsApp</div><span>o devuélvenos esta hoja firmada a reservas@donfadrique.com</span></div>
     </div><div class="band">${CONTACT}${empresaHTML()}${badges}</div></div>`;
 }
