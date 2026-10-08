@@ -216,7 +216,58 @@ td .s{font-size:13px;color:var(--muted)}
 @media (max-width:640px){.dish-row{grid-template-columns:minmax(0,1fr) 80px auto}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
-<style>.volver-reservas{font-weight:400;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:14px}</style>
+<style>/* portada */
+.doc.portada,.doc.cierre{width:794px;height:1123px}
+.doc.portada .ph{position:absolute;top:0;left:0;right:0;height:520px}
+.doc.portada .fit{top:520px;bottom:112px;padding:46px 74px 0;text-align:left}
+.doc.portada .wm{font-size:30px}
+.doc.portada .sub{font-size:10px;letter-spacing:.4em;text-transform:uppercase;color:var(--paper-soft);margin-top:10px;font-weight:400}
+.doc.portada .tag{display:inline-block;margin-top:30px;border:1px solid var(--paper-accent);color:var(--paper-accent);letter-spacing:.4em;text-transform:uppercase;font-size:12px;padding:5px 16px;font-weight:400}
+.doc.portada .ti{font-size:calc(56px*var(--k));margin:14px 0 0}
+.doc.portada .para{margin-top:calc(18px*var(--k))}
+.doc.portada .para span,.doc.portada .data span{display:block;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--paper-soft);font-weight:400}
+.doc.portada .para b{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:calc(28px*var(--k))}
+.doc.portada .data{display:grid;grid-template-columns:repeat(3,1fr);margin-top:calc(24px*var(--k));border-top:1px solid var(--paper-rule)}
+.doc.portada .data div{padding:10px 8px 10px 0;border-bottom:1px solid var(--paper-rule)}
+.doc.portada .data b{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:18px}
+.doc.portada .aten{font-size:11px;letter-spacing:.06em;color:var(--paper-soft);margin-top:14px;font-style:italic}
+.doc.portada .band,.doc.cierre .band{height:112px;padding:0 60px}
+.doc.portada .band img,.doc.cierre .band img{height:56px}
+.doc.portada .bw,.doc.cierre .bw{font-size:12.5px;letter-spacing:.1em}.doc.portada .bw .k,.doc.cierre .bw .k{font-size:9px;letter-spacing:.3em}
+/* condiciones y firma */
+.doc.cierre .fit{top:0;bottom:112px;padding:44px 64px 0;text-align:left}
+.doc.cierre .hd{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--paper-rule);padding-bottom:12px}
+.doc.cierre .hd .wm{font-size:18px}
+.doc.cierre .hd .rf{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--paper-soft);font-weight:400}
+.doc.cierre .ti{font-size:calc(38px*var(--k));margin:calc(20px*var(--k)) 0 calc(14px*var(--k))}
+.doc.cierre .sum{background:var(--paper-band);padding:12px 22px}
+.doc.cierre .sum .ln{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:calc(13px*var(--k));line-height:1.75}
+.doc.cierre .sum .ln span:first-child{color:var(--paper-soft)}
+.doc.cierre .sum .tt{border-top:1px solid var(--paper-rule);margin-top:4px;padding-top:4px}
+.doc.cierre .sum .tt span:last-child{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:calc(24px*var(--k))}
+.doc.cierre .sum .tt span:first-child,.doc.cierre .sum .sn span:first-child{color:var(--paper-ink);font-weight:400}
+.doc.cierre .sum .iva{font-size:11px;color:var(--paper-soft);font-style:italic;margin-top:2px}
+.doc.cierre .h{font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:calc(21px*var(--k));color:var(--paper-accent);margin:calc(18px*var(--k)) 0 calc(6px*var(--k))}
+.doc.cierre .cols{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.doc.cierre ul{margin:0;padding-left:16px}
+.doc.cierre li{font-size:calc(12px*var(--k));line-height:1.5;margin-bottom:calc(5px*var(--k))}
+.doc.cierre .acp{font-size:calc(12px*var(--k));line-height:1.5;margin:0 0 calc(12px*var(--k))}
+.doc.cierre .firmas{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.doc.cierre .fb{border:1px solid var(--paper-rule);padding:12px 16px}
+.doc.cierre .fb .q{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--paper-accent);font-weight:400;margin-bottom:6px}
+.doc.cierre .fl{display:flex;gap:8px;align-items:baseline;border-bottom:1px solid var(--paper-rule);padding:calc(7px*var(--k)) 0 3px;font-size:12px}
+.doc.cierre .fl span,.doc.cierre .fs span{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--paper-soft);font-weight:400;flex:none;width:70px}
+.doc.cierre .fl b{font-weight:400}
+.doc.cierre .fs{height:calc(82px*var(--k));padding-top:8px}
+.doc.cierre .wa{display:flex;align-items:center;gap:14px;margin-top:calc(16px*var(--k))}
+.doc.cierre .wa .acc{display:inline-block;background:#2f6b4f;color:#fff;font-weight:400;letter-spacing:.14em;text-transform:uppercase;font-size:11px;padding:9px 18px;border-radius:3px;flex:none}
+.doc.cierre .wa span{font-size:11px;color:var(--paper-soft);font-style:italic}
+.doc.cierre .emp{font-size:10px;letter-spacing:.06em;color:var(--paper-soft);text-align:center;max-width:220px;line-height:1.5}
+/* vista previa de varias páginas */
+.pages{display:flex;flex-direction:column;gap:14px;align-items:center}
+.pg-l{font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:-8px}
+
+.volver-reservas{font-weight:400;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:14px}</style>
 
 </head>
 <body>
@@ -328,6 +379,7 @@ td .s{font-size:13px;color:var(--muted)}
     }
   };
 
+  fetch('/api/sesion').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (d) window.DF_USUARIO = d.usuario; }).catch(function () {});
   // Botón para volver a reservas
   document.addEventListener('DOMContentLoaded', function () {
     var b = document.querySelector('.brand');
@@ -365,6 +417,9 @@ const DEF_AJUSTES = {
   textoEnvio: 'Hola {cliente}:\n\nTe enviamos el presupuesto para {evento} el {fecha}{hora}, para {pax} personas.\n\n{menu}\n\nPrecio: {precio}\n\n{alergias}\n\nPara aceptarlo, pulsa aquí y envíanos el WhatsApp: {aceptar}\n\nQuedamos a tu disposición para cualquier cambio.\n\nUn saludo,\nDon Fadrique\nreservas@donfadrique.com · WhatsApp 650 488 113 / 661 724 158 · 923 37 00 76',
   textoDossier: 'Hola {cliente}:\n\nTe enviamos el dossier de {dossier} de Don Fadrique, con nuestros menús, espacios y servicios.\n\nTodos nuestros menús se pueden adaptar a alergias e intolerancias.\n\nSi quieres que te preparemos un presupuesto a medida, contesta a este correo o escríbenos por WhatsApp al 661 724 158.\n\nUn saludo,\nDon Fadrique\nreservas@donfadrique.com · WhatsApp 650 488 113 / 661 724 158 · 923 37 00 76',
   textoSeguimiento: 'Hola {cliente}:\n\nTe escribimos para saber si pudiste revisar el presupuesto que te enviamos para {evento} el {fecha}. Si quieres cambiar algún plato o ajustar el número de personas, dínoslo y lo preparamos. Si ya te encaja, puedes aceptarlo aquí: {aceptar}\n\nUn saludo,\nDon Fadrique\nreservas@donfadrique.com · WhatsApp 650 488 113 / 661 724 158'
+  ,razonSocial: '', cif: '', direccion: 'Alba de Tormes (Salamanca)', iban: '', senalPct: 30, validezDias: 15, fotoPortada: 'fachada',
+  condPago: 'Para reservar la fecha se abona una señal del {senalPct} % del importe estimado ({senal}), que se descuenta de la factura final.\nEl número definitivo de comensales se confirma 7 días antes del evento; se facturará como mínimo ese número.\nEl resto del importe se abona el día del evento, al finalizar el servicio.\nMedios de pago: transferencia bancaria{iban}, tarjeta o efectivo.',
+  condiciones: 'Los precios {iva}.\nEste presupuesto es válido hasta el {validoHasta}. La fecha queda reservada al recibir la señal.\n{alergias} Indícanoslas al confirmar el número de comensales.\nLos cambios en el menú o en el número de comensales pueden modificar el importe final.\nSi el evento se cancela con menos de 30 días de antelación, la señal no se devuelve.'
 };
 
 const S = {
@@ -460,6 +515,8 @@ function sectionsHTML(p) {
     `<div class="c">${esc(s.titulo)}</div>` + s.platos.filter(x => x.trim()).map(x => `<div class="d">${esc(x).replace(/&lt;br&gt;/g,'<br>')}</div>`).join('')).join('');
 }
 function docHTML(p, fmt) {
+  if (fmt === 'portada') return portadaHTML(p);
+  if (fmt === 'cierre') return cierreHTML(p);
   const ph = `<div class="ph" style="background-image:url('${fotoSrc(p)}')"></div>`;
   const badges = `<img alt="" src="${ASSETS.badges}">`;
   if (fmt === 'a4') {
@@ -489,7 +546,70 @@ function docHTML(p, fmt) {
   return `<div class="doc ${fmt}" style="--k:1">${ph}<div class="fit"><div class="wm">DONFADRIQUE</div>${ey ? `<div class="ey">${esc(ey)}</div>` : ''}
     <div class="ti">${emph(p.titulo || 'Menú')}</div><div class="rule"></div>${sectionsHTML(p)}${pr}<div class="al">${ALERGIAS}</div></div>${band}</div>`;
 }
-const SIZES = {a4: [794, 1123], post: [1080, 1350], story: [1080, 1920]};
+/* ---------- portada y hoja de condiciones y firma (PDF de 3 páginas) ---------- */
+function refPresupuesto(p) {
+  if (p.numero) return p.numero;
+  const d = (p.creado || new Date().toISOString()).slice(0, 10).replace(/-/g, '');
+  return `DF-${d.slice(2)}-${String(p.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 3).toUpperCase()}`;
+}
+function fechaEmision(p) { return (p.enviadoEn || '').slice(0, 10) || todayISO(); }
+function validoHasta(p) { const v = addDays(fechaEmision(p), +S.ajustes.validezDias || 15); return p.fecha && p.fecha > fechaEmision(p) && p.fecha < v ? p.fecha : v; }
+function ivaFrase(p) { return p.iva === 'incluido' ? 'incluyen el 10 % de IVA' : p.iva === 'no' ? 'no incluyen el 10 % de IVA, que se añadirá en la factura' : 'se indican sin desglose de IVA'; }
+function fillCond(tpl, p) {
+  const t = totals(p), pct = +S.ajustes.senalPct || 0;
+  const senal = Math.round(t.total * pct / 100);
+  const iban = String(S.ajustes.iban || '').trim();
+  return String(tpl || '').replace(/\{senalPct\}/g, pct).replace(/\{senal\}/g, eur(senal)).replace(/\{total\}/g, eur(t.total))
+    .replace(/\{validoHasta\}/g, fmtDate(validoHasta(p))).replace(/\{iban\}/g, iban ? ` (IBAN ${iban})` : '')
+    .replace(/\{iva\}/g, ivaFrase(p)).replace(/\{alergias\}/g, ALERGIAS);
+}
+function lineasCond(tpl, p) { return fillCond(tpl, p).split('\n').map(x => x.replace(/^[-·•]\s*/, '').trim()).filter(Boolean); }
+function empresaHTML() {
+  const a = S.ajustes, x = [a.razonSocial, a.cif ? 'CIF ' + a.cif : '', a.direccion].filter(Boolean).map(esc);
+  return x.length ? `<div class="emp">${x.join(' · ')}</div>` : '';
+}
+function portadaHTML(p) {
+  const badges = `<img alt="" src="${ASSETS.badges}">`;
+  const foto = ASSETS.photos[S.ajustes.fotoPortada] ? ASSETS.photos[S.ajustes.fotoPortada].src : ASSETS.photos.fachada.src;
+  const cel = (k, v) => `<div><span>${k}</span><b>${esc(v || '—')}</b></div>`;
+  return `<div class="doc portada" style="--k:1"><div class="ph" style="background-image:url('${foto}')"></div>
+    <div class="fit"><div class="wm">DONFADRIQUE</div><div class="sub">Restaurante · Alba de Tormes · Salamanca</div>
+    <div class="tag">Propuesta de evento</div>
+    <div class="ti">${emph(p.titulo || 'Menú')}</div>
+    ${p.cliente ? `<div class="para"><span>Preparada para</span><b>${esc(p.cliente)}</b></div>` : ''}
+    <div class="data">${cel('Fecha del evento', fmtDate(p.fecha))}${cel('Hora', p.hora ? p.hora + ' h' : '')}${cel('Comensales', p.pax ? p.pax + ' personas' : '')}
+      ${cel('Servicio', p.tipo)}${cel('Presupuesto nº', refPresupuesto(p))}${cel('Válido hasta', fmtDate(validoHasta(p)))}</div>
+    <div class="aten">Emitido el ${esc(fmtDate(fechaEmision(p)))}${window.DF_USUARIO ? ` · Atendido por ${esc(window.DF_USUARIO)}` : ''}</div></div>
+    <div class="band">${CONTACT}${badges}</div></div>`;
+}
+function cierreHTML(p) {
+  const badges = `<img alt="" src="${ASSETS.badges}">`;
+  const t = totals(p), pct = +S.ajustes.senalPct || 0;
+  const ln = (k, v, cls) => `<div class="ln${cls ? ' ' + cls : ''}"><span>${k}</span><span>${v}</span></div>`;
+  const filas = [ln('Evento', esc(plain(p.titulo) || 'Menú')), ln('Fecha y hora', esc([fmtDate(p.fecha), p.hora ? p.hora + ' h' : ''].filter(Boolean).join(' · ') || '—')),
+    ln('Comensales', esc(p.pax ? p.pax + ' personas' : '—'))];
+  if (p.precioModo === 'persona') filas.push(ln('Precio por persona', eur(+p.precio || 0)));
+  t.extras.forEach(e => filas.push(ln(esc(e.concepto || 'Extra'), eur(+e.importe || 0) + (e.porPersona ? ' / persona' : ''))));
+  filas.push(ln(p.precioModo === 'persona' ? 'Importe estimado' : 'Importe total', eur(t.total), 'tt'));
+  if (pct > 0) filas.push(ln(`Señal para reservar (${pct} %)`, eur(Math.round(t.total * pct / 100)), 'sn'));
+  const ul = arr => `<ul>${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  const firma = (quien, nombre, fecha) => `<div class="fb"><div class="q">${quien}</div>
+    <div class="fl"><span>Nombre</span><b>${esc(nombre || '')}</b></div><div class="fl"><span>DNI / NIF</span><b></b></div>
+    <div class="fl"><span>Fecha</span><b>${esc(fecha || '')}</b></div><div class="fs"><span>Firma</span></div></div>`;
+  return `<div class="doc cierre" style="--k:1"><div class="fit">
+    <div class="hd"><span class="wm">DONFADRIQUE</span><span class="rf">Presupuesto nº ${esc(refPresupuesto(p))}</span></div>
+    <div class="ti">Condiciones y <em>aceptación</em></div>
+    <div class="sum">${filas.join('')}</div>
+    <div class="cols"><div><div class="h">Forma de pago</div>${ul(lineasCond(S.ajustes.condPago, p))}</div>
+    <div><div class="h">Condiciones</div>${ul(lineasCond(S.ajustes.condiciones, p))}</div></div>
+    <div class="h">Aceptación</div>
+    <p class="acp">Con su firma, el cliente acepta este presupuesto y las condiciones indicadas, y Don Fadrique se compromete a prestar el servicio descrito en la fecha acordada.</p>
+    <div class="firmas">${firma('Por el cliente', p.cliente, '')}${firma('Por Don Fadrique', window.DF_USUARIO ? window.DF_USUARIO + ' · Don Fadrique' : 'Don Fadrique', fmtDate(fechaEmision(p)))}</div>
+    <div class="wa"><div class="acc" data-accept="1">Aceptar presupuesto por WhatsApp</div><span>o devuélvenos esta hoja firmada a reservas@donfadrique.com</span></div>
+    </div><div class="band">${CONTACT}${empresaHTML()}${badges}</div></div>`;
+}
+
+const SIZES = {a4: [794, 1123], portada: [794, 1123], cierre: [794, 1123], post: [1080, 1350], story: [1080, 1920]};
 function fitDoc(docEl) {
   const fit = docEl.querySelector('.fit'); if (!fit) return;
   let k = 1; docEl.style.setProperty('--k', k);
@@ -503,9 +623,9 @@ function renderPreview() {
     const [w, h] = SIZES[S.fmt];
     const avail = Math.min(st.clientWidth - 28, S.fmt === 'story' ? 380 : 560);
     const sc = avail / w;
-    st.innerHTML = `<div class="scaler" style="width:${w*sc}px;height:${h*sc}px">${docHTML(S.cur, S.fmt)}</div>`;
-    const d = st.querySelector('.doc'); d.style.transform = `scale(${sc})`;
-    fitDoc(d);
+    const pags = S.fmt === 'a4' ? [['portada', '1 · Portada'], ['a4', '2 · Menú y precio'], ['cierre', '3 · Condiciones y firma']] : [[S.fmt, '']];
+    st.innerHTML = `<div class="pages">${pags.map(([f, l]) => `${l ? `<div class="pg-l">${l}</div>` : ''}<div class="scaler" style="width:${w*sc}px;height:${h*sc}px">${docHTML(S.cur, f)}</div>`).join('')}</div>`;
+    st.querySelectorAll('.doc').forEach(d => { d.style.transform = `scale(${sc})`; fitDoc(d); });
   }, 120);
 }
 function acceptLink(p) {
@@ -524,10 +644,15 @@ async function renderCanvas(p, fmt, scale) {
   host.remove(); return c;
 }
 async function pdfBlob(p) {
-  const c = await renderCanvas(p, 'a4', 2.4);
   const pdf = new jspdf.jsPDF({unit: 'mm', format: 'a4', compress: true});
-  pdf.addImage(c.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, 210, 297);
-  if (lastRect) { const k = 210 / 794; pdf.link(lastRect.x * k, lastRect.y * k, lastRect.w * k, lastRect.h * k, {url: acceptLink(p)}); }
+  const k = 210 / 794;
+  const pags = ['portada', 'a4', 'cierre'];
+  for (let i = 0; i < pags.length; i++) {
+    const c = await renderCanvas(p, pags[i], 2.2);
+    if (i) pdf.addPage('a4', 'portrait');
+    pdf.addImage(c.toDataURL('image/jpeg', 0.86), 'JPEG', 0, 0, 210, 297);
+    if (lastRect) pdf.link(lastRect.x * k, lastRect.y * k, lastRect.w * k, lastRect.h * k, {url: acceptLink(p)});
+  }
   return pdf.output('blob');
 }
 const slug = s => plain(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 50) || 'menu';
@@ -639,7 +764,18 @@ function viewAjustes() {
   <div class="grid g2"><div class="field"><label class="lbl" for="aj-t1">Email al enviar el presupuesto</label><textarea id="aj-t1" rows="9" data-aj="textoEnvio">${esc(a.textoEnvio)}</textarea></div>
   <div class="field"><label class="lbl" for="aj-t2">Email de seguimiento</label><textarea id="aj-t2" rows="9" data-aj="textoSeguimiento">${esc(a.textoSeguimiento)}</textarea></div></div>
   <div class="field"><label class="lbl" for="aj-t3">Email al enviar un dossier</label><textarea id="aj-t3" rows="7" data-aj="textoDossier">${esc(a.textoDossier)}</textarea></div>
-  <div class="muted" style="font-size:13px">En el email del dossier puedes usar {cliente} y {dossier}. En los de presupuesto: {cliente}, {evento}, {fecha}, {hora}, {pax}, {menu}, {precio}, {alergias} y {aceptar} (enlace para que el cliente acepte por WhatsApp al 661 724 158). Los emails salen desde la cuenta de Gmail conectada a Claude.</div>
+  <div class="muted" style="font-size:13px">En el email del dossier puedes usar {cliente} y {dossier}. En los de presupuesto: {cliente}, {evento}, {fecha}, {hora}, {pax}, {menu}, {precio}, {alergias} y {aceptar} (enlace para que el cliente acepte por WhatsApp al 661 724 158). Los emails salen desde el correo del restaurante.</div>
+  <h3 style="margin:10px 0 0">Presupuesto en PDF: empresa, pago y condiciones</h3>
+  <div class="grid g4"><div class="field"><label class="lbl" for="aj-rs">Razón social</label><input type="text" id="aj-rs" data-aj="razonSocial" value="${esc(a.razonSocial)}" placeholder="Nombre de la empresa"></div>
+  <div class="field"><label class="lbl" for="aj-cif">CIF</label><input type="text" id="aj-cif" data-aj="cif" value="${esc(a.cif)}"></div>
+  <div class="field"><label class="lbl" for="aj-dir">Dirección</label><input type="text" id="aj-dir" data-aj="direccion" value="${esc(a.direccion)}"></div>
+  <div class="field"><label class="lbl" for="aj-iban">IBAN para la señal</label><input type="text" id="aj-iban" data-aj="iban" value="${esc(a.iban)}" placeholder="ES00 0000 0000 00 0000000000"></div>
+  <div class="field"><label class="lbl" for="aj-sp">Señal (%)</label><input type="number" min="0" max="100" id="aj-sp" data-aj="senalPct" value="${esc(a.senalPct)}"></div>
+  <div class="field"><label class="lbl" for="aj-vd">Validez (días)</label><input type="number" min="1" id="aj-vd" data-aj="validezDias" value="${esc(a.validezDias)}"></div>
+  <div class="field"><label class="lbl" for="aj-fp">Foto de la portada</label><select id="aj-fp" data-aj="fotoPortada">${Object.entries(ASSETS.photos).map(([k, v]) => `<option value="${k}" ${a.fotoPortada === k ? 'selected' : ''}>${esc(v.n)}</option>`).join('')}</select></div></div>
+  <div class="grid g2"><div class="field"><label class="lbl" for="aj-cp">Forma de pago (una línea por punto)</label><textarea id="aj-cp" rows="7" data-aj="condPago">${esc(a.condPago)}</textarea></div>
+  <div class="field"><label class="lbl" for="aj-cg">Condiciones (una línea por punto)</label><textarea id="aj-cg" rows="7" data-aj="condiciones">${esc(a.condiciones)}</textarea></div></div>
+  <div class="muted" style="font-size:13px">En la forma de pago y las condiciones puedes usar {senalPct}, {senal} (importe de la señal), {total}, {validoHasta}, {iban}, {iva} y {alergias}.</div>
   <div class="row"><button class="btn pri" id="ajSave">Guardar ajustes</button></div></section>`;
 }
 function fmtMB(b) { return b ? (b / 1048576).toLocaleString('es-ES', {maximumFractionDigits: 1}) + ' MB' : ''; }
