@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Don Fadrique</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Don Fadrique">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overflow:hidden;color:#1a1a1a}
@@ -302,7 +310,8 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
 <div class="page" id="p-propuestas">
   <div class="top"><button class="back" onclick="irA('p-config')">&#8592;</button><div style="flex:1;font-size:15px;font-weight:600">Propuestas de menú</div><button onclick="irA('p-propuestas-lista')" style="background:none;border:none;color:#8b1a2a;font-size:20px;cursor:pointer">&#128193;</button></div>
   <div class="content">
-    <div style="font-size:12px;color:#888;margin-bottom:12px">Elige un menú para preparar y enviar una propuesta al cliente, sin necesidad de crear todavía la reserva.</div>
+    <button class="btn btn-primary" style="margin-bottom:12px" onclick="abrirPegarMenu()">&#128203; Pegar menú de WhatsApp o de una nota</button>
+    <div style="font-size:12px;color:#888;margin-bottom:12px">O elige un menú para preparar y enviar una propuesta al cliente, sin necesidad de crear todavía la reserva.</div>
     <div id="propuestas-grid"></div>
   </div>
   <div class="bot">
@@ -341,6 +350,21 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
     <div style="padding:14px 20px;border-top:1px solid #eee;display:flex;gap:10px">
       <button class="btn btn-secondary" style="flex:1" onclick="guardarPropuesta(false)">&#128190; Guardar</button>
       <button class="btn btn-primary" style="flex:1" id="btn-enviar-propuesta" onclick="guardarPropuesta(true)">&#128231; Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PEGAR MENÚ -->
+<div id="modalPegarMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;overflow-y:auto">
+  <div style="background:#fff;max-width:560px;margin:20px auto;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="background:#1a1a1a;color:#b8965a;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:15px;font-weight:700">Pegar menú</div>
+      <button onclick="document.getElementById('modalPegarMenu').style.display='none'" style="background:none;border:none;color:#b8965a;font-size:22px;cursor:pointer">&#10005;</button>
+    </div>
+    <div style="padding:16px 20px">
+      <div style="font-size:12px;color:#666;margin-bottom:8px">Pega el menú tal cual: fecha, cliente, personas, teléfono, email, secciones con sus platos y precio. Una cosa por línea. Después podrás revisarlo antes de guardar o enviar.</div>
+      <div class="field"><textarea id="pm-texto" style="min-height:260px" placeholder="15 octubre 2026&#10;Hora 14:00&#10;Manuel Sánchez&#10;Pax: 20&#10;650 123 456&#10;&#10;Entrantes a compartir&#10;Jamón y lomo&#10;Croquetas&#10;&#10;Carne&#10;Cochinillo asado&#10;&#10;Postre&#10;Torrija caramelizada&#10;&#10;Precio: 65€"></textarea></div>
+      <button class="btn btn-primary" onclick="maquetarMenuPegado()">Maquetar menú</button>
     </div>
   </div>
 </div>
@@ -1341,6 +1365,12 @@ function cargarConfig(){
       html+='<div class="sw-row"><span style="font-size:13px">Recordatorios automaticos</span>';
       html+='<label class="sw"><input type="checkbox" id="cfg-rec"'+(rec?' checked':'')+'><span class="sw-sl"></span></label></div>';
       html+='</div>';
+      html+='<div class="card"><div style="font-weight:600;margin-bottom:10px">Seguimiento de propuestas</div>';
+      html+='<div class="field"><label>Días sin respuesta antes de enviar el seguimiento</label><input type="number" min="1" id="cfg-dseg" value="'+(cfg.dias_seguimiento||'3')+'"></div>';
+      html+='<div class="field"><label>Seguimientos automáticos como máximo</label><input type="number" min="0" id="cfg-mseg" value="'+(cfg.max_seguimientos||'2')+'"></div>';
+      html+='<div class="sw-row"><span style="font-size:13px">Resumen diario por email (10:00)</span><label class="sw"><input type="checkbox" id="cfg-resd"'+(cfg.resumen_diario==='0'?'':' checked')+'><span class="sw-sl"></span></label></div>';
+      html+='<div class="field"><label>Enviar el resumen a</label><input type="text" id="cfg-eres" value="'+(cfg.email_resumen||'')+'" placeholder="email1, email2"></div>';
+      html+='</div>';
       html+='<button class="btn btn-primary" onclick="guardarConfig()">Guardar configuracion</button>';
       html+='<div style="margin-top:12px"><button class="btn btn-secondary" onclick="irA(&apos;p-menus&apos;)">Gestionar menus</button></div>';
       html+='<div style="margin-top:10px"><button class="btn btn-primary" onclick="irA(&apos;p-propuestas&apos;)">Propuestas de menú</button></div>';
@@ -1354,7 +1384,11 @@ function guardarConfig(){
     tel_rest:document.getElementById('cfg-tel').value,
     dir_rest:document.getElementById('cfg-dir').value,
     email_smtp:document.getElementById('cfg-smtp').value,
-    recordatorios:document.getElementById('cfg-rec').checked?'1':'0'
+    recordatorios:document.getElementById('cfg-rec').checked?'1':'0',
+    dias_seguimiento:document.getElementById('cfg-dseg').value||'3',
+    max_seguimientos:document.getElementById('cfg-mseg').value||'2',
+    resumen_diario:document.getElementById('cfg-resd').checked?'1':'0',
+    email_resumen:document.getElementById('cfg-eres').value
   };
   var pass=document.getElementById('cfg-pass').value;
   if(pass)datos.email_pass=pass;
@@ -1663,7 +1697,12 @@ function verDetallePropuesta(id){
   var html = '<div class="field"><label>Cliente</label><div>'+(p.cliente||'')+'</div></div>';
   html += '<div class="field"><label>Menus incluidos</label><div>'+(p.plantilla_nombre||'')+'</div></div>';
   html += '<div class="field"><label>Fecha evento</label><div>'+(p.fecha_evento?fmtFechaCorta(p.fecha_evento):'Sin definir')+'</div></div>';
-  html += '<div class="field"><label>Estado</label><div>'+p.estado+'</div></div>';
+  html += '<div class="field"><label>Estado</label><div>'+p.estado+(p.estado==='enviada'&&p.fecha_envio?' · hace '+dfDiasDesde(p.fecha_envio)+' días':'')+(p.seguimientos?' · '+p.seguimientos+' seguimiento'+(p.seguimientos>1?'s':''):'')+'</div></div>';
+  if(p.estado==='enviada'){
+    html += '<div class="sw-row" style="margin-bottom:8px"><span style="font-size:13px">Seguimiento automático por email</span><label class="sw"><input type="checkbox" '+(p.seguimiento_auto===0?'':'checked')+' onchange="cambiarSeguimientoAuto('+p.id+',this.checked)"><span class="sw-sl"></span></label></div>';
+  }
+  if(p.telefono) html += '<button class="btn btn-secondary" style="margin-bottom:8px;color:#2f6b4f;border-color:#2f6b4f" onclick="enviarPropuestaWhatsApp('+p.id+')">&#128172; Enviar por WhatsApp</button>';
+  if(p.estado==='enviada' && p.email) html += '<button class="btn btn-secondary" style="margin-bottom:8px" onclick="enviarSeguimientoManual('+p.id+')">&#128232; Enviar seguimiento ahora</button>';
   html += '<button class="btn btn-secondary" style="margin-bottom:8px" onclick="window.open(\'/api/propuestas/'+p.id+'/pdf\',\'_blank\')">&#128196; Ver PDF</button>';
   if(p.estado!=='confirmada'){
     html += '<button class="btn btn-secondary" style="margin-bottom:8px" onclick="editarPropuesta('+p.id+')">&#9998; Modificar</button>';
@@ -2165,6 +2204,7 @@ function comprobarAlertasExtras() {
       // Si no hay alertas, limpiar
       if(!alertas.length){
         document.getElementById('home-alertas').innerHTML = '';
+        comprobarAlertasPropuestas();
         return;
       }
       
@@ -2188,6 +2228,7 @@ function comprobarAlertasExtras() {
       // Comprobar avisos de cancelacion tardia
       comprobarAvisosCancelacion();
       comprobarAlertasConvocatoria();
+      comprobarAlertasPropuestas();
     });
 }
 
@@ -3406,6 +3447,148 @@ async function enviarConvocatorias() {
     btn.disabled = false;
   }
 }
+
+// ─── PEGAR MENÚ, WHATSAPP Y SEGUIMIENTO DE PROPUESTAS ──────────────────────
+var DF_MESES = {enero:1, febrero:2, marzo:3, abril:4, mayo:5, junio:6, julio:7, agosto:8, septiembre:9, setiembre:9, octubre:10, noviembre:11, diciembre:12};
+var DF_SEC_RE = /^(aperitivos?|entrantes?( a compartir| individual(es)?| al centro)?|primeros?( platos?)?|segundos?( platos?)?|de cuchara|cuchara|pescados?|carnes?|principal(es)?|platos? principal(es)?( a elegir)?|a elegir|sorbetes?|postres?|caf[eé]s?( y licores)?|bebidas?|bodega|vinos?|c[oó]ctel( de bienvenida)?|fr[ií]os|calientes|estaciones|recena|men[uú] infantil|infantil|para compartir|picoteo|tapas)$/i;
+var DF_TIT_RE = /(men[uú]|c[oó]ctel|banquete|comida|cena|boda|comuni[oó]n|bautizo|preg[oó]n|celebraci[oó]n|aniversario|cumplea[nñ]os|jornada|evento)/i;
+var DF_CLASS = [
+  ['Bodega', /\b(vinos?|tinto|blanco|rosado|cava|champ[aá]n|champagne|palo cortado|jerez|cerveza|refrescos?|d[ií]scolo|cinco de copas|ribera|rioja|verdejo|albari[nñ]o|crianza|reserva|licores?|chupitos?|gin|copa)\b/i],
+  ['Postre', /\b(torrijas?|tartas?|helados?|flan|mousse|natillas|arroz con leche|mazap[aá]n|sorbete|chocolate|tiramis[uú]|cheesecake|milhojas?|brownie|sopa de almendra|fruta|postre|coulant|bizcocho)\b/i],
+  ['Carne', /\b(chuleta|chulet[oó]n|solomillo|presa|pluma|secreto|cochinillo|tost[oó]n|cordero|lechazo|ternera|entrecot|carrillera|rabo|morucha|cabrito|cerdo|pollo|pato|venado|jabal[ií]|steak|lomo bajo)\b/i],
+  ['Pescado', /\b(bacalao|merluza|lubina|rodaballo|dorada|rape|salm[oó]n|pulpo|bonito|at[uú]n|besugo|lenguado|corvina|pescado|calamar|sepia|chipirones)\b/i]
+];
+var DF_BEB = /^(y|e|con|agua|aguas|pan|vino|vinos|tinto|blanco|cerveza|cervezas|refresco|refrescos|caf[eé]|caf[eé]s|bebida|bebidas|licor|licores|chupitos?|incluid[oa]s?|de|la|casa)$/i;
+function dfCap(t){ t=String(t).trim(); return t.charAt(0).toUpperCase()+t.slice(1); }
+function dfIso(d,m,y){ if(String(y).length===2) y='20'+y; d=+d; m=+m; var dt=new Date(+y,m-1,d); if(dt.getMonth()!==m-1||dt.getDate()!==d) return null; return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+function dfFindDate(l){
+  var y0 = String(new Date().getFullYear()), m;
+  m = /(?:^|\D)(\d{1,2})\s*(?:de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s*(?:de\s+|del\s+)?(\d{4}))?/i.exec(l);
+  if(m) return {iso: dfIso(m[1], DF_MESES[m[2].toLowerCase()], m[3]||y0), txt:m[0]};
+  m = /(?:^|[^\d])(\d{1,2})\s*[\/.\- ]\s*(\d{1,2})\s*[\/.\- ]\s*(\d{4}|\d{2})(?!\d)/.exec(l);
+  if(m){ var iso=dfIso(m[1],m[2],m[3]); if(iso) return {iso:iso, txt:m[0]}; }
+  m = /(?:^|[^\d])(\d{1,2})\s*\/\s*(\d{1,2})(?![\d\/])/.exec(l);
+  if(m){ var iso2=dfIso(m[1],m[2],y0); if(iso2) return {iso:iso2, txt:m[0]}; }
+  return null;
+}
+function dfParseMenu(raw){
+  var p = {titulo:'', cliente:'', telefono:'', email:'', fecha:'', hora:'', pax:'', precio:0, precioModo:'persona', notas:'', secciones:[], tipo:''};
+  var cur=null, nameCand='', titleSet=false, gap=0;
+  var lines = raw.replace(/\r/g,'').split('\n').map(function(l){ return l.replace(/^\[[^\]]*\]\s*[^:]{1,40}:\s*/,'').replace(/[*~]/g,'').replace(/^[\s•·\-–—>]+/,'').trim(); });
+  var isName = function(s2){ return /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(\s+(de|del|la|y|[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)){0,4}$/.test(s2) && !DF_TIT_RE.test(s2) && !DF_SEC_RE.test(s2) && !DF_CLASS.some(function(c){return c[1].test(s2);}); };
+  for(var k=0;k<lines.length;k++){
+    var l = lines[k], m;
+    if(!l){ gap++; continue; }
+    if((m=/^precio\s*(total|por persona|pax)?\s*:?\s*([\d.,]+)\s*(€|euros?)?\s*(\/?\s*(pax|persona|pers\.?))?/i.exec(l))){
+      var v=+m[2].replace(/\.(?=\d{3}\b)/g,'').replace(',','.'); p.precio=v;
+      p.precioModo=(m[1]&&/total/i.test(m[1]))?'total':(m[4]||(m[1]&&/persona|pax/i.test(m[1])))?'persona':(v>300?'total':'persona'); continue; }
+    if((m=/^(?:pax|personas|comensales|invitados)\s*:?\s*(\d+)\s*(?:ad\.?|adultos?)?\s*(?:y|\+|,)?\s*(\d+)\s*(?:ni[nñ][oa]s?|peques?|infantil(?:es)?)$/i.exec(l))){ p.pax=+m[1]; p.notas=m[1]+' adultos y '+m[2]+(+m[2]===1?' niño.':' niños.'); continue; }
+    if((m=/^(pax|personas|comensales|invitados)\s*:?\s*(\d+)\s*(?:ad\.?|adultos?)?$/i.exec(l))||(m=/^(\d+)\s*(pax|personas|comensales|invitados)$/i.exec(l))){ p.pax=+(/^\d+$/.test(m[2])?m[2]:m[1]); continue; }
+    if((m=/^hora\s*:?\s*(\d{1,2})(?:[:.h]\s*(\d{2}))?\s*h?$/i.exec(l))||(m=/^(\d{1,2})[:.](\d{2})\s*h?$/.exec(l))||(m=/^(\d{1,2})\s*h$/i.exec(l))){ p.hora=String(+m[1]).padStart(2,'0')+':'+(m[2]||'00'); continue; }
+    if(/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(l)){ p.email=l.toLowerCase(); continue; }
+    if(/^(tel[eé]fono|tlf|m[oó]vil)?\s*:?\s*\+?[\d\s]{9,15}$/i.test(l) && l.replace(/\D/g,'').length>=9){ p.telefono=l.replace(/[^\d+]/g,''); continue; }
+    if((m=/^(cliente|nombre|a nombre de)\s*:?\s*(.+)$/i.exec(l))){ p.cliente=dfCap(m[2]); continue; }
+    if((m=/^incluye\s*:?\s+(.+)$/i.exec(l))){ p.secciones.push({titulo:'Incluye', platos:[dfCap(m[1])]}); cur=null; gap=0; continue; }
+    var lx=l;
+    if(!p.fecha){ var fd=dfFindDate(l); if(fd&&fd.iso){ p.fecha=fd.iso; lx=l.replace(fd.txt,' ').replace(/\b(d[ií]a|fecha|el)\s*$/i,'').replace(/\s{2,}/g,' ').replace(/[\s,.:-]+$/,'').trim(); if(!lx) continue; } }
+    var head=lx.replace(/[:.]$/,'').trim();
+    if(DF_SEC_RE.test(head)||(lx.slice(-1)===':'&&head.split(/\s+/).length<=5)){ cur={titulo:dfCap(head), platos:[]}; p.secciones.push(cur); gap=0; continue; }
+    if(!p.cliente && !p.secciones.length && titleSet && isName(lx)){ p.cliente=lx; continue; }
+    if(!titleSet && !p.secciones.length){
+      if(DF_TIT_RE.test(lx)||(nameCand&&!p.cliente)||(lx.split(/\s+/).length>3&&!isName(lx))){ p.titulo=dfCap(lx.replace(/\b(d[ií]a)$/i,'').trim()); titleSet=true; gap=0; continue; }
+      if(!nameCand){ nameCand=dfCap(lx); continue; }
+    }
+    if(!cur||(gap>=2&&cur.platos.length)){ cur={titulo:'', platos:[]}; p.secciones.push(cur); }
+    cur.platos.push(dfCap(lx)); gap=0;
+  }
+  if(nameCand){ if(!p.cliente&&titleSet) p.cliente=nameCand; else if(!titleSet){ p.titulo=nameCand; titleSet=true; } }
+  if(!p.titulo) p.titulo='Menú';
+  p.secciones=p.secciones.filter(function(sc){return sc.platos.length||sc.titulo;});
+  p.secciones.forEach(function(sc,i){
+    if(sc.titulo) return;
+    if(sc.platos.every(function(x){return x.split(/[\s,]+/).filter(Boolean).every(function(w){return DF_BEB.test(w);});})){ sc.titulo='Incluye'; return; }
+    var nx=p.secciones[i+1];
+    if(i===0&&nx&&/^entrantes?/i.test(nx.titulo)) sc.titulo='Entrantes a compartir';
+  });
+  // Reparte por tipo de plato una lista larga sin secciones
+  var out=[];
+  p.secciones.forEach(function(sc){
+    var cls=sc.platos.map(function(d){ for(var c=0;c<DF_CLASS.length;c++) if(DF_CLASS[c][1].test(d)) return DF_CLASS[c][0]; return 'Entrantes'; });
+    var kinds={}; cls.forEach(function(c){ if(c!=='Entrantes') kinds[c]=1; });
+    var generic=!sc.titulo||/^(entrantes?|men[uú]|platos|para compartir)$/i.test(sc.titulo);
+    if(!generic||sc.platos.length<4||Object.keys(kinds).length<2){ out.push(sc); return; }
+    var g={}; sc.platos.forEach(function(d,i){ (g[cls[i]]=g[cls[i]]||[]).push(d); });
+    ['Entrantes','Pescado','Carne','Postre','Bodega'].forEach(function(k){ if(g[k]) out.push({titulo:k==='Entrantes'?(sc.titulo||'Entrantes'):k, platos:g[k]}); });
+  });
+  p.secciones=out;
+  if(p.secciones.every(function(sc){return !sc.titulo;})&&p.secciones.length===2&&/c[oó]ctel|preg[oó]n/i.test(p.titulo+raw)){ p.secciones[0].titulo='Fríos'; p.secciones[1].titulo='Calientes'; }
+  p.secciones.forEach(function(sc){ if(!sc.titulo) sc.titulo='Menú'; sc.platos=sc.platos.map(function(x){return x.replace(/\(\s+/g,'(').replace(/\s+\)/g,')').replace(/\s{2,}/g,' ');}); });
+  if(/c[oó]ctel/i.test(raw)||p.secciones.some(function(sc){return /^(fr[ií]os|calientes)$/i.test(sc.titulo);})) p.tipo='Cóctel';
+  p.titulo=p.titulo.replace(/\b([A-ZÁÉÍÓÚÑ]{3,})\b/g,function(w){return w.charAt(0)+w.slice(1).toLowerCase();});
+  return p;
+}
+function abrirPegarMenu(){
+  var ov=document.getElementById('modalPegarMenu');
+  document.getElementById('pm-texto').value='';
+  ov.style.display='block';
+  setTimeout(function(){document.getElementById('pm-texto').focus();},50);
+}
+function maquetarMenuPegado(){
+  var raw=document.getElementById('pm-texto').value.trim();
+  if(!raw){ alert('Pega primero el texto del menú'); return; }
+  var r=dfParseMenu(raw);
+  var notas=[r.notas];
+  var precio=r.precio||0;
+  if(r.precioModo==='total'&&precio){ notas.push('Precio total del servicio: '+precio.toLocaleString('es-ES')+' €'+(r.pax?' para '+r.pax+' personas':'')+'.'); precio=0; }
+  S.propuestaForm={
+    id:null, cliente:r.cliente||r.titulo, telefono:r.telefono, email:r.email, fecha_evento:r.fecha,
+    tipo_evento:[r.tipo||'', r.hora?('a las '+r.hora+' h'):''].filter(Boolean).join(' · '), pax:r.pax||'',
+    notas:notas.filter(Boolean).join(' '), extras:[], texto_original:raw,
+    menus:[{plantilla_id:null, plantilla_nombre:r.titulo, precio_persona:precio,
+      secciones:r.secciones.map(function(sc){ return {tipo:'lista', titulo:sc.titulo, items:sc.platos.slice()}; })}]
+  };
+  document.getElementById('modalPegarMenu').style.display='none';
+  renderModalPropuesta();
+  document.getElementById('modalPropuesta').style.display='block';
+}
+function dfTelWa(t){ var n=String(t||'').replace(/\D/g,''); if(n.length===9) n='34'+n; return n; }
+function enviarPropuestaWhatsApp(id){
+  var p=(S.propuestas||[]).find(function(x){return x.id===id;}); if(!p) return;
+  if(!p.telefono){ alert('La propuesta no tiene teléfono del cliente'); return; }
+  var url='https://restaurantefadrique.palaciocondealdana.com/confirmar/'+p.token;
+  var fecha=p.fecha_evento?new Date(p.fecha_evento+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}):'';
+  var txt='Hola '+(String(p.cliente||'').split(/[\s-]/)[0]||'')+', te enviamos la propuesta de menú de Don Fadrique'+(fecha?' para el '+fecha:'')+'.\n\nPuedes verla y confirmarla aquí: '+url+'\n\nTodos nuestros menús se pueden adaptar a alergias e intolerancias.\n\nUn saludo,\nDon Fadrique';
+  window.open('https://wa.me/'+dfTelWa(p.telefono)+'?text='+encodeURIComponent(txt),'_blank');
+}
+function enviarSeguimientoManual(id){
+  if(!confirm('¿Enviar ahora un email de seguimiento al cliente?')) return;
+  fetch('/api/propuestas/'+id+'/seguimiento',{method:'POST'}).then(function(r){return r.json();}).then(function(res){
+    if(res.ok){ alert('Seguimiento enviado'); document.getElementById('modalPropuestaDetalle').style.display='none'; renderPropuestasLista(); }
+    else alert('No se pudo enviar: '+(res.msg||''));
+  });
+}
+function cambiarSeguimientoAuto(id, activo){
+  fetch('/api/propuestas/'+id+'/seguimiento-auto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({activo:activo})});
+  var p=(S.propuestas||[]).find(function(x){return x.id===id;}); if(p) p.seguimiento_auto=activo?1:0;
+}
+function dfDiasDesde(f){ if(!f) return 0; return Math.floor((Date.now()-new Date(String(f).replace(' ','T')+'Z').getTime())/86400000); }
+function comprobarAlertasPropuestas(){
+  Promise.all([fetch('/api/propuestas').then(function(r){return r.json();}), fetch('/api/config').then(function(r){return r.json();})]).then(function(res){
+    var props=res[0], dias=parseInt(res[1].dias_seguimiento||'3',10);
+    var hoy=new Date().toISOString().slice(0,10);
+    var pend=props.filter(function(p){ return p.estado==='enviada' && dfDiasDesde(p.ultimo_seguimiento||p.fecha_envio)>=dias && (!p.fecha_evento||p.fecha_evento>=hoy); });
+    var cont=document.getElementById('home-alertas'); if(!cont) return;
+    var old=document.getElementById('aviso-propuestas'); if(old) old.parentNode.removeChild(old);
+    if(!pend.length) return;
+    var el=document.createElement('div'); el.id='aviso-propuestas';
+    el.style.cssText='display:flex;align-items:center;gap:10px;background:#fbf6ee;border:1px solid #e0c97a;border-radius:10px;padding:10px 14px;margin:6px 14px 8px';
+    el.innerHTML='<span style="font-size:18px">&#9203;</span><span style="flex:1;font-size:13px;color:#8a6a1a;font-weight:600">'+(pend.length===1?'1 propuesta sin respuesta':pend.length+' propuestas sin respuesta')+'</span><button onclick="irA(\'p-propuestas-lista\')" style="background:#b8965a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">Ver</button>';
+    cont.insertBefore(el, cont.firstChild);
+  }).catch(function(){});
+}
+
+if('serviceWorker' in navigator){ window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); }); }
+
 </script>
 </body>
 </html>

@@ -137,6 +137,17 @@ try { db.exec("ALTER TABLE propuestas ADD COLUMN token TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE propuestas ADD COLUMN firma_cliente TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE propuestas ADD COLUMN fecha_confirmacion TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE propuestas ADD COLUMN firma_restaurante TEXT"); } catch(e) {}
+// Seguimiento automático de propuestas enviadas sin respuesta
+try { db.exec("ALTER TABLE propuestas ADD COLUMN seguimientos INTEGER DEFAULT 0"); } catch(e) {}
+try { db.exec("ALTER TABLE propuestas ADD COLUMN ultimo_seguimiento TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE propuestas ADD COLUMN seguimiento_auto INTEGER DEFAULT 1"); } catch(e) {}
+try { db.exec("ALTER TABLE propuestas ADD COLUMN texto_original TEXT"); } catch(e) {}
+try {
+  db.exec("INSERT OR IGNORE INTO config VALUES ('dias_seguimiento', '3')");
+  db.exec("INSERT OR IGNORE INTO config VALUES ('max_seguimientos', '2')");
+  db.exec("INSERT OR IGNORE INTO config VALUES ('resumen_diario', '1')");
+  db.exec("INSERT OR IGNORE INTO config VALUES ('email_resumen', 'fincalamaza@gmail.com, nicocuadri@hotmail.com')");
+} catch(e) {}
 // Generar token para propuestas antiguas que no lo tengan aún (enlace público de confirmación)
 (function generarTokensFaltantes() {
   const rows = db.prepare('SELECT id FROM propuestas WHERE token IS NULL OR token = ?').all('');
@@ -1580,7 +1591,7 @@ app.get('/api/config', (req, res) => {
 });
 
 app.post('/api/config', (req, res) => {
-  const allowed = ['email_rest', 'tel_rest', 'dir_rest', 'email_smtp', 'recordatorios'];
+  const allowed = ['email_rest', 'tel_rest', 'dir_rest', 'email_smtp', 'recordatorios', 'dias_seguimiento', 'max_seguimientos', 'resumen_diario', 'email_resumen'];
   Object.entries(req.body).forEach(([k, v]) => {
     if (allowed.includes(k)) {
       db.prepare('INSERT OR REPLACE INTO config (clave, valor) VALUES (?, ?)').run(k, v);
@@ -1946,6 +1957,7 @@ app.post('/api/propuestas', (req, res) => {
     d.fecha_evento || '', d.tipo_evento || '', d.pax || null,
     JSON.stringify(menus), JSON.stringify(d.extras || []), d.notas || '', token
   );
+  if (d.texto_original) db.prepare('UPDATE propuestas SET texto_original = ? WHERE id = ?').run(String(d.texto_original).slice(0, 20000), result.lastInsertRowid);
   const nueva = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(result.lastInsertRowid);
   res.json(parsePropuesta(nueva));
 });
@@ -2118,6 +2130,11 @@ async function generarPDFPropuesta(prop) {
       y += doc.heightOfString(prop.notas, { width: 460 }) + 20;
     }
 
+    if (y > 700) { doc.addPage(); y = 60; }
+    doc.fillColor(gray).font('Helvetica-Oblique').fontSize(9.5)
+      .text(TEXTO_ALERGIAS, 65, y, { width: 460, align: 'center' });
+    y += 22;
+
     // Botón de confirmación (enlace a la página pública de confirmación)
     if (y > 680) { doc.addPage(); y = 60; }
     y += 10;
@@ -2205,6 +2222,8 @@ async function enviarEmailPropuesta(prop, pdfBuffer) {
     <div style="text-align:center;margin:22px 0">
       <a href="${confirmUrl}" style="background:#b8965a;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-size:14px;font-weight:bold;display:inline-block">Confirmar mi reserva</a>
     </div>
+    <p style="font-size:13px;color:#555;font-style:italic;text-align:center">${TEXTO_ALERGIAS}</p>
+    <p style="font-size:13px;color:#555;text-align:center">¿Alguna duda o cambio? Escríbenos por WhatsApp: <a href="${waLinkReservas('Hola, tengo una consulta sobre la propuesta de menú para ' + (prop.cliente || '') + '.')}" style="color:#2f6b4f;font-weight:bold">661 724 158</a></p>
     <p style="font-size:11px;color:#aaa;margin-top:20px">Restaurante Don Fadrique · NIMANSANMON S.L. · CIF: B37297223 · Alba de Tormes · Tel. 920 37 00 51</p>
   </div>
 </div></body></html>`;
@@ -2222,6 +2241,110 @@ async function enviarEmailPropuesta(prop, pdfBuffer) {
     }]
   });
 }
+
+// ─── SEGUIMIENTO AUTOMÁTICO DE PROPUESTAS Y RESUMEN DIARIO ─────────────────
+const TEXTO_ALERGIAS = 'Todos nuestros menús se pueden adaptar a alergias e intolerancias.';
+const WA_RESERVAS = '34661724158';
+function waLinkReservas(texto) { return `https://wa.me/${WA_RESERVAS}?text=${encodeURIComponent(texto || '')}`; }
+function hoyMadrid() { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' }); }
+function horaMadrid() { return +new Date().toLocaleString('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }); }
+function diasDesde(fechaSql) {
+  if (!fechaSql) return 0;
+  const t = new Date(String(fechaSql).replace(' ', 'T') + (String(fechaSql).includes('Z') ? '' : 'Z')).getTime();
+  return Math.floor((Date.now() - t) / 86400000);
+}
+function fechaLarga(iso) {
+  return iso ? new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : 'la fecha prevista';
+}
+function transporterSMTP() {
+  const cfg = getConfig();
+  if (!cfg.email_smtp || !cfg.email_pass) return null;
+  return { cfg, t: nodemailer.createTransport({ host: 'smtp.gmail.com', port: 587, secure: false, auth: { user: cfg.email_smtp, pass: cfg.email_pass } }) };
+}
+function propuestasPendientesSeguimiento() {
+  const cfg = getConfig();
+  const dias = Math.max(1, parseInt(cfg.dias_seguimiento || '3', 10));
+  return db.prepare("SELECT * FROM propuestas WHERE estado = 'enviada'").all().filter(p => {
+    const ref = p.ultimo_seguimiento || p.fecha_envio;
+    return diasDesde(ref) >= dias && (!p.fecha_evento || p.fecha_evento >= hoyMadrid());
+  });
+}
+async function enviarSeguimientoPropuesta(prop) {
+  const sm = transporterSMTP();
+  if (!sm) throw new Error('SMTP no configurado');
+  if (!prop.email) throw new Error('La propuesta no tiene email del cliente');
+  const confirmUrl = `https://restaurantefadrique.palaciocondealdana.com/confirmar/${prop.token}`;
+  const nombre = (prop.cliente || '').split(/[\s-]/)[0] || '';
+  const html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:sans-serif">
+<div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
+  <div style="background:#b8965a;padding:22px 24px;text-align:center"><div style="font-family:Georgia,serif;font-size:26px;color:#fff;letter-spacing:3px">Don Fadrique</div></div>
+  <div style="background:#fff;padding:24px;border:1px solid #e0dcd6;border-top:none;font-size:14px;color:#444;line-height:1.6">
+    <p>Hola ${nombre}:</p>
+    <p>Te escribimos para saber si pudiste revisar la propuesta de menú que te enviamos para el <strong>${fechaLarga(prop.fecha_evento)}</strong>. Si quieres cambiar algún plato o ajustar el número de personas, dínoslo y lo preparamos.</p>
+    <div style="text-align:center;margin:22px 0"><a href="${confirmUrl}" style="background:#b8965a;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-weight:bold;display:inline-block">Ver y confirmar la propuesta</a></div>
+    <p style="text-align:center">O escríbenos por WhatsApp: <a href="${waLinkReservas('Hola, sobre la propuesta de menú para ' + (prop.cliente || '') + '...')}" style="color:#2f6b4f;font-weight:bold">661 724 158</a></p>
+    <p style="font-size:13px;font-style:italic;color:#777;text-align:center">${TEXTO_ALERGIAS}</p>
+    <p>Un saludo,<br>Don Fadrique</p>
+  </div></div></body></html>`;
+  await sm.t.sendMail({ from: `"Don Fadrique" <${sm.cfg.email_smtp}>`, to: prop.email, subject: `Tu propuesta de menú · Don Fadrique`, html });
+  db.prepare("UPDATE propuestas SET seguimientos = COALESCE(seguimientos,0) + 1, ultimo_seguimiento = datetime('now') WHERE id = ?").run(prop.id);
+}
+async function enviarResumenDiario(enviadosHoy) {
+  const sm = transporterSMTP();
+  const cfg = getConfig();
+  if (!sm || cfg.resumen_diario === '0' || !cfg.email_resumen) return;
+  const hoy = hoyMadrid();
+  const max = parseInt(cfg.max_seguimientos || '2', 10);
+  const props = db.prepare('SELECT * FROM propuestas').all();
+  const sinRespuesta = propuestasPendientesSeguimiento().filter(p => !p.email || (p.seguimientos || 0) >= max || p.seguimiento_auto === 0);
+  const borradores = props.filter(p => p.estado === 'borrador' && p.fecha_evento && p.fecha_evento >= hoy);
+  const en14 = new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' });
+  const eventos = db.prepare("SELECT * FROM reservas WHERE tipo = 'evento' AND fecha >= ? AND fecha <= ? AND (estado IS NULL OR estado != 'cancelada') ORDER BY fecha, hora").all(hoy, en14);
+  const li = (t) => `<li style="margin-bottom:6px">${t}</li>`;
+  const bloque = (titulo, items) => items.length ? `<h3 style="font-family:Georgia,serif;color:#8b1a2a;margin:18px 0 6px">${titulo}</h3><ul style="padding-left:18px;margin:0">${items.join('')}</ul>` : '';
+  const html = [
+    bloque('Seguimientos automáticos enviados hoy', enviadosHoy.map(p => li(`${p.cliente || 'Sin nombre'} · ${p.email}`))),
+    bloque('Propuestas sin respuesta: llamar o escribir por WhatsApp', sinRespuesta.map(p => li(`${p.cliente || 'Sin nombre'} · evento ${fechaLarga(p.fecha_evento)} · tel. ${p.telefono || '—'} · enviada hace ${diasDesde(p.fecha_envio)} días`))),
+    bloque('Borradores sin enviar', borradores.map(p => li(`${p.cliente || 'Sin nombre'} · ${fechaLarga(p.fecha_evento)}`))),
+    bloque('Eventos de los próximos 14 días', eventos.map(r => li(`${fechaLarga(r.fecha)}${r.hora ? ' · ' + r.hora : ''} · ${r.nombre || ''} · ${r.pax || '?'} pax${r.salon ? ' · ' + r.salon : ''}`)))
+  ].join('');
+  if (!html) return;
+  await sm.t.sendMail({
+    from: `"Don Fadrique" <${sm.cfg.email_smtp}>`, to: cfg.email_resumen,
+    subject: `Resumen Don Fadrique · ${fechaLarga(hoy)}`,
+    html: `<div style="font-family:sans-serif;font-size:14px;color:#333;max-width:620px">${html}<p style="margin-top:22px"><a href="https://restaurantefadrique.palaciocondealdana.com" style="color:#b8965a">Abrir la app</a></p></div>`
+  });
+}
+async function tareaDiariaPropuestas(forzar) {
+  try {
+    const hoy = hoyMadrid();
+    const cfg = getConfig();
+    if (!forzar && (cfg.ultima_tarea_diaria === hoy || horaMadrid() < 10)) return { ok: true, saltada: true };
+    db.prepare('INSERT OR REPLACE INTO config (clave, valor) VALUES (?, ?)').run('ultima_tarea_diaria', hoy);
+    const max = parseInt(cfg.max_seguimientos || '2', 10);
+    const enviados = [];
+    for (const p of propuestasPendientesSeguimiento()) {
+      if (!p.email || p.seguimiento_auto === 0 || (p.seguimientos || 0) >= max) continue;
+      try { await enviarSeguimientoPropuesta(p); enviados.push(p); } catch (e) { console.error('Seguimiento propuesta', p.id, e.message); }
+    }
+    await enviarResumenDiario(enviados);
+    return { ok: true, enviados: enviados.length };
+  } catch (e) { console.error('tareaDiariaPropuestas:', e.message); return { ok: false, msg: e.message }; }
+}
+setInterval(() => tareaDiariaPropuestas(false), 30 * 60 * 1000);
+setTimeout(() => tareaDiariaPropuestas(false), 60 * 1000);
+
+app.post('/api/propuestas/:id/seguimiento', async (req, res) => {
+  const prop = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
+  if (!prop) return res.json({ ok: false, msg: 'Propuesta no encontrada' });
+  try { await enviarSeguimientoPropuesta(prop); res.json({ ok: true, propuesta: parsePropuesta(db.prepare('SELECT * FROM propuestas WHERE id = ?').get(prop.id)) }); }
+  catch (e) { res.json({ ok: false, msg: e.message }); }
+});
+app.post('/api/propuestas/:id/seguimiento-auto', (req, res) => {
+  db.prepare('UPDATE propuestas SET seguimiento_auto = ? WHERE id = ?').run(req.body && req.body.activo ? 1 : 0, req.params.id);
+  res.json({ ok: true });
+});
+app.post('/api/tarea-diaria', async (req, res) => { res.json(await tareaDiariaPropuestas(true)); });
 
 app.post('/api/propuestas/:id/enviar', async (req, res) => {
   const prop = db.prepare('SELECT * FROM propuestas WHERE id = ?').get(req.params.id);
