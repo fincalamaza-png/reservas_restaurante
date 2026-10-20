@@ -525,7 +525,7 @@ app.use((req, res, next) => {
 });
 
 // Rutas públicas: portal del personal, respuestas de extras por email y confirmación del cliente
-const RUTAS_PUBLICAS = [/^\/api\/personal\//, /^\/api\/extras\/respuesta\//];
+const RUTAS_PUBLICAS = [/^\/api\/personal\//, /^\/api\/extras\/respuesta\//, /^\/api\/publico\//];
 app.use('/api', (req, res, next) => {
   const ruta = req.originalUrl.split('?')[0];
   if (RUTAS_PUBLICAS.some(r => r.test(ruta))) return next();
@@ -539,7 +539,11 @@ app.use(['/minuta-print'], (req, res, next) => {
   next();
 });
 
-app.use(express.static(path.join(__dirname)));
+// Portada de gestión (Hotel / Restaurante) en la raíz; la app de reservas pasa a /reservas
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'portal.html')));
+app.get('/reservas', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+
+app.use(express.static(path.join(__dirname), { index: false }));
 
 // ─── HELPERS ─────────────────────────────────────────────────────
 function getConfig() {
@@ -3408,6 +3412,9 @@ app.get('/api/personal/listado-pdf', (req, res) => {
   }
 });
 
+
+// Módulos nuevos del portal: carta y menús, bodas, comuniones y contabilidad
+require('./portal_api')(app, db);
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));

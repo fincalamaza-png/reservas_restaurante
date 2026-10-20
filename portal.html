@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Don Fadrique · Gestión</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Don Fadrique">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root{
+  --oro:#b8965a; --oro-osc:#8b6a2e; --tinta:#1a1a1a; --crema:#f5f2ee; --crema2:#f0ede8; --borde:#e0dcd6; --gris:#888;
+  --ambar:#e0a526; --ambar-bg:#fff4dc; --verde:#2e8b57; --verde-bg:#e3f3ea; --rojo:#a3283a;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--crema);color:var(--tinta);font-size:14px}
+button{font-family:inherit}
+a{color:inherit}
+.vista{min-height:100vh;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:10;background:var(--crema2);border-bottom:1px solid #d0cac2;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;display:flex;align-items:center;gap:8px;min-height:56px}
+.top .back{background:none;border:none;font-size:22px;padding:4px 8px;cursor:pointer;color:var(--tinta)}
+.top .t{flex:1;min-width:0}
+.top .t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .t small{display:block;font-size:11px;color:var(--gris)}
+.top .acc{background:none;border:none;color:var(--oro-osc);font-size:13px;font-weight:700;cursor:pointer;padding:6px 8px}
+.content{flex:1;padding:14px;max-width:820px;width:100%;margin:0 auto}
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.card h3{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--oro-osc);margin-bottom:10px}
+.muted{color:var(--gris);font-size:12px}
+.field{margin-bottom:11px}
+.field label{display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:500}
+.field input,.field select,.field textarea,input.in,select.in,textarea.in{width:100%;padding:10px 12px;border:1.5px solid #d0cac2;border-radius:8px;font-size:15px;background:#fff;outline:none;font-family:inherit;color:inherit}
+.field input:focus,.field select:focus,.field textarea:focus,input.in:focus,textarea.in:focus{border-color:var(--oro)}
+.field textarea,textarea.in{min-height:58px;resize:vertical}
+.fila{display:flex;gap:8px}.fila>*{flex:1;min-width:0}
+.btn{display:block;width:100%;padding:13px;border-radius:10px;border:none;font-size:15px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none}
+.btn+.btn{margin-top:8px}
+.btn-p{background:var(--oro);color:#fff}
+.btn-s{background:#fff;color:var(--oro-osc);border:1.5px solid var(--oro)}
+.btn-d{background:#fff;color:var(--rojo);border:1.5px solid #e4b9c0}
+.btn-n{background:var(--tinta);color:#fff}
+.btn-sm{display:inline-block;width:auto;padding:8px 12px;font-size:13px;border-radius:8px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}.btns .btn{flex:1;margin:0;min-width:130px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{padding:7px 14px;border-radius:20px;border:1.5px solid #c8c0b6;background:#fff;font-size:13px;cursor:pointer;color:#555}
+.chip.on{background:var(--oro);border-color:var(--oro);color:#fff}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;vertical-align:middle}
+.b-ambar{background:var(--ambar-bg);color:#8a5d00}
+.b-verde{background:var(--verde-bg);color:#1d6640}
+.b-gris{background:#eee;color:#666}
+.b-oro{background:#f5ecd8;color:var(--oro-osc)}
+.sw-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0}
+.sw{position:relative;width:44px;height:24px;flex-shrink:0}
+.sw input{opacity:0;width:0;height:0}
+.sw-sl{position:absolute;inset:0;background:#ccc;border-radius:24px;cursor:pointer;transition:.25s}
+.sw-sl:before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.25s}
+.sw input:checked+.sw-sl{background:var(--oro)}
+.sw input:checked+.sw-sl:before{transform:translateX(20px)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--tinta);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.on{opacity:1}
+.vacio{text-align:center;color:var(--gris);padding:26px 10px;font-size:13px}
+.cargando{text-align:center;color:var(--gris);padding:40px 10px}
+
+/* ── Portada ── */
+.home{background:radial-gradient(ellipse at top,#2a2520 0%,#151311 60%);color:#fff;min-height:100vh;display:flex;flex-direction:column;padding:calc(26px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom))}
+.home-cab{text-align:center;margin:18px 0 30px}
+.home-cab .k{font-size:11px;letter-spacing:5px;color:var(--oro)}
+.home-cab .n{font-family:Georgia,"Times New Roman",serif;font-size:32px;letter-spacing:4px;margin:6px 0 4px}
+.home-cab .l{font-size:12px;color:#9c948a;letter-spacing:1px}
+.home-grid{display:grid;gap:14px;max-width:560px;width:100%;margin:0 auto}
+.tile{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:linear-gradient(135deg,#2b2723,#1f1c19);border:1px solid #3a342c;border-radius:16px;padding:20px 18px;color:#fff;cursor:pointer;text-decoration:none;transition:transform .12s,border-color .12s}
+.tile:active{transform:scale(.98)}
+.tile:hover{border-color:var(--oro)}
+.tile .ic{width:54px;height:54px;border-radius:14px;background:rgba(184,150,90,.14);border:1px solid rgba(184,150,90,.35);display:flex;align-items:center;justify-content:center;font-size:27px;flex-shrink:0}
+.tile .tx b{display:block;font-size:17px;font-family:Georgia,serif;letter-spacing:.5px}
+.tile .tx small{display:block;color:#a39a8f;font-size:12px;margin-top:3px}
+.tile .fl{margin-left:auto;color:var(--oro);font-size:20px}
+.home-pie{margin-top:auto;padding-top:28px;text-align:center;font-size:12px;color:#7d756b}
+.home-pie button{background:none;border:none;color:#a39a8f;text-decoration:underline;font-size:12px;cursor:pointer;margin-left:6px}
+
+/* Paleta restaurante */
+.paleta{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:560px;width:100%;margin:0 auto}
+.pbtn{background:linear-gradient(160deg,#2b2723,#1f1c19);border:1px solid #3a342c;border-radius:16px;padding:20px 12px 16px;color:#fff;text-align:center;cursor:pointer;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:8px;min-height:128px;justify-content:center;transition:transform .12s,border-color .12s}
+.pbtn:active{transform:scale(.97)}
+.pbtn:hover{border-color:var(--oro)}
+.pbtn .ic{font-size:32px}
+.pbtn b{font-size:15px;font-family:Georgia,serif;letter-spacing:.3px}
+.pbtn small{font-size:11px;color:#a39a8f;line-height:1.3}
+.home .top-osc{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.home .top-osc button{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px}
+
+/* Listas */
+.item{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer}
+.item .tx{flex:1;min-width:0}
+.item .tx b{display:block;font-size:14px}
+.item .tx small{display:block;color:var(--gris);font-size:12px;margin-top:2px}
+.item .der{text-align:right;flex-shrink:0;font-size:13px}
+.item .acciones{display:flex;gap:6px;flex-shrink:0}
+.sec-tit{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gris);margin:18px 2px 8px;font-weight:700}
+
+/* Carta */
+.plato-row{display:flex;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid #f0ede8}
+.plato-row:last-child{border-bottom:none}
+.plato-row input.nom{flex:1;min-width:0;padding:8px 10px;border:1.5px solid transparent;border-radius:8px;font-size:14px;background:#faf8f5}
+.plato-row input.pre{width:78px;padding:8px;border:1.5px solid transparent;border-radius:8px;font-size:14px;text-align:right;background:#faf8f5}
+.plato-row input:focus{border-color:var(--oro);background:#fff;outline:none}
+.plato-row.fuera input{color:#aaa;text-decoration:line-through}
+.fam-cab{display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.fam-cab b{font-family:Georgia,serif;font-size:16px}
+
+/* Editor de secciones */
+.sec{border:1.5px solid var(--borde);border-radius:10px;padding:10px;margin-bottom:10px;background:#fff}
+.sec-h{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.sec-h input{flex:1;font-weight:600;padding:8px 10px;border:1.5px solid #e6e1da;border-radius:8px;font-size:14px}
+.sec-h .tp{font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.mini{background:#f3efe9;border:none;border-radius:7px;width:32px;height:32px;font-size:14px;cursor:pointer;color:#555;flex-shrink:0}
+.mini:hover{background:#e9e2d8}
+.lst-row{display:flex;gap:6px;margin-bottom:6px}
+.lst-row input{flex:1}
+.add-sec{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+
+/* Calendario */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-nav button{border:none;background:none;font-size:24px;cursor:pointer;color:var(--oro-osc);padding:0 10px}
+.cal-nav b{font-size:15px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-h{text-align:center;font-size:10px;color:var(--gris);font-weight:700;padding:4px 0}
+.cal-d{min-height:46px;border-radius:8px;background:#faf8f5;padding:4px 3px;font-size:12px;cursor:pointer;position:relative;display:flex;flex-direction:column;align-items:center;gap:2px}
+.cal-d.otro{opacity:.35}
+.cal-d.hoy{outline:2px solid var(--oro)}
+.cal-d.sel{background:#f5ecd8}
+.cal-d.bloq{background:var(--ambar-bg)}
+.cal-d.conf{background:var(--verde-bg)}
+.cal-d .n{font-weight:600}
+.cal-d .pt{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}
+.cal-d .pt i{width:7px;height:7px;border-radius:50%;display:block}
+.pt-a{background:var(--ambar)}.pt-v{background:var(--verde)}
+.leyenda{display:flex;gap:14px;font-size:12px;color:#666;margin-top:10px;flex-wrap:wrap}
+.leyenda i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.celeb{border-left:5px solid var(--ambar)}
+.celeb.conf{border-left-color:var(--verde)}
+.celeb.canc{border-left-color:#bbb;opacity:.7}
+
+/* Contabilidad */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px}
+.kpi{background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.kpi small{display:block;font-size:11px;color:var(--gris);text-transform:uppercase;letter-spacing:.06em}
+.kpi b{display:block;font-size:21px;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi.grande{grid-column:1/-1;background:var(--tinta);color:#fff}
+.kpi.grande small{color:#b9b0a4}
+.kpi.grande b{font-size:28px;color:#e9d6ac}
+.tabla{width:100%;border-collapse:collapse;font-size:13px}
+.tabla td,.tabla th{padding:7px 4px;border-bottom:1px solid #f0ede8;text-align:left}
+.tabla th{font-size:11px;color:var(--gris);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.tabla .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.barras{display:flex;align-items:flex-end;gap:2px;height:90px;margin-top:6px}
+.barras div{flex:1;background:var(--oro);border-radius:2px 2px 0 0;min-height:1px;position:relative}
+.barras div:hover{background:var(--oro-osc)}
+.ejes{display:flex;justify-content:space-between;font-size:10px;color:var(--gris);margin-top:4px}
+
+/* PIN */
+#pin{display:none;position:fixed;inset:0;z-index:99999;background:#1a1a1a;color:#fff;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+#pin .k{font-size:11px;letter-spacing:4px;color:var(--oro);margin-bottom:6px}
+#pin .n{font-size:30px;font-weight:900;letter-spacing:3px;margin-bottom:28px}
+#pin-puntos{display:flex;gap:14px;margin-bottom:10px}
+#pin-error{height:20px;font-size:13px;color:#e88;margin-bottom:12px}
+#pin-teclado{display:grid;grid-template-columns:repeat(3,76px);gap:14px}
+#pin-teclado button{height:76px;border-radius:50%;border:none;font-size:26px;color:#fff;background:#2c2c2c;cursor:pointer}
+#pin-teclado button:disabled{background:transparent}
+
+@media(min-width:700px){
+  .paleta{grid-template-columns:repeat(3,1fr)}
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  .cal-d{min-height:64px}
+}
+</style>
+</head>
+<body>
+<div id="pin">
+  <div class="k">GESTIÓN</div>
+  <div class="n">DON FADRIQUE</div>
+  <div style="font-size:14px;color:#bbb;margin-bottom:14px">Introduce tu PIN</div>
+  <div id="pin-puntos"></div>
+  <div id="pin-error"></div>
+  <div id="pin-teclado"></div>
+</div>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script src="/menu-render.js"></script>
+<script>
+'use strict';
+// ════════════════════════════════════════════════════════════════════════
+//  CONFIGURACIÓN
+// ════════════════════════════════════════════════════════════════════════
+var URL_HOTEL = 'https://hotel.palaciocondealdana.com';
+var URL_TPV = 'https://gestion.palaciocondealdana.com';
+var LUGARES = ['Don Fadrique', 'La Cúpula (Don Fadrique)', 'Zona de piscina (Don Fadrique)', 'Palacio Conde Aldana', 'Las Úrsulas', 'Bodega Díscolo', 'Catering en otro lugar'];
+var MENUS_RESTAURANTE = ['Reunión Familiar Tradicional 1', 'Reunión Familiar Tradicional 2', 'Menú Sabor de la Memoria', 'Menú Instinto'];
+
+var ST = { usuario: null, plantillas: null };
+
+// ════════════════════════════════════════════════════════════════════════
+//  UTILIDADES
+// ════════════════════════════════════════════════════════════════════════
+var esc = DFMenu.esc, euros = DFMenu.euros;
+function $(id){ return document.getElementById(id); }
+function toast(t){ var e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ e.classList.remove('on'); }, 2200); }
+function hoyISO(){ var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function fechaCorta(iso){ if (!iso) return ''; var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('es-ES', { weekday:'short', day:'numeric', month:'short', year:'numeric' }); }
+function fechaLarga(iso){ return DFMenu.fechaLarga(iso); }
+function fechaSinAno(iso){ if (!iso) return ''; var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('es-ES', { weekday:'short', day:'numeric', month:'short' }); }
+function mesTxt(y, m){ var t = new Date(y, m - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }); return t.charAt(0).toUpperCase() + t.slice(1); }
+function clon(o){ return JSON.parse(JSON.stringify(o)); }
+function n2(v){ var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : 0; }
+function attr(v){ return esc(v == null ? '' : v); }
+
+function api(metodo, url, cuerpo){
+  var o = { method: metodo, credentials: 'same-origin', headers: {} };
+  if (cuerpo !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(cuerpo); }
+  return fetch(url, o).then(function(r){
+    if (r.status === 401) { mostrarPin(); throw new Error('Sesión caducada'); }
+    return r.json().catch(function(){ return {}; }).then(function(d){
+      if (!r.ok) throw new Error(d.error || ('Error ' + r.status));
+      return d;
+    });
+  });
+}
+function fallo(e){ toast(e.message || 'Error'); }
+
+function plantillas(forzar){
+  if (ST.plantillas && !forzar) return Promise.resolve(ST.plantillas);
+  return api('GET', '/api/portal/plantillas').then(function(d){ ST.plantillas = d; return d; });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  ACCESO CON PIN (misma sesión que la app de reservas)
+// ════════════════════════════════════════════════════════════════════════
+var PIN = '', enviandoPin = false;
+function pintarPin(){ var p = $('pin-puntos'); p.innerHTML = ''; for (var i = 0; i < 4; i++) { var d = document.createElement('div'); d.style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid #b8965a;' + (i < PIN.length ? 'background:#b8965a' : ''); p.appendChild(d); } }
+function teclaPin(k){
+  if (enviandoPin) return;
+  $('pin-error').textContent = '';
+  if (k === '⌫') PIN = PIN.slice(0, -1); else if (PIN.length < 4) PIN += k;
+  pintarPin();
+  if (PIN.length === 4) entrarPin();
+}
+function entrarPin(){
+  enviandoPin = true;
+  fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: PIN }) })
+    .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+    .then(function(x){
+      enviandoPin = false;
+      if (x.ok) { try { localStorage.setItem('df_usuario', x.d.usuario); } catch(e) {} ST.usuario = x.d.usuario; $('pin').style.display = 'none'; render(); }
+      else { PIN = ''; pintarPin(); $('pin-error').textContent = x.d.error || 'PIN incorrecto'; }
+    }).catch(function(){ enviandoPin = false; PIN = ''; pintarPin(); $('pin-error').textContent = 'Sin conexión'; });
+}
+function mostrarPin(){
+  var o = $('pin'); if (o.style.display === 'flex') return;
+  var t = $('pin-teclado'); t.innerHTML = '';
+  ['1','2','3','4','5','6','7','8','9','','0','⌫'].forEach(function(k){
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = k;
+    if (k) b.onclick = function(){ teclaPin(k); }; else b.disabled = true;
+    t.appendChild(b);
+  });
+  PIN = ''; pintarPin(); o.style.display = 'flex';
+}
+document.addEventListener('keydown', function(e){
+  if ($('pin').style.display !== 'flex') return;
+  if (/^[0-9]$/.test(e.key)) teclaPin(e.key); else if (e.key === 'Backspace') teclaPin('⌫');
+});
+function cerrarSesion(){
+  if (!confirm('¿Cerrar sesión en este dispositivo?')) return;
+  fetch('/api/logout', { method: 'POST' }).then(function(){ location.hash = ''; location.reload(); });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  NAVEGACIÓN
+// ════════════════════════════════════════════════════════════════════════
+function ir(h){ if (location.hash === h) render(); else location.hash = h; }
+window.addEventListener('hashchange', render);
+var SUCIO = false; // cambios sin guardar en un editor
+window.addEventListener('beforeunload', function(e){ if (SUCIO) { e.preventDefault(); e.returnValue = ''; } });
+
+function cabecera(titulo, sub, atras, accion){
+  return '<div class="top">' + (atras ? '<button class="back" onclick="volverA(\'' + atras + '\')">&#8592;</button>' : '') +
+    '<div class="t"><b>' + esc(titulo) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' + (accion || '') + '</div>';
+}
+function volverA(h){
+  if (SUCIO && !confirm('Hay cambios sin guardar. ¿Salir sin guardar?')) return;
+  SUCIO = false; ir(h);
+}
+
+function render(){
+  if (!ST.usuario) return;
+  var h = location.hash.replace(/^#\/?/, '');
+  var p = h.split('/');
+  var app = $('app');
+  window.scrollTo(0, 0);
+  SUCIO = false;
+  if (!h) return vHome(app);
+  switch (p[0]) {
+    case 'restaurante': return vRestaurante(app);
+    case 'carta': return vCarta(app);
+    case 'menus': return vMenus(app);
+    case 'menu': return vEditorPlantilla(app, p[1]);
+    case 'personalizados': return vPersonalizados(app);
+    case 'personalizado': return vEditorPersonalizado(app, p[1]);
+    case 'bodas': return vCelebraciones(app, 'boda', p[1]);
+    case 'comuniones': return vCelebraciones(app, 'comunion', p[1]);
+    case 'celebracion': return vCelebracion(app, p[1], p[2], p[3]);
+    case 'contabilidad': return vContabilidad(app, p[1]);
+    default: return vHome(app);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  PORTADA
+// ════════════════════════════════════════════════════════════════════════
+function vHome(app){
+  app.innerHTML = '<div class="home">' +
+    '<div class="home-cab"><div class="k">GESTIÓN</div><div class="n">DON FADRIQUE</div><div class="l">Alba de Tormes · Salamanca</div></div>' +
+    '<div class="home-grid">' +
+      '<a class="tile" href="' + URL_HOTEL + '" target="_blank" rel="noopener"><div class="ic">&#128719;</div><div class="tx"><b>Don Fadrique Hotel</b><small>Planning, reservas de habitaciones y facturas</small></div><div class="fl">&#8599;</div></a>' +
+      '<button class="tile" onclick="ir(\'#/restaurante\')"><div class="ic">&#127869;</div><div class="tx"><b>Don Fadrique Restaurante</b><small>Reservas, TPV, carta y menús, bodas, comuniones y contabilidad</small></div><div class="fl">&#8250;</div></button>' +
+    '</div>' +
+    '<div class="home-pie">' + esc(ST.usuario || '') + '<button onclick="cerrarSesion()">Cerrar sesión</button></div>' +
+  '</div>';
+}
+
+function vRestaurante(app){
+  var b = function(icono, titulo, sub, accion){ return '<' + (accion.indexOf('http') === 0 || accion.indexOf('/') === 0 ? 'a href="' + accion + '"' + (accion.indexOf('http') === 0 ? ' target="_blank" rel="noopener"' : '') : 'button onclick="ir(\'' + accion + '\')"') + ' class="pbtn"><div class="ic">' + icono + '</div><b>' + titulo + '</b><small>' + sub + '</small></' + (accion.indexOf('#') === 0 ? 'button' : 'a') + '>'; };
+  app.innerHTML = '<div class="home">' +
+    '<div class="top-osc"><button onclick="ir(\'#/\')">&#8592;</button></div>' +
+    '<div class="home-cab" style="margin-top:0"><div class="k">RESTAURANTE</div><div class="n" style="font-size:26px">DON FADRIQUE</div></div>' +
+    '<div class="paleta">' +
+      b('&#128197;', 'Reservas', 'Mesas, eventos, extras y propuestas', '/reservas') +
+      b('&#128179;', 'TPV', 'Comandas, cobros, caja y stock', URL_TPV) +
+      b('&#128214;', 'Carta y Menús', 'Carta, menús para imprimir y personalizados', '#/carta') +
+      b('&#128141;', 'Bodas', 'Calendario, fichas, fianzas y menús', '#/bodas') +
+      b('&#128330;', 'Comuniones', 'Calendario, fichas, fianzas y menús', '#/comuniones') +
+      b('&#128202;', 'Contabilidad', 'TPV, bodas, comuniones y presupuestos', '#/contabilidad') +
+    '</div>' +
+  '</div>';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  CARTA Y MENÚS — pestañas
+// ════════════════════════════════════════════════════════════════════════
+function pestanasCarta(activa){
+  var t = function(id, txt, h){ return '<button class="chip' + (activa === id ? ' on' : '') + '" onclick="volverA(\'' + h + '\')">' + txt + '</button>'; };
+  return '<div class="chips">' + t('carta', 'Carta', '#/carta') + t('menus', 'Menús', '#/menus') + t('pers', 'Personalizados', '#/personalizados') + '</div>';
+}
+
+// ── Carta (los platos y precios son los del TPV) ──
+var CARTA = null;
+function vCarta(app){
+  app.innerHTML = '<div class="vista">' + cabecera('Carta y Menús', 'Carta del restaurante', '#/restaurante') +
+    '<div class="content">' + pestanasCarta('carta') + '<div id="carta-body"><div class="cargando">Cargando la carta del TPV…</div></div></div></div>';
+  api('GET', '/api/portal/tpv/carta').then(function(d){ CARTA = d; pintarCarta(); })
+    .catch(function(e){
+      $('carta-body').innerHTML = '<div class="card"><b>No se puede abrir la carta ahora</b><p class="muted" style="margin-top:6px">' + esc(e.message) + '</p>' +
+        '<p class="muted" style="margin-top:6px">La carta se guarda en el TPV para que los precios sean siempre los mismos que se cobran. Comprueba que el TPV funciona y vuelve a intentarlo.</p>' +
+        '<div class="btns" style="margin-top:12px"><button class="btn btn-s" onclick="vCarta($(\'app\'))">Reintentar</button><a class="btn btn-n" href="' + URL_TPV + '/propietario.html" target="_blank" rel="noopener">Abrir el TPV</a></div></div>';
+    });
+}
+function pintarCarta(){
+  var d = CARTA, h = '';
+  h += '<div class="card"><div class="fila" style="align-items:flex-end">' +
+    '<div class="field" style="margin:0"><label>Temporada</label><select id="temporada" onchange="cambiarTemporada(this.value)">' +
+    ['Primavera','Verano','Otoño','Invierno'].map(function(t){ return '<option' + (t === d.temporada ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div>' +
+    '<a class="btn btn-p" style="margin:0" href="/api/portal/tpv/carta-pdf" target="_blank" rel="noopener">&#128424; Imprimir carta</a></div>' +
+    '<p class="muted" style="margin-top:10px">Se imprime con el formato de siempre. Los cambios de nombre y precio se guardan solos y también cambian en el TPV.</p></div>';
+  d.familias.forEach(function(f){
+    var prods = d.productos.filter(function(p){ return p.familia_id === f.id; });
+    h += '<div class="card"><div class="fam-cab"><b>' + esc(f.nombre) + '</b><span class="muted">' + prods.filter(function(p){ return p.disponible; }).length + ' en carta</span></div><div style="margin-top:8px">';
+    prods.forEach(function(p){
+      h += '<div class="plato-row' + (p.disponible ? '' : ' fuera') + '" id="pr-' + p.id + '">' +
+        '<input class="nom" value="' + attr(p.nombre) + '" onchange="guardarPlato(' + p.id + ',{nombre:this.value})">' +
+        '<input class="pre" inputmode="decimal" value="' + (p.precio != null ? String(Number(p.precio).toFixed(2)).replace('.', ',') : '') + '" onchange="guardarPlato(' + p.id + ',{precio:this.value})">' +
+        '<label class="sw" title="En carta"><input type="checkbox"' + (p.disponible ? ' checked' : '') + ' onchange="guardarPlato(' + p.id + ',{disponible:this.checked})"><span class="sw-sl"></span></label></div>';
+    });
+    if (!prods.length) h += '<div class="muted" style="padding:6px 0">Sin platos</div>';
+    h += '</div><div class="fila" style="margin-top:10px"><input class="in" id="np-' + f.id + '" placeholder="Nuevo plato"><input class="in" id="npp-' + f.id + '" inputmode="decimal" placeholder="Precio" style="max-width:96px"><button class="btn btn-s btn-sm" style="flex:0 0 auto" onclick="nuevoPlato(' + f.id + ')">Añadir</button></div></div>';
+  });
+  h += '<p class="muted" style="text-align:center;margin:6px 0 20px">El interruptor indica si el plato sale en la carta. Al quitarlo, el plato pasa a "fuera de carta" en el TPV.</p>';
+  $('carta-body').innerHTML = h;
+}
+function guardarPlato(id, cambios){
+  if (cambios.precio !== undefined) cambios.precio = n2(cambios.precio);
+  api('PUT', '/api/portal/tpv/productos/' + id, cambios).then(function(){
+    var p = CARTA.productos.filter(function(x){ return x.id === id; })[0];
+    if (p) Object.keys(cambios).forEach(function(k){ p[k] = k === 'disponible' ? (cambios[k] ? 1 : 0) : cambios[k]; });
+    if (cambios.disponible !== undefined) $('pr-' + id).classList.toggle('fuera', !cambios.disponible);
+    toast('Guardado en el TPV');
+  }).catch(fallo);
+}
+function nuevoPlato(fid){
+  var nom = $('np-' + fid).value.trim(); if (!nom) return toast('Escribe el nombre del plato');
+  api('POST', '/api/portal/tpv/productos', { familia_id: fid, nombre: nom, precio: n2($('npp-' + fid).value) })
+    .then(function(){ toast('Plato añadido'); vCarta($('app')); }).catch(fallo);
+}
+function cambiarTemporada(v){ api('PUT', '/api/portal/tpv/temporada', { valor: v }).then(function(){ CARTA.temporada = v; toast('Temporada: ' + v); }).catch(fallo); }
+
+// ── Menús (plantillas) ──
+function tipoMenu(p){
+  if (MENUS_RESTAURANTE.indexOf(p.nombre) > -1) return 'rest';
+  if (p.tipo === 'boda') return 'boda';
+  if (p.tipo === 'comunion') return 'comunion';
+  return 'eventos';
+}
+function tarjetaMenu(p){
+  return '<div class="item" onclick="ir(\'#/menu/' + p.id + '\')"><div class="tx"><b>' + esc(p.nombre) + '</b><small>' +
+    (p.formato === 'triptico' ? '<span class="badge b-oro">Tríptico A4 horizontal</span> ' : '<span class="badge b-gris">A4</span> ') +
+    (Number(p.precio_persona) ? euros(p.precio_persona) + ' / persona' : 'Sin precio') + '</small></div>' +
+    '<div class="acciones"><a class="btn btn-s btn-sm" href="/menu.html?plantilla=' + p.id + '" onclick="event.stopPropagation()">&#128424;</a></div></div>';
+}
+function vMenus(app){
+  app.innerHTML = '<div class="vista">' + cabecera('Carta y Menús', 'Menús', '#/restaurante', '<button class="acc" onclick="nuevaPlantilla()">+ Nuevo</button>') +
+    '<div class="content">' + pestanasCarta('menus') + '<div id="menus-body"><div class="cargando">Cargando…</div></div></div></div>';
+  plantillas(true).then(function(ps){
+    var grupos = { rest: [], eventos: [], boda: [], comunion: [] };
+    ps.forEach(function(p){ grupos[tipoMenu(p)].push(p); });
+    grupos.rest.sort(function(a, b){ return MENUS_RESTAURANTE.indexOf(a.nombre) - MENUS_RESTAURANTE.indexOf(b.nombre); });
+    var h = '<div class="sec-tit">Menús del restaurante</div>' + (grupos.rest.map(tarjetaMenu).join('') || '<div class="vacio">—</div>');
+    h += '<div class="sec-tit">Propuestas a clientes</div>' +
+      '<a class="item" href="/reservas#p-propuestas" style="text-decoration:none"><div class="tx"><b>&#9993; Preparar y enviar una propuesta</b><small>Elegir menús, personalizar, enviar PDF y que el cliente confirme y firme online</small></div><div class="der">&#8250;</div></a>' +
+      '<a class="item" href="/reservas#p-propuestas-lista" style="text-decoration:none"><div class="tx"><b>&#128194; Entregados</b><small>Propuestas enviadas, confirmadas y firmadas</small></div><div class="der">&#8250;</div></a>';
+    h += '<div class="sec-tit">Menús de eventos</div>' + (grupos.eventos.map(tarjetaMenu).join('') || '<div class="vacio">—</div>');
+    h += '<div class="sec-tit">Bodas</div>' + (grupos.boda.map(tarjetaMenu).join('') || '<div class="vacio">—</div>');
+    h += '<div class="sec-tit">Comuniones</div>' + (grupos.comunion.map(tarjetaMenu).join('') || '<div class="vacio">—</div>');
+    h += '<p class="muted" style="text-align:center;margin:16px 0 24px">Estos menús son los mismos que aparecen al preparar una propuesta en Reservas: si cambias uno aquí, cambia allí también.</p>';
+    $('menus-body').innerHTML = h;
+  }).catch(fallo);
+}
+function nuevaPlantilla(tipo){
+  plantillas().then(function(ps){
+    var nombre = prompt('Nombre del nuevo menú', tipo === 'boda' ? 'Menú de Boda 2' : tipo === 'comunion' ? 'Menú de Comunión 2' : 'Nuevo menú');
+    if (!nombre) return;
+    var base = ps.filter(function(p){ return p.tipo === tipo; })[0] || ps.filter(function(p){ return p.nombre === 'Reunión Familiar Tradicional 2'; })[0] || ps[0];
+    var secc = base ? clon(base.secciones) : [];
+    // Se copia la estructura vacía del menú base
+    secc.forEach(function(s){ if (s.tipo === 'plato') s.texto = ''; if (s.tipo === 'lista') s.items = s.items.map(function(){ return ''; }); if (s.tipo === 'eleccion') s.opciones = s.opciones.map(function(){ return ''; }); });
+    api('POST', '/api/portal/plantillas', { nombre: nombre, tipo: tipo || (base && base.tipo) || 'comida', secciones: secc, precio_persona: 0, formato: 'a4' })
+      .then(function(p){ ST.plantillas = null; ir('#/menu/' + p.id); }).catch(fallo);
+  }).catch(fallo);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  EDITOR DE SECCIONES (platos, listas, a elegir, sí/no, barra libre, recena)
+//  Mismo formato que las propuestas de la app de reservas.
+// ════════════════════════════════════════════════════════════════════════
+var ED = null; // { secciones: [...] }
+var TIPOS = { plato: 'Plato', lista: 'Lista de platos', eleccion: 'Plato / a elegir', sino: 'Sí / No', barra_libre: 'Barra libre', recena: 'Recena' };
+function marcar(){ SUCIO = true; }
+function setS(i, k, v){ ED.secciones[i][k] = v; marcar(); }
+function setSub(i, k, j, v){ ED.secciones[i][k][j] = v; marcar(); }
+function setRec(i, j, k, v){ ED.secciones[i].platos[j][k] = k === 'precio' ? n2(v) : v; marcar(); }
+
+function htmlSecciones(){
+  var h = '';
+  ED.secciones.forEach(function(s, i){
+    var b = 'ED.secciones[' + i + ']';
+    h += '<div class="sec"><div class="sec-h">' +
+      '<input value="' + attr(s.titulo) + '" oninput="setS(' + i + ',\'titulo\',this.value)">' +
+      '<span class="tp">' + (TIPOS[s.tipo || 'plato'] || '') + '</span>' +
+      '<button class="mini" onclick="moverSec(' + i + ',-1)" title="Subir">&#8593;</button>' +
+      '<button class="mini" onclick="moverSec(' + i + ',1)" title="Bajar">&#8595;</button>' +
+      '<button class="mini" onclick="quitarSec(' + i + ')" title="Quitar">&#10005;</button></div>';
+    var t = s.tipo || 'plato';
+    if (t === 'plato') {
+      h += '<textarea class="in" rows="2" placeholder="Plato" oninput="setS(' + i + ',\'texto\',this.value)">' + esc(s.texto || '') + '</textarea>';
+      h += '<label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#666"><input type="checkbox"' + (s.compartir ? ' checked' : '') + ' onchange="setS(' + i + ',\'compartir\',this.checked)"> Para compartir</label>';
+    } else if (t === 'lista') {
+      (s.items || []).forEach(function(it, j){
+        h += '<div class="lst-row"><input class="in" value="' + attr(it) + '" placeholder="Plato ' + (j+1) + '" oninput="setSub(' + i + ',\'items\',' + j + ',this.value)"><button class="mini" onclick="quitarItem(' + i + ',' + j + ')">&#10005;</button></div>';
+      });
+      h += '<div class="btns"><button class="btn btn-s btn-sm" style="flex:0 0 auto;min-width:0" onclick="addItem(' + i + ')">+ Añadir plato</button>' +
+        '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#666;margin-left:auto"><input type="checkbox"' + (s.compartir ? ' checked' : '') + ' onchange="setS(' + i + ',\'compartir\',this.checked)"> Para compartir</label></div>';
+    } else if (t === 'eleccion') {
+      h += '<div class="sw-row"><span style="font-size:13px">A elegir entre varias opciones</span><label class="sw"><input type="checkbox"' + (s.elegir ? ' checked' : '') + ' onchange="setS(' + i + ',\'elegir\',this.checked);repintarEd()"><span class="sw-sl"></span></label></div>';
+      if (!s.opciones || !s.opciones.length) s.opciones = [''];
+      if (s.elegir) {
+        s.opciones.forEach(function(op, j){
+          h += '<div class="lst-row"><input class="in" value="' + attr(op) + '" placeholder="Opción ' + (j+1) + '" oninput="setSub(' + i + ',\'opciones\',' + j + ',this.value)"><button class="mini" onclick="quitarOpcion(' + i + ',' + j + ')">&#10005;</button></div>';
+        });
+        h += '<button class="btn btn-s btn-sm" onclick="addOpcion(' + i + ')">+ Añadir opción</button>';
+      } else {
+        h += '<textarea class="in" rows="2" placeholder="Plato" oninput="setSub(' + i + ',\'opciones\',0,this.value)">' + esc(s.opciones[0] || '') + '</textarea>';
+      }
+    } else if (t === 'sino') {
+      h += '<div class="sw-row"><span style="font-size:13px">Incluir ' + esc((s.titulo || '').toLowerCase()) + '</span><label class="sw"><input type="checkbox"' + (s.valor ? ' checked' : '') + ' onchange="setS(' + i + ',\'valor\',this.checked)"><span class="sw-sl"></span></label></div>';
+    } else if (t === 'barra_libre') {
+      h += '<div class="sw-row"><span style="font-size:13px">Incluir</span><label class="sw"><input type="checkbox"' + (s.valor ? ' checked' : '') + ' onchange="setS(' + i + ',\'valor\',this.checked)"><span class="sw-sl"></span></label></div>' +
+        '<div class="fila"><input class="in" value="' + attr(s.horas) + '" placeholder="Duración" oninput="setS(' + i + ',\'horas\',this.value)"><input class="in" inputmode="decimal" value="' + attr(s.precio) + '" placeholder="€/persona" oninput="setS(' + i + ',\'precio\',n2(this.value))"></div>';
+    } else if (t === 'recena') {
+      h += '<div class="sw-row"><span style="font-size:13px">Incluir</span><label class="sw"><input type="checkbox"' + (s.valor ? ' checked' : '') + ' onchange="setS(' + i + ',\'valor\',this.checked)"><span class="sw-sl"></span></label></div>';
+      (s.platos || []).forEach(function(p, j){
+        h += '<div class="lst-row"><input class="in" value="' + attr(p.nombre) + '" placeholder="Plato" oninput="setRec(' + i + ',' + j + ',\'nombre\',this.value)"><input class="in" style="max-width:90px" inputmode="decimal" value="' + attr(p.precio) + '" placeholder="€" oninput="setRec(' + i + ',' + j + ',\'precio\',this.value)"></div>';
+      });
+      h += '<button class="btn btn-s btn-sm" onclick="ED.secciones[' + i + '].platos.push({nombre:\'\',precio:0});repintarEd()">+ Añadir plato</button>';
+    }
+    h += '</div>';
+  });
+  h += '<div class="add-sec">' +
+    '<button class="btn btn-s btn-sm" onclick="addSec(\'plato\')">+ Plato</button>' +
+    '<button class="btn btn-s btn-sm" onclick="addSec(\'lista\')">+ Lista de platos</button>' +
+    '<button class="btn btn-s btn-sm" onclick="addSec(\'eleccion\')">+ A elegir</button>' +
+    '<button class="btn btn-s btn-sm" onclick="addSec(\'sino\')">+ Sí / No</button>' +
+    '<button class="btn btn-s btn-sm" onclick="addSec(\'barra_libre\')">+ Barra libre</button>' +
+    '<button class="btn btn-s btn-sm" onclick="addSec(\'recena\')">+ Recena</button></div>';
+  return h;
+}
+function repintarEd(){ var c = $('ed-secc'); if (c) c.innerHTML = htmlSecciones(); }
+function addSec(t){
+  var s = { tipo: t, titulo: { plato: 'Plato', lista: 'Entrantes', eleccion: 'Carne', sino: 'Sorbete', barra_libre: 'Barra libre', recena: 'Recena' }[t] };
+  if (t === 'plato') s.texto = ''; if (t === 'lista') s.items = ['', '']; if (t === 'eleccion') { s.elegir = false; s.opciones = ['']; }
+  if (t === 'sino') s.valor = true; if (t === 'barra_libre') { s.horas = '3,5 horas'; s.precio = 29.9; s.valor = true; }
+  if (t === 'recena') { s.valor = true; s.platos = [{ nombre: '', precio: 0 }]; }
+  ED.secciones.push(s); marcar(); repintarEd();
+}
+function moverSec(i, d){ var j = i + d; if (j < 0 || j >= ED.secciones.length) return; var a = ED.secciones; var t = a[i]; a[i] = a[j]; a[j] = t; marcar(); repintarEd(); }
+function quitarSec(i){ if (!confirm('¿Quitar "' + (ED.secciones[i].titulo || 'esta sección') + '"?')) return; ED.secciones.splice(i, 1); marcar(); repintarEd(); }
+function addItem(i){ ED.secciones[i].items = ED.secciones[i].items || []; ED.secciones[i].items.push(''); marcar(); repintarEd(); }
+function quitarItem(i, j){ ED.secciones[i].items.splice(j, 1); marcar(); repintarEd(); }
+function addOpcion(i){ ED.secciones[i].opciones.push(''); marcar(); repintarEd(); }
+function quitarOpcion(i, j){ ED.secciones[i].opciones.splice(j, 1); if (!ED.secciones[i].opciones.length) ED.secciones[i].opciones = ['']; marcar(); repintarEd(); }
+
+// ── Editor de un menú (plantilla) ──
+function vEditorPlantilla(app, id){
+  app.innerHTML = '<div class="vista">' + cabecera('Editar menú', '', '#/menus') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  plantillas(true).then(function(ps){
+    var p = ps.filter(function(x){ return String(x.id) === String(id); })[0];
+    if (!p) { app.querySelector('.content').innerHTML = '<div class="vacio">Menú no encontrado</div>'; return; }
+    ED = clon(p);
+    var atras = tipoMenu(p) === 'boda' ? '#/bodas/menus' : tipoMenu(p) === 'comunion' ? '#/comuniones/menus' : '#/menus';
+    app.innerHTML = '<div class="vista">' + cabecera(p.nombre, 'Editar menú', atras, '<button class="acc" onclick="guardarPlantilla()">Guardar</button>') +
+      '<div class="content">' +
+      '<div class="card">' +
+        '<div class="field"><label>Nombre del menú</label><input value="' + attr(ED.nombre) + '" oninput="ED.nombre=this.value;marcar()"></div>' +
+        '<div class="field"><label>Subtítulo (opcional, sale bajo el nombre)</label><input value="' + attr(ED.subtitulo) + '" oninput="ED.subtitulo=this.value;marcar()"></div>' +
+        '<div class="fila"><div class="field"><label>Precio por persona (€)</label><input inputmode="decimal" value="' + attr(ED.precio_persona || '') + '" oninput="ED.precio_persona=n2(this.value);marcar()"></div>' +
+        '<div class="field"><label>Formato de impresión</label><select onchange="ED.formato=this.value;marcar()"><option value="a4"' + (ED.formato !== 'triptico' ? ' selected' : '') + '>A4 vertical</option><option value="triptico"' + (ED.formato === 'triptico' ? ' selected' : '') + '>Tríptico A4 horizontal</option></select></div></div>' +
+        '<div class="fila"><div class="field"><label>Tipo</label><select onchange="ED.tipo=this.value;marcar()">' +
+          [['comida','Comida / reunión'],['degustacion','Degustación'],['coctel','Cóctel'],['boda','Boda'],['comunion','Comunión']].map(function(o){ return '<option value="' + o[0] + '"' + (ED.tipo === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
+        '<div class="field"><label>Nota al pie (opcional)</label><input value="' + attr(ED.nota) + '" placeholder="Ej.: IVA incluido · Pan, agua y café" oninput="ED.nota=this.value;marcar()"></div></div>' +
+      '</div>' +
+      '<div class="sec-tit">Platos</div><div id="ed-secc">' + htmlSecciones() + '</div>' +
+      '<div class="btns" style="margin:6px 0 10px"><button class="btn btn-p" onclick="guardarPlantilla()">Guardar</button><button class="btn btn-s" onclick="guardarPlantilla(true)">&#128424; Guardar e imprimir</button></div>' +
+      '<button class="btn btn-d" style="margin-bottom:30px" onclick="archivarPlantilla()">Quitar este menú</button>' +
+      '</div></div>';
+  }).catch(fallo);
+}
+function guardarPlantilla(imprimir){
+  api('PUT', '/api/portal/plantillas/' + ED.id, ED).then(function(p){
+    SUCIO = false; ST.plantillas = null; ED = clon(p); toast('Menú guardado');
+    if (imprimir) location.href = '/menu.html?plantilla=' + p.id;
+  }).catch(fallo);
+}
+function archivarPlantilla(){
+  if (!confirm('¿Quitar "' + ED.nombre + '"? Las propuestas ya enviadas con este menú no se pierden.')) return;
+  api('DELETE', '/api/portal/plantillas/' + ED.id).then(function(){ SUCIO = false; ST.plantillas = null; toast('Menú quitado'); ir('#/menus'); }).catch(fallo);
+}
+
+// ── Menús personalizados ──
+function seccionesPersonalizado(){
+  return [
+    { tipo: 'lista', titulo: 'Entrantes', items: ['', '', ''], compartir: true },
+    { tipo: 'eleccion', titulo: 'Pescado', elegir: false, opciones: [''] },
+    { tipo: 'sino', titulo: 'Sorbete', valor: false },
+    { tipo: 'eleccion', titulo: 'Carne', elegir: false, opciones: [''] },
+    { tipo: 'plato', titulo: 'Postre', texto: '' },
+    { tipo: 'plato', titulo: 'Vino blanco', texto: '' },
+    { tipo: 'plato', titulo: 'Vino tinto', texto: '' },
+    { tipo: 'plato', titulo: 'Cava', texto: '' }
+  ];
+}
+function vPersonalizados(app){
+  app.innerHTML = '<div class="vista">' + cabecera('Carta y Menús', 'Menús personalizados', '#/restaurante', '<button class="acc" onclick="ir(\'#/personalizado/nuevo\')">+ Nuevo</button>') +
+    '<div class="content">' + pestanasCarta('pers') + '<div id="pers-body"><div class="cargando">Cargando…</div></div></div></div>';
+  api('GET', '/api/portal/personalizados').then(function(l){
+    var h = '<button class="btn btn-p" style="margin-bottom:14px" onclick="ir(\'#/personalizado/nuevo\')">+ Nuevo menú personalizado</button>';
+    if (!l.length) h += '<div class="vacio">Aún no hay menús personalizados.<br>Crea uno con entrantes, pescado, carne, sorbete… y compártelo por WhatsApp.</div>';
+    l.forEach(function(m){
+      h += '<div class="item" onclick="ir(\'#/personalizado/' + m.id + '\')"><div class="tx"><b>' + esc(m.titulo) + '</b><small>' +
+        esc([m.cliente, m.fecha ? fechaCorta(m.fecha) : '', m.pax ? m.pax + ' pax' : ''].filter(Boolean).join(' · ') || 'Sin cliente') +
+        (m.propuesta_id ? ' · <span class="badge b-oro">Propuesta</span>' : '') + '</small></div>' +
+        '<div class="acciones"><a class="btn btn-s btn-sm" href="/menu.html?personalizado=' + m.id + '" onclick="event.stopPropagation()">&#128424;</a></div></div>';
+    });
+    $('pers-body').innerHTML = h;
+  }).catch(fallo);
+}
+function vEditorPersonalizado(app, id){
+  var nuevo = id === 'nuevo';
+  var cargar = nuevo ? Promise.resolve({ titulo: 'Menú personalizado', secciones: seccionesPersonalizado(), precio_persona: 0, nota: 'IVA 10% no incluido', formato: 'a4' })
+    : api('GET', '/api/portal/personalizados/' + id);
+  app.innerHTML = '<div class="vista">' + cabecera('Menú personalizado', '', '#/personalizados') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  Promise.all([cargar, plantillas()]).then(function(r){
+    ED = clon(r[0]);
+    var ps = r[1];
+    app.innerHTML = '<div class="vista">' + cabecera(nuevo ? 'Nuevo menú personalizado' : ED.titulo, 'Menú personalizado', '#/personalizados', '<button class="acc" onclick="guardarPers()">Guardar</button>') +
+      '<div class="content">' +
+      '<div class="card">' +
+        '<div class="field"><label>Título del menú</label><input value="' + attr(ED.titulo) + '" oninput="ED.titulo=this.value;marcar()"></div>' +
+        '<div class="field"><label>Cliente</label><input value="' + attr(ED.cliente) + '" oninput="ED.cliente=this.value;marcar()"></div>' +
+        '<div class="fila"><div class="field"><label>Teléfono</label><input type="tel" value="' + attr(ED.telefono) + '" oninput="ED.telefono=this.value;marcar()"></div>' +
+        '<div class="field"><label>Email</label><input type="email" value="' + attr(ED.email) + '" oninput="ED.email=this.value;marcar()"></div></div>' +
+        '<div class="fila"><div class="field"><label>Fecha</label><input type="date" value="' + attr(ED.fecha) + '" oninput="ED.fecha=this.value;marcar()"></div>' +
+        '<div class="field"><label>Comensales</label><input inputmode="numeric" value="' + attr(ED.pax || '') + '" oninput="ED.pax=parseInt(this.value)||null;marcar()"></div></div>' +
+        '<div class="fila"><div class="field"><label>Precio por persona (€)</label><input inputmode="decimal" value="' + attr(ED.precio_persona || '') + '" oninput="ED.precio_persona=n2(this.value);marcar()"></div>' +
+        '<div class="field"><label>Formato</label><select onchange="ED.formato=this.value;marcar()"><option value="a4"' + (ED.formato !== 'triptico' ? ' selected' : '') + '>A4 vertical</option><option value="triptico"' + (ED.formato === 'triptico' ? ' selected' : '') + '>Tríptico A4 horizontal</option></select></div></div>' +
+        '<div class="field"><label>Nota al pie</label><input value="' + attr(ED.nota) + '" oninput="ED.nota=this.value;marcar()"></div>' +
+        '<div class="field" style="margin:0"><label>Partir de un menú existente</label><select onchange="partirDe(this.value);this.value=\'\'"><option value="">Elegir…</option>' +
+          ps.map(function(p){ return '<option value="' + p.id + '">' + esc(p.nombre) + '</option>'; }).join('') + '</select></div>' +
+      '</div>' +
+      '<div class="sec-tit">Platos</div><div id="ed-secc">' + htmlSecciones() + '</div>' +
+      '<div class="btns" style="margin:6px 0 8px"><button class="btn btn-p" onclick="guardarPers()">Guardar</button><button class="btn btn-s" onclick="guardarPers(\'ver\')">&#128424; Ver e imprimir</button></div>' +
+      '<div class="btns" style="margin-bottom:8px"><button class="btn btn-n" onclick="guardarPers(\'compartir\')">&#128172; Compartir por WhatsApp</button><button class="btn btn-s" onclick="guardarPers(\'propuesta\')">&#9993; Convertir en propuesta</button></div>' +
+      (nuevo ? '' : '<button class="btn btn-d" style="margin:6px 0 30px" onclick="borrarPers()">Eliminar</button>') +
+      '<p class="muted" style="margin-bottom:30px">«Compartir» envía un enlace al menú (sin precios de coste ni datos de contacto). «Convertir en propuesta» lo pasa a las propuestas de Reservas para enviarlo en PDF y que el cliente confirme y firme online.</p>' +
+      '</div></div>';
+  }).catch(fallo);
+}
+function partirDe(pid){
+  if (!pid) return;
+  var p = (ST.plantillas || []).filter(function(x){ return String(x.id) === String(pid); })[0];
+  if (!p || !confirm('¿Sustituir los platos por los de "' + p.nombre + '"?')) return;
+  ED.secciones = clon(p.secciones); if (!ED.precio_persona) ED.precio_persona = p.precio_persona; marcar(); repintarEd();
+}
+function guardarPers(despues){
+  var nuevo = !ED.id;
+  // Se abre la ventana de compartir antes de esperar al servidor (Safari solo lo permite así)
+  api(nuevo ? 'POST' : 'PUT', '/api/portal/personalizados' + (nuevo ? '' : '/' + ED.id), ED).then(function(m){
+    SUCIO = false; ED = clon(m);
+    if (nuevo) history.replaceState(null, '', '#/personalizado/' + m.id);
+    toast('Menú guardado');
+    if (despues === 'ver') location.href = '/menu.html?personalizado=' + m.id;
+    if (despues === 'compartir') compartirPers(m);
+    if (despues === 'propuesta') {
+      if (!confirm('Se creará una propuesta en Reservas con este menú. ¿Continuar?')) return;
+      api('POST', '/api/portal/personalizados/' + m.id + '/propuesta', {}).then(function(){ location.href = '/reservas#p-propuestas-lista'; }).catch(fallo);
+    }
+  }).catch(fallo);
+}
+function compartirPers(m){
+  var url = location.origin + '/menu/' + m.token;
+  var texto = (m.titulo || 'Menú') + ' · Don Fadrique';
+  if (navigator.share) { navigator.share({ title: texto, text: texto, url: url }).catch(function(){ window.open('https://wa.me/?text=' + encodeURIComponent(texto + ' ' + url), '_blank'); }); return; }
+  var tel = String(m.telefono || '').replace(/\D/g, '');
+  if (tel.length === 9) tel = '34' + tel;
+  window.open('https://wa.me/' + tel + '?text=' + encodeURIComponent(texto + ' ' + url), '_blank');
+}
+function borrarPers(){
+  if (!confirm('¿Eliminar este menú personalizado?')) return;
+  api('DELETE', '/api/portal/personalizados/' + ED.id).then(function(){ SUCIO = false; ir('#/personalizados'); }).catch(fallo);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  BODAS Y COMUNIONES
+// ════════════════════════════════════════════════════════════════════════
+var CAL = { boda: null, comunion: null }; // mes visible (YYYY-MM)
+var CELEBS = [];
+function nombreCeleb(c){
+  if (c.tipo === 'boda') {
+    var a = [c.nombre1, c.apellidos1].filter(Boolean).join(' '), b = [c.nombre2, c.apellidos2].filter(Boolean).join(' ');
+    return [a, b].filter(Boolean).join(' y ') || 'Sin nombres';
+  }
+  return c.protagonista || [c.nombre1, c.apellidos1].filter(Boolean).join(' ') || 'Sin nombre';
+}
+function badgeEstado(c){
+  if (c.estado === 'confirmada') return '<span class="badge b-verde">Confirmada</span>';
+  if (c.estado === 'cancelada') return '<span class="badge b-gris">Cancelada</span>';
+  return '<span class="badge b-ambar">Bloqueada · sin fianza</span>';
+}
+function rutaTipo(tipo){ return tipo === 'boda' ? '#/bodas' : '#/comuniones'; }
+
+function vCelebraciones(app, tipo, sub){
+  var titulo = tipo === 'boda' ? 'Bodas' : 'Comuniones';
+  var pest = function(act){
+    var r = rutaTipo(tipo);
+    return '<div class="chips"><button class="chip' + (act === 'cal' ? ' on' : '') + '" onclick="ir(\'' + r + '\')">Calendario</button>' +
+      '<button class="chip' + (act === 'lista' ? ' on' : '') + '" onclick="ir(\'' + r + '/lista\')">Listado</button>' +
+      '<button class="chip' + (act === 'menus' ? ' on' : '') + '" onclick="ir(\'' + r + '/menus\')">Menús</button></div>';
+  };
+  var accion = '<button class="acc" onclick="ir(\'#/celebracion/nueva/' + tipo + '\')">+ Nueva</button>';
+  if (sub === 'menus') {
+    app.innerHTML = '<div class="vista">' + cabecera(titulo, 'Menús', '#/restaurante', accion) + '<div class="content">' + pest('menus') + '<div id="cm-body"><div class="cargando">Cargando…</div></div></div></div>';
+    plantillas(true).then(function(ps){
+      var l = ps.filter(function(p){ return p.tipo === tipo; });
+      var h = l.map(tarjetaMenu).join('') || '<div class="vacio">No hay menús todavía</div>';
+      h += '<button class="btn btn-s" style="margin-top:6px" onclick="nuevaPlantilla(\'' + tipo + '\')">+ Nuevo menú de ' + (tipo === 'boda' ? 'boda' : 'comunión') + '</button>';
+      h += '<a class="btn btn-n" style="margin-top:8px" href="/presupuestos">&#127912; Dossieres y presupuestos con diseño</a>';
+      $('cm-body').innerHTML = h;
+    }).catch(fallo);
+    return;
+  }
+  app.innerHTML = '<div class="vista">' + cabecera(titulo, sub === 'lista' ? 'Listado' : 'Calendario', '#/restaurante', accion) +
+    '<div class="content">' + pest(sub === 'lista' ? 'lista' : 'cal') + '<div id="cel-body"><div class="cargando">Cargando…</div></div></div></div>';
+  api('GET', '/api/portal/celebraciones?tipo=' + tipo).then(function(l){
+    CELEBS = l;
+    if (sub === 'lista') pintarListaCeleb(tipo); else pintarCalendario(tipo);
+  }).catch(fallo);
+}
+function itemCeleb(c){
+  return '<div class="item celeb' + (c.estado === 'confirmada' ? ' conf' : c.estado === 'cancelada' ? ' canc' : '') + '" onclick="ir(\'#/celebracion/' + c.id + '\')">' +
+    '<div class="tx"><b>' + esc(nombreCeleb(c)) + '</b><small>' + esc(fechaCorta(c.fecha)) + (c.hora ? ' · ' + esc(c.hora) : '') + (c.lugar ? ' · ' + esc(c.lugar) : '') + '</small>' +
+    '<small style="margin-top:4px">' + badgeEstado(c) + (c.adultos || c.ninos ? ' &nbsp;' + ((c.adultos || 0) + (c.ninos || 0)) + ' invitados' : '') + '</small></div>' +
+    (c.tel ? '<div class="acciones"><a class="btn btn-s btn-sm" href="tel:' + attr(c.tel) + '" onclick="event.stopPropagation()">&#128222;</a></div>' : '') + '</div>';
+}
+function pintarListaCeleb(tipo){
+  var hoy = hoyISO();
+  var prox = CELEBS.filter(function(c){ return c.fecha >= hoy; }), pas = CELEBS.filter(function(c){ return c.fecha < hoy; }).reverse();
+  var h = '<div class="sec-tit">Próximas (' + prox.length + ')</div>' + (prox.map(itemCeleb).join('') || '<div class="vacio">No hay ninguna próxima</div>');
+  if (pas.length) h += '<div class="sec-tit">Pasadas</div>' + pas.map(itemCeleb).join('');
+  $('cel-body').innerHTML = h;
+}
+var DIA_SEL = null;
+function pintarCalendario(tipo){
+  if (!CAL[tipo]) CAL[tipo] = hoyISO().slice(0, 7);
+  var ym = CAL[tipo].split('-').map(Number), y = ym[0], m = ym[1];
+  var primero = new Date(y, m - 1, 1), offset = (primero.getDay() + 6) % 7;
+  var dias = new Date(y, m, 0).getDate(), hoy = hoyISO();
+  var porDia = {};
+  CELEBS.forEach(function(c){ if (c.estado !== 'cancelada') (porDia[c.fecha] = porDia[c.fecha] || []).push(c); });
+  var h = '<div class="card"><div class="cal-nav"><button onclick="moverMes(\'' + tipo + '\',-1)">&#8249;</button><b>' +
+    mesTxt(y, m) + '</b><button onclick="moverMes(\'' + tipo + '\',1)">&#8250;</button></div><div class="cal">';
+  ['L','M','X','J','V','S','D'].forEach(function(d){ h += '<div class="cal-h">' + d + '</div>'; });
+  var inicio = new Date(y, m - 1, 1 - offset);
+  var celdas = Math.ceil((offset + dias) / 7) * 7;
+  for (var i = 0; i < celdas; i++) {
+    var d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + i);
+    var iso = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    var ev = porDia[iso] || [];
+    var cls = 'cal-d' + (d.getMonth() !== m - 1 ? ' otro' : '') + (iso === hoy ? ' hoy' : '') + (iso === DIA_SEL ? ' sel' : '');
+    if (ev.length) cls += ev.some(function(c){ return c.estado === 'confirmada'; }) ? ' conf' : ' bloq';
+    h += '<div class="' + cls + '" onclick="selDia(\'' + tipo + '\',\'' + iso + '\')"><span class="n">' + d.getDate() + '</span><span class="pt">' +
+      ev.map(function(c){ return '<i class="' + (c.estado === 'confirmada' ? 'pt-v' : 'pt-a') + '"></i>'; }).join('') + '</span></div>';
+  }
+  h += '</div><div class="leyenda"><span><i style="background:var(--ambar)"></i>Bloqueada (sin fianza)</span><span><i style="background:var(--verde)"></i>Confirmada (fianza pagada)</span></div></div>';
+  h += '<div id="dia-body"></div>';
+  // Del mes visible
+  var delMes = CELEBS.filter(function(c){ return c.fecha.slice(0, 7) === CAL[tipo]; });
+  h += '<div class="sec-tit">Este mes (' + delMes.filter(function(c){ return c.estado !== 'cancelada'; }).length + ')</div>' + (delMes.map(itemCeleb).join('') || '<div class="vacio">No hay ' + (tipo === 'boda' ? 'bodas' : 'comuniones') + ' este mes</div>');
+  $('cel-body').innerHTML = h;
+  if (DIA_SEL) pintarDia(tipo);
+}
+function moverMes(tipo, d){
+  var ym = CAL[tipo].split('-').map(Number), f = new Date(ym[0], ym[1] - 1 + d, 1);
+  CAL[tipo] = f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0'); DIA_SEL = null; pintarCalendario(tipo);
+}
+function selDia(tipo, iso){ DIA_SEL = iso; pintarCalendario(tipo); }
+function pintarDia(tipo){
+  var ev = CELEBS.filter(function(c){ return c.fecha === DIA_SEL; });
+  var h = '<div class="sec-tit">' + esc(fechaLarga(DIA_SEL)) + '</div>' + ev.map(itemCeleb).join('');
+  if (!ev.filter(function(c){ return c.estado !== 'cancelada'; }).length) h += '<div class="vacio" style="padding:10px">Fecha libre</div>';
+  h += '<button class="btn btn-p" style="margin-bottom:6px" onclick="ir(\'#/celebracion/nueva/' + tipo + '/' + DIA_SEL + '\')">+ Bloquear esta fecha</button>';
+  $('dia-body').innerHTML = h;
+}
+
+// ── Ficha de boda / comunión ──
+var CE = null;
+function campo(etq, k, tipo, extra){
+  return '<div class="field"><label>' + etq + '</label><input' + (tipo ? ' type="' + tipo + '"' : '') + (extra || '') + ' value="' + attr(CE[k]) + '" oninput="CE.' + k + '=this.value;marcar()"></div>';
+}
+function vCelebracion(app, id, tipo, fecha){
+  var nueva = id === 'nueva';
+  app.innerHTML = '<div class="vista">' + cabecera('Cargando…', '', '#/restaurante') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  var cargar = nueva ? Promise.resolve({ tipo: tipo === 'comunion' ? 'comunion' : 'boda', fecha: fecha || '', estado: 'bloqueada', pagos: [], adultos: 0, ninos: 0, fianza_pagada: false, lugar: 'Don Fadrique' })
+    : api('GET', '/api/portal/celebraciones/' + id);
+  Promise.all([cargar, plantillas()]).then(function(r){
+    CE = clon(r[0]);
+    var ps = r[1], esBoda = CE.tipo === 'boda';
+    var atras = rutaTipo(CE.tipo);
+    var menus = ps.filter(function(p){ return p.tipo === CE.tipo; }).concat(ps.filter(function(p){ return p.tipo !== CE.tipo; }));
+    var persona = function(n, etq){
+      return '<div class="card"><h3>' + etq + '</h3>' + campo('Nombre', 'nombre' + n) + campo('Apellidos', 'apellidos' + n) + campo('DNI / NIE', 'dni' + n, '', ' autocapitalize="characters"') + '</div>';
+    };
+    var h = '<div class="vista">' + cabecera(nueva ? (esBoda ? 'Nueva boda' : 'Nueva comunión') : nombreCeleb(CE), esBoda ? 'Boda' : 'Comunión', atras, '<button class="acc" onclick="guardarCeleb()">Guardar</button>') + '<div class="content">';
+    if (!nueva) h += '<div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1">' + badgeEstado(CE) + '<div class="muted" style="margin-top:6px">' +
+      (CE.estado === 'confirmada' ? 'Fianza pagada el ' + esc(fechaCorta(CE.fianza_fecha)) : CE.estado === 'cancelada' ? 'No ocupa la fecha en el calendario' : 'La fecha queda bloqueada en ámbar hasta que se pague la fianza') + '</div></div></div>';
+    h += '<div class="card"><h3>Fecha y lugar</h3><div class="fila">' + campo('Fecha', 'fecha', 'date') + campo('Hora', 'hora', 'time') + '</div>' +
+      '<div class="field"><label>Lugar</label><input list="lugares" value="' + attr(CE.lugar) + '" oninput="CE.lugar=this.value;marcar()"><datalist id="lugares">' + LUGARES.map(function(l){ return '<option value="' + attr(l) + '">'; }).join('') + '</datalist></div></div>';
+    if (esBoda) h += persona(1, 'Novio / Novia 1') + persona(2, 'Novio / Novia 2');
+    else h += '<div class="card"><h3>Comulgante</h3>' + campo('Nombre completo del niño o niña', 'protagonista') + '</div>' + persona(1, 'Padre / Madre / Tutor 1') + persona(2, 'Padre / Madre / Tutor 2');
+    h += '<div class="card"><h3>Contacto</h3><div class="fila">' + campo('Teléfono', 'tel', 'tel') + campo('Teléfono 2', 'tel2', 'tel') + '</div>' + campo('Email', 'email', 'email') + campo('Dirección', 'direccion') +
+      (CE.tel ? '<div class="btns"><a class="btn btn-s btn-sm" href="tel:' + attr(CE.tel) + '">&#128222; Llamar</a><a class="btn btn-s btn-sm" target="_blank" rel="noopener" href="https://wa.me/' + attr(telWa(CE.tel)) + '">&#128172; WhatsApp</a>' + (CE.email ? '<a class="btn btn-s btn-sm" href="mailto:' + attr(CE.email) + '">&#9993; Email</a>' : '') + '</div>' : '') + '</div>';
+    h += '<div class="card"><h3>Invitados y menú</h3><div class="fila">' + campo('Adultos', 'adultos', '', ' inputmode="numeric"') + campo('Niños', 'ninos', '', ' inputmode="numeric"') + '</div>' +
+      '<div class="field"><label>Menú</label><select onchange="elegirMenuCeleb(this.value)"><option value="">Sin elegir</option>' +
+        menus.map(function(p){ return '<option value="' + p.id + '"' + (String(CE.plantilla_id) === String(p.id) ? ' selected' : '') + '>' + esc(p.nombre) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="fila">' + campo('Precio adulto (€, sin IVA)', 'precio_adulto', '', ' inputmode="decimal"') + campo('Precio niño (€, sin IVA)', 'precio_nino', '', ' inputmode="decimal"') + '</div>' +
+      '<div id="ce-importe" class="muted"></div>' +
+      (CE.plantilla_id ? '<div class="btns" style="margin-top:8px"><a class="btn btn-s btn-sm" href="#/menu/' + CE.plantilla_id + '">Ver / editar menú</a><a class="btn btn-s btn-sm" href="/menu.html?plantilla=' + CE.plantilla_id + '">&#128424; Imprimir menú</a></div>' : '') + '</div>';
+    h += '<div class="card"><h3>Fianza</h3><div class="fila">' + campo('Importe de la fianza (€)', 'fianza_importe', '', ' inputmode="decimal"') +
+      '<div class="field"><label>Forma de pago</label><select onchange="CE.fianza_forma=this.value;marcar()">' + ['', 'Transferencia', 'Tarjeta', 'Efectivo', 'Bizum'].map(function(f){ return '<option' + (CE.fianza_forma === f ? ' selected' : '') + '>' + f + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="sw-row" style="padding:4px 0 10px"><b style="font-size:14px">Fianza pagada</b><label class="sw"><input type="checkbox" id="ce-fianza"' + (CE.fianza_pagada ? ' checked' : '') + ' onchange="toggleFianza(this.checked)"><span class="sw-sl"></span></label></div>' +
+      '<div id="ce-ffecha" style="' + (CE.fianza_pagada ? '' : 'display:none') + '">' + campo('Fecha de pago de la fianza', 'fianza_fecha', 'date') + '</div>' +
+      '<p class="muted">Al marcar la fianza como pagada, la ' + (esBoda ? 'boda' : 'comunión') + ' pasa de ámbar a verde (confirmada).</p></div>';
+    h += '<div class="card"><h3>Otros pagos</h3><div id="ce-pagos"></div><button class="btn btn-s btn-sm" onclick="CE.pagos.push({fecha:hoyISO(),concepto:\'\',importe:0,forma:\'\'});marcar();pintarPagos()">+ Añadir pago</button></div>';
+    h += '<div class="card"><h3>Notas</h3><textarea class="in" rows="3" oninput="CE.notas=this.value;marcar()">' + esc(CE.notas || '') + '</textarea></div>';
+    h += '<button class="btn btn-p" onclick="guardarCeleb()">Guardar</button>';
+    if (!nueva) {
+      h += '<button class="btn btn-n" onclick="documentoCeleb()">&#128196; Documento con nombres y DNI</button>';
+      h += CE.estado === 'cancelada' ? '<button class="btn btn-s" onclick="cancelarCeleb(false)">Reactivar</button>' : '<button class="btn btn-s" onclick="cancelarCeleb(true)">Cancelar ' + (esBoda ? 'la boda' : 'la comunión') + ' (libera la fecha)</button>';
+      h += '<button class="btn btn-d" onclick="borrarCeleb()">Eliminar ficha</button>';
+    }
+    h += '<div style="height:30px"></div></div></div>';
+    app.innerHTML = h;
+    pintarPagos(); calcImporte();
+    app.querySelectorAll('input').forEach(function(i){ i.addEventListener('input', calcImporte); });
+  }).catch(fallo);
+}
+function telWa(t){ t = String(t || '').replace(/\D/g, ''); return t.length === 9 ? '34' + t : t; }
+function elegirMenuCeleb(id){
+  CE.plantilla_id = id ? parseInt(id) : null;
+  var p = (ST.plantillas || []).filter(function(x){ return String(x.id) === String(id); })[0];
+  CE.menu_nombre = p ? p.nombre : '';
+  if (p && Number(p.precio_persona) && !n2(CE.precio_adulto)) CE.precio_adulto = p.precio_persona;
+  marcar();
+}
+function toggleFianza(v){
+  CE.fianza_pagada = v; if (v && !CE.fianza_fecha) CE.fianza_fecha = hoyISO();
+  $('ce-ffecha').style.display = v ? '' : 'none';
+  var inp = $('ce-ffecha').querySelector('input'); if (inp) inp.value = CE.fianza_fecha || '';
+  marcar(); calcImporte();
+}
+function calcImporte(){
+  var e = $('ce-importe'); if (!e) return;
+  var base = n2(CE.adultos) * n2(CE.precio_adulto) + n2(CE.ninos) * n2(CE.precio_nino);
+  var cobrado = (CE.fianza_pagada ? n2(CE.fianza_importe) : 0) + (CE.pagos || []).reduce(function(a, p){ return a + n2(p.importe); }, 0);
+  e.innerHTML = (base ? 'Importe previsto: <b>' + euros(base) + '</b> + IVA 10% = <b>' + euros(base * 1.1) + '</b>' : '') +
+    (cobrado ? '<br>Cobrado: <b>' + euros(cobrado) + '</b>' + (base ? ' · Pendiente: <b>' + euros(base * 1.1 - cobrado) + '</b>' : '') : '');
+}
+function pintarPagos(){
+  var c = $('ce-pagos'); if (!c) return;
+  setTimeout(function(){ c.querySelectorAll('input').forEach(function(i){ i.addEventListener('input', calcImporte); }); calcImporte(); }, 0);
+  if (!CE.pagos.length) { c.innerHTML = '<div class="muted" style="margin-bottom:8px">Sin pagos aparte de la fianza</div>'; return; }
+  c.innerHTML = CE.pagos.map(function(p, i){
+    return '<div class="sec" style="padding:8px"><div class="fila" style="margin-bottom:6px"><input class="in" type="date" value="' + attr(p.fecha) + '" oninput="CE.pagos[' + i + '].fecha=this.value;marcar()">' +
+      '<input class="in" inputmode="decimal" placeholder="Importe €" value="' + attr(p.importe || '') + '" oninput="CE.pagos[' + i + '].importe=n2(this.value);marcar()"></div>' +
+      '<input class="in" style="margin-bottom:6px" placeholder="Concepto (2º pago, liquidación…)" value="' + attr(p.concepto) + '" oninput="CE.pagos[' + i + '].concepto=this.value;marcar()">' +
+      '<div class="fila"><select class="in" onchange="CE.pagos[' + i + '].forma=this.value;marcar()">' + ['', 'Transferencia', 'Tarjeta', 'Efectivo', 'Bizum'].map(function(f){ return '<option' + (p.forma === f ? ' selected' : '') + '>' + f + '</option>'; }).join('') + '</select>' +
+      '<button class="mini" onclick="CE.pagos.splice(' + i + ',1);marcar();pintarPagos()">&#10005;</button></div></div>';
+  }).join('');
+}
+function guardarCeleb(){
+  if (!CE.fecha) return toast('Falta la fecha');
+  // Aviso si ya hay otra boda o comunión ese mismo día
+  api('GET', '/api/portal/celebraciones?desde=' + CE.fecha + '&hasta=' + CE.fecha).then(function(l){
+    l = l.filter(function(c){ return c.id !== CE.id && c.estado !== 'cancelada'; });
+    if (CE.estado !== 'cancelada' && l.length && !confirm('Ese día ya hay: ' + l.map(function(c){ return (c.tipo === 'boda' ? 'boda de ' : 'comunión de ') + nombreCeleb(c); }).join(', ') + '. ¿Guardar igualmente?')) return;
+    var nueva = !CE.id;
+    return api(nueva ? 'POST' : 'PUT', '/api/portal/celebraciones' + (nueva ? '' : '/' + CE.id), CE).then(function(c){
+      SUCIO = false; toast(c.estado === 'confirmada' ? 'Guardada · confirmada' : 'Guardada · fecha bloqueada');
+      CAL[c.tipo] = c.fecha.slice(0, 7); DIA_SEL = c.fecha;
+      if (nueva) ir('#/celebracion/' + c.id); else vCelebracion($('app'), c.id);
+    });
+  }).catch(fallo);
+}
+function cancelarCeleb(si){
+  if (si && !confirm('¿Cancelar? La fecha quedará libre en el calendario.')) return;
+  CE.estado = si ? 'cancelada' : 'bloqueada';
+  api('PUT', '/api/portal/celebraciones/' + CE.id, CE).then(function(c){ SUCIO = false; toast(si ? 'Cancelada' : 'Reactivada'); vCelebracion($('app'), c.id); }).catch(fallo);
+}
+function borrarCeleb(){
+  if (!confirm('¿Eliminar la ficha por completo? No se puede deshacer.')) return;
+  api('DELETE', '/api/portal/celebraciones/' + CE.id).then(function(){ SUCIO = false; ir(rutaTipo(CE.tipo)); }).catch(fallo);
+}
+
+// Documento con nombres y DNI. FORMATO PROVISIONAL: se sustituirá por el formato exacto que indique Manuel.
+function documentoCeleb(){
+  var c = CE, esBoda = c.tipo === 'boda';
+  var p1 = [c.nombre1, c.apellidos1].filter(Boolean).join(' '), p2 = [c.nombre2, c.apellidos2].filter(Boolean).join(' ');
+  var hoy = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  var linea = function(v){ return v ? '<b>' + esc(v) + '</b>' : '<span class="hueco"></span>'; };
+  var doc = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Documento ' + esc(nombreCeleb(c)) + '</title><style>' +
+    '@page{size:A4 portrait;margin:0}*{box-sizing:border-box}body{margin:0;background:#eee;font-family:Georgia,serif;color:#222}' +
+    '.h{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:22mm 22mm 18mm;font-size:11.5pt;line-height:1.6}' +
+    '.cab{text-align:center;border-bottom:1px solid #b8965a;padding-bottom:6mm;margin-bottom:8mm}.cab .n{letter-spacing:.4em;font-size:15pt;font-family:Arial,sans-serif;font-weight:700}.cab .s{font-size:9pt;color:#777;font-family:Arial,sans-serif;margin-top:2mm}' +
+    'h1{font-size:15pt;text-align:center;margin:0 0 8mm;letter-spacing:.05em}p{margin:0 0 4mm;text-align:justify}.hueco{display:inline-block;min-width:60mm;border-bottom:1px solid #999}' +
+    '.firmas{display:flex;gap:10mm;margin-top:18mm}.firmas div{flex:1;text-align:center;font-size:10pt}.firmas .l{border-top:1px solid #333;margin-top:22mm;padding-top:2mm}' +
+    '.bar{position:sticky;top:0;background:#1a1a1a;padding:10px;text-align:center}.bar button{background:#b8965a;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;margin:0 4px}' +
+    '@media print{.bar{display:none}body{background:#fff}.h{margin:0}}</style></head><body>' +
+    '<div class="bar"><button onclick="window.print()">Imprimir / PDF</button><button onclick="window.close()">Cerrar</button></div>' +
+    '<div class="h"><div class="cab"><div class="n">DON FADRIQUE</div><div class="s">NIMANSANMON S.L. · CIF B37297223 · Alba de Tormes (Salamanca) · 920 37 00 51</div></div>' +
+    '<h1>RESERVA DE FECHA · ' + (esBoda ? 'BODA' : 'PRIMERA COMUNIÓN') + '</h1>' +
+    '<p>En Alba de Tormes, a ' + hoy + '.</p>' +
+    '<p>De una parte, NIMANSANMON S.L., con CIF B37297223, titular de Don Fadrique.</p>' +
+    '<p>De otra parte, D./D.ª ' + linea(p1) + ', con DNI ' + linea(c.dni1) + (p2 || c.dni2 ? ', y D./D.ª ' + linea(p2) + ', con DNI ' + linea(c.dni2) : '') + ', ' +
+      (esBoda ? 'en calidad de contrayentes' : 'en calidad de padres o tutores de ' + linea(c.protagonista)) + '.</p>' +
+    '<p>Ambas partes acuerdan la reserva para la celebración de ' + (esBoda ? 'su boda' : 'la Primera Comunión') + ' el día ' + linea(fechaLarga(c.fecha)) + (c.hora ? ' a las ' + esc(c.hora) : '') +
+      ' en ' + linea(c.lugar) + ', con una previsión de ' + linea(String((Number(c.adultos) || 0))) + ' adultos' + (Number(c.ninos) ? ' y ' + esc(c.ninos) + ' niños' : '') + '.</p>' +
+    (c.menu_nombre ? '<p>Menú elegido: <b>' + esc(c.menu_nombre) + '</b>' + (n2(c.precio_adulto) ? ', a ' + euros(c.precio_adulto) + ' por adulto' + (n2(c.precio_nino) ? ' y ' + euros(c.precio_nino) + ' por niño' : '') + ' (IVA 10% no incluido)' : '') + '.</p>' : '') +
+    '<p>Para confirmar la reserva se entrega una fianza de ' + linea(n2(c.fianza_importe) ? euros(c.fianza_importe) : '') + (c.fianza_pagada ? ', abonada el ' + esc(fechaLarga(c.fianza_fecha).replace(/^[a-záéíóú]+, /i, '')) + (c.fianza_forma ? ' mediante ' + esc(c.fianza_forma.toLowerCase()) : '') : '') + ', que se descontará del importe final.</p>' +
+    '<p>El número definitivo de comensales se comunicará como máximo 7 días antes de la celebración y será el que se facture.</p>' +
+    '<p>Datos de contacto: teléfono ' + linea(c.tel) + (c.email ? ', email ' + esc(c.email) : '') + '.</p>' +
+    '<div class="firmas"><div><div class="l">Don Fadrique · NIMANSANMON S.L.</div></div><div><div class="l">' + esc(p1 || 'Firma') + '</div></div>' + (p2 ? '<div><div class="l">' + esc(p2) + '</div></div>' : '') + '</div>' +
+    '</div></body></html>';
+  var w = window.open('', '_blank');
+  if (!w) return toast('Permite las ventanas emergentes para ver el documento');
+  w.document.open(); w.document.write(doc); w.document.close();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  CONTABILIDAD
+// ════════════════════════════════════════════════════════════════════════
+function vContabilidad(app, mes){
+  mes = /^\d{4}-\d{2}$/.test(mes || '') ? mes : hoyISO().slice(0, 7);
+  var ym = mes.split('-').map(Number);
+  var txtMes = mesTxt(ym[0], ym[1]);
+  var otro = function(d){ var f = new Date(ym[0], ym[1] - 1 + d, 1); return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0'); };
+  app.innerHTML = '<div class="vista">' + cabecera('Contabilidad', 'Restaurante Don Fadrique', '#/restaurante') +
+    '<div class="content"><div class="card"><div class="cal-nav" style="margin:0"><button onclick="ir(\'#/contabilidad/' + otro(-1) + '\')">&#8249;</button><b>' + txtMes + '</b><button onclick="ir(\'#/contabilidad/' + otro(1) + '\')">&#8250;</button></div></div>' +
+    '<div id="cont-body"><div class="cargando">Calculando…</div></div></div></div>';
+  api('GET', '/api/portal/contabilidad?mes=' + mes).then(function(d){
+    var t = d.tpv, c = d.celebraciones, h = '';
+    h += '<div class="kpis">' +
+      '<div class="kpi grande"><small>Ingresos del mes (TPV + cobros de eventos)</small><b>' + euros(d.total_ingresos) + '</b></div>' +
+      '<div class="kpi"><small>TPV (IVA incl.)</small><b>' + (t ? euros(t.total) : '—') + '</b></div>' +
+      '<div class="kpi"><small>Cobros bodas</small><b>' + euros(c.cobros_bodas) + '</b></div>' +
+      '<div class="kpi"><small>Cobros comuniones</small><b>' + euros(c.cobros_comuniones) + '</b></div>' +
+      '<div class="kpi"><small>Tickets TPV</small><b>' + (t ? t.tickets : '—') + '</b></div></div>';
+    if (d.tpv_error) h += '<div class="card" style="border-left:4px solid var(--ambar)"><b>Ventas del TPV no disponibles</b><p class="muted" style="margin-top:4px">' + esc(d.tpv_error) + '</p></div>';
+    if (t) {
+      h += '<div class="card"><h3>TPV</h3><table class="tabla">' +
+        '<tr><td>Efectivo</td><td class="r">' + euros(t.efectivo) + '</td></tr><tr><td>Tarjeta</td><td class="r">' + euros(t.tarjeta) + '</td></tr>' +
+        (t.otros > 0.005 ? '<tr><td>Otros medios</td><td class="r">' + euros(t.otros) + '</td></tr>' : '') +
+        (t.base != null ? '<tr><td>Base imponible</td><td class="r">' + euros(t.base) + '</td></tr><tr><td>IVA</td><td class="r">' + euros(t.iva) + '</td></tr>' : '') +
+        (t.personal ? '<tr><td>Coste de personal (del TPV)</td><td class="r">' + euros(t.personal) + '</td></tr>' : '') +
+        (t.gastos ? '<tr><td>Gastos registrados (del TPV)</td><td class="r">' + euros(t.gastos) + '</td></tr>' : '') + '</table>';
+      if (t.espacios.length) h += '<div class="sec-tit" style="margin-top:14px">Por espacio</div><table class="tabla">' + t.espacios.map(function(e){ return '<tr><td>' + esc(e.espacio) + '</td><td class="r muted">' + e.tickets + ' tickets</td><td class="r">' + euros(e.total) + '</td></tr>'; }).join('') + '</table>';
+      if (t.dias.length) {
+        var max = Math.max.apply(null, t.dias.map(function(x){ return x.total; })) || 1;
+        var porDia = {}; t.dias.forEach(function(x){ porDia[x.fecha] = x.total; });
+        var nd = new Date(ym[0], ym[1], 0).getDate(), barras = '';
+        for (var i = 1; i <= nd; i++) { var iso = mes + '-' + String(i).padStart(2, '0'), v = porDia[iso] || 0; barras += '<div style="height:' + Math.max(1, v / max * 100) + '%" title="' + i + ': ' + euros(v) + '"></div>'; }
+        h += '<div class="sec-tit" style="margin-top:14px">Ventas por día</div><div class="barras">' + barras + '</div><div class="ejes"><span>1</span><span>' + Math.ceil(nd / 2) + '</span><span>' + nd + '</span></div>';
+      }
+      h += '</div>';
+    }
+    h += '<div class="card"><h3>Cobros de bodas y comuniones</h3>';
+    h += c.cobros.length ? '<table class="tabla"><tr><th>Fecha</th><th>Evento</th><th class="r">Importe</th></tr>' + c.cobros.map(function(x){
+      return '<tr onclick="ir(\'#/celebracion/' + x.id + '\')" style="cursor:pointer"><td>' + esc(fechaSinAno(x.fecha)) + '</td><td>' + (x.tipo === 'boda' ? '&#128141; ' : '&#128330; ') + esc(x.quien) + '<div class="muted">' + esc(x.concepto) + (x.forma ? ' · ' + esc(x.forma) : '') + '</div></td><td class="r">' + euros(x.importe) + '</td></tr>';
+    }).join('') + '<tr><th colspan="2">Total</th><th class="r">' + euros(c.total_cobros) + '</th></tr></table>' : '<div class="muted">No hay cobros este mes</div>';
+    h += '</div>';
+    h += '<div class="card"><h3>Bodas y comuniones que se celebran este mes</h3>';
+    h += c.del_mes.length ? '<table class="tabla"><tr><th>Evento</th><th class="r">Previsto</th><th class="r">Cobrado</th></tr>' + c.del_mes.map(function(x){
+      return '<tr onclick="ir(\'#/celebracion/' + x.id + '\')" style="cursor:pointer"><td>' + (x.tipo === 'boda' ? '&#128141; ' : '&#128330; ') + esc(x.quien) + '<div class="muted">' + esc(fechaCorta(x.fecha)) + ' · ' + x.comensales + ' invitados · ' + (x.estado === 'confirmada' ? 'confirmada' : 'bloqueada') + '</div></td><td class="r">' + euros(x.previsto) + '</td><td class="r">' + euros(x.cobrado) + '</td></tr>';
+    }).join('') + '</table><p class="muted" style="margin-top:6px">Previsto sin IVA (invitados × precio).</p>' : '<div class="muted">Ninguna este mes</div>';
+    h += '</div>';
+    var pr = d.presupuestos;
+    h += '<div class="card"><h3>Presupuestos de eventos con fecha este mes</h3>';
+    h += pr.lista.length ? '<table class="tabla">' + pr.lista.map(function(x){ return '<tr><td>' + esc(x.cliente || '') + '<div class="muted">' + esc(x.numero || '') + ' · ' + esc(x.tipo_evento || '') + ' · ' + esc(fechaCorta(x.fecha_evento)) + '</div></td><td class="r">' + euros(x.total) + '</td></tr>'; }).join('') +
+      '<tr><th>Total presupuestado</th><th class="r">' + euros(pr.total) + '</th></tr></table>' : '<div class="muted">Ninguno</div>';
+    h += '</div><p class="muted" style="text-align:center;margin:4px 0 30px">El TPV aporta ventas, gastos y personal; los cobros de bodas y comuniones salen de sus fichas (fianza y pagos).</p>';
+    $('cont-body').innerHTML = h;
+  }).catch(fallo);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  ARRANQUE
+// ════════════════════════════════════════════════════════════════════════
+fetch('/api/sesion', { credentials: 'same-origin' }).then(function(r){
+  if (!r.ok) { mostrarPin(); return; }
+  return r.json().then(function(d){ ST.usuario = d.usuario; render(); });
+}).catch(function(){ mostrarPin(); });
+if ('serviceWorker' in navigator) window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
+</script>
+</body>
+</html>
