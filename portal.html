@@ -8,11 +8,11 @@
 <link rel="stylesheet" href="/fonts/jost.css">
 <link rel="apple-touch-icon" href="/icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-<meta name="theme-color" content="#1a1a1a">
+<meta name="theme-color" content="#f7f4ee">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Don Fadrique">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 :root{
   --oro:#b8965a; --oro-osc:#8b6a2e; --tinta:#1a1a1a; --crema:#f5f2ee; --crema2:#f0ede8; --borde:#e0dcd6; --gris:#888;
@@ -159,14 +159,17 @@ a{color:inherit}
 .ejes{display:flex;justify-content:space-between;font-size:10px;color:var(--gris);margin-top:4px}
 
 /* PIN */
-#pin{display:none;position:fixed;inset:0;z-index:99999;background:#1a1a1a;color:#fff;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-#pin .k{font-size:11px;letter-spacing:4px;color:var(--oro);margin-bottom:6px}
-#pin .n{font-size:30px;font-weight:900;letter-spacing:3px;margin-bottom:28px}
+#pin{display:none;position:fixed;inset:0;z-index:99999;background:#f7f4ee;color:var(--tinta);flex-direction:column;align-items:center;justify-content:center;padding:24px}
+#pin .n{font-size:30px;font-weight:300;letter-spacing:10px;padding-left:10px;text-align:center}
+#pin .k{font-size:11px;letter-spacing:7px;padding-left:7px;color:var(--oro);font-weight:500;margin-top:10px}
+#pin .lin{width:34px;height:1px;background:#cbbd9e;margin:20px auto 26px}
+#pin .txt{font-size:13px;color:#9a9086;letter-spacing:1px;margin-bottom:16px}
 #pin-puntos{display:flex;gap:14px;margin-bottom:10px}
-#pin-error{height:20px;font-size:13px;color:#e88;margin-bottom:12px}
-#pin-teclado{display:grid;grid-template-columns:repeat(3,76px);gap:14px}
-#pin-teclado button{height:76px;border-radius:50%;border:none;font-size:26px;color:#fff;background:#2c2c2c;cursor:pointer}
-#pin-teclado button:disabled{background:transparent}
+#pin-error{height:20px;font-size:13px;color:var(--rojo);margin-bottom:12px}
+#pin-teclado{display:grid;grid-template-columns:repeat(3,72px);gap:16px}
+#pin-teclado button{height:72px;border-radius:50%;border:1px solid #e6dfd3;font-size:24px;font-weight:300;color:var(--tinta);background:#fff;cursor:pointer;font-family:inherit;box-shadow:0 1px 3px rgba(60,45,20,.05)}
+#pin-teclado button:active{background:#f5efe3}
+#pin-teclado button:disabled{background:transparent;border:none;box-shadow:none}
 
 @media(min-width:700px){
   .paleta{grid-template-columns:repeat(3,1fr)}
@@ -177,9 +180,10 @@ a{color:inherit}
 </head>
 <body>
 <div id="pin">
-  <div class="k">GESTIÓN</div>
   <div class="n">DON FADRIQUE</div>
-  <div style="font-size:14px;color:#bbb;margin-bottom:14px">Introduce tu PIN</div>
+  <div class="k">GESTIÓN</div>
+  <div class="lin"></div>
+  <div class="txt">Introduce tu PIN</div>
   <div id="pin-puntos"></div>
   <div id="pin-error"></div>
   <div id="pin-teclado"></div>
@@ -244,7 +248,7 @@ function plantillas(forzar){
 //  ACCESO CON PIN (misma sesión que la app de reservas)
 // ════════════════════════════════════════════════════════════════════════
 var PIN = '', enviandoPin = false;
-function pintarPin(){ var p = $('pin-puntos'); p.innerHTML = ''; for (var i = 0; i < 4; i++) { var d = document.createElement('div'); d.style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid #b8965a;' + (i < PIN.length ? 'background:#b8965a' : ''); p.appendChild(d); } }
+function pintarPin(){ var p = $('pin-puntos'); p.innerHTML = ''; for (var i = 0; i < 4; i++) { var d = document.createElement('div'); d.style.cssText = 'width:13px;height:13px;border-radius:50%;border:1.5px solid #b8965a;' + (i < PIN.length ? 'background:#b8965a' : ''); p.appendChild(d); } }
 function teclaPin(k){
   if (enviandoPin) return;
   $('pin-error').textContent = '';

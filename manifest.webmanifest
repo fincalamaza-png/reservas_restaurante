@@ -1,13 +1,13 @@
 {
-  "name": "Don Fadrique",
+  "name": "Don Fadrique Gestión",
   "short_name": "Don Fadrique",
-  "description": "Reservas, menús y presupuestos de Don Fadrique",
+  "description": "Don Fadrique Gestión: hotel, restaurante, eventos y administración",
   "lang": "es",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f0ede8",
-  "theme_color": "#1a1a1a",
+  "background_color": "#f7f4ee",
+  "theme_color": "#f7f4ee",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
