@@ -2191,32 +2191,84 @@ async function generarPDFPropuesta(prop) {
     dibujarLogos(ph - 110);
 
     // ── UNA PÁGINA POR CADA MENÚ INCLUIDO ─────────────────────────────────────
+    // Menú centrado y a tamaño grande: la letra se ajusta sola para ocupar la hoja.
+    const { agrupar } = require('./menu-render.js').DFMenu;
+    const euros = n => Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' €';
+    const linea = '#cbbd9e';
     menus.forEach((menu) => {
       doc.addPage();
-      doc.rect(50, 50, 495, 42).fill(gold);
-      doc.fillColor('#fff').font('Helvetica-Bold').fontSize(14).text((menu.plantilla_nombre || '').toUpperCase(), 65, 65, { width: 465 });
+      doc.rect(0, 0, pw, ph).fill('#ffffff');
+      doc.rect(28, 28, pw - 56, ph - 56).lineWidth(0.8).strokeColor(linea).stroke();
 
-      let y = 112;
-      const secciones = menu.secciones || [];
-      secciones.forEach((s) => {
-        const compartirTag = (s.tipo === 'plato' && s.compartir) ? ' (para compartir)' : '';
-        doc.fillColor(gold).font('Helvetica-Bold').fontSize(9.5).text((s.titulo || '').toUpperCase() + compartirTag, 65, y);
-        y += 13;
-        const texto = textoCampoMenu(s);
-        doc.fillColor(dark).font('Helvetica').fontSize(8.5);
-        const h = doc.heightOfString(texto, { width: 460 });
-        doc.text(texto, 65, y, { width: 460 });
-        y += h + 8;
-      });
+      // Cabecera
+      doc.fillColor(dark).font('Helvetica-Bold').fontSize(11)
+        .text('DON FADRIQUE', 0, 68, { width: pw, align: 'center', characterSpacing: 5 });
+      doc.fillColor(gold).font('Helvetica').fontSize(6.5)
+        .text('ALBA DE TORMES', 0, 86, { width: pw, align: 'center', characterSpacing: 2.5 });
+      const nombre = (menu.plantilla_nombre || 'Menú').toUpperCase();
+      doc.fillColor(dark).font('Helvetica').fontSize(22);
+      const hNom = doc.heightOfString(nombre, { width: pw - 140, characterSpacing: 3.5, align: 'center' });
+      doc.text(nombre, 70, 112, { width: pw - 140, align: 'center', characterSpacing: 3.5 });
+      let yOrla = 112 + hNom + 16;
+      doc.moveTo(pw / 2 - 20, yOrla).lineTo(pw / 2 + 20, yOrla).lineWidth(0.8).strokeColor(linea).stroke();
 
-      y += 6;
-      doc.moveTo(65, y).lineTo(545, y).strokeColor('#e0dcd6').stroke();
-      y += 12;
-      doc.fillColor(dark).font('Helvetica-Bold').fontSize(11.5)
-        .text('Precio por persona: ' + Number(menu.precio_persona || 0).toFixed(2) + ' €', 65, y);
-      doc.fillColor(gray).font('Helvetica').fontSize(8).text('IVA 10% no incluido  ·  Los consumos extra no incluidos en el menú se facturarán aparte', 65, y + 15);
+      // Zona de platos (entre la cabecera y el pie)
+      const grupos = agrupar(menu.secciones || []);
+      const W = pw - 150, X = 75;
+      const top = yOrla + 26, bottom = ph - 175;
+      const medir = (k, pintar, y0) => {
+        let y = y0 || 0;
+        grupos.forEach((g, gi) => {
+          if (gi) y += 20 * k;
+          if (g.titulo) {
+            doc.font('Helvetica-Bold').fontSize(7.5 * k);
+            if (pintar) doc.fillColor(gold).text(g.titulo.toUpperCase(), X, y, { width: W, align: 'center', characterSpacing: 2.6 * k });
+            y += doc.heightOfString(g.titulo.toUpperCase(), { width: W, characterSpacing: 2.6 * k }) + 7 * k;
+          }
+          if (g.nota && g.base !== '_barra') {
+            doc.font('Helvetica').fontSize(8.5 * k);
+            if (pintar) doc.fillColor('#999999').text(g.nota.toLowerCase(), X, y - 3 * k, { width: W, align: 'center', characterSpacing: 0.5 * k });
+            y += doc.heightOfString(g.nota, { width: W }) + 2 * k;
+          }
+          g.lineas.forEach(l => {
+            if (l.o) {
+              doc.font('Helvetica').fontSize(7.5 * k);
+              if (pintar) doc.fillColor(gold).text('O', X, y, { width: W, align: 'center', characterSpacing: 1.5 * k });
+              y += doc.heightOfString('O', { width: W }) + 1 * k;
+            }
+            const t = l.t + (l.sub ? '  ·  ' + l.sub : '');
+            doc.font('Helvetica').fontSize(14 * k);
+            if (pintar) doc.fillColor(l.suave ? '#777777' : dark).text(t, X, y, { width: W, align: 'center', lineGap: 2 * k });
+            y += doc.heightOfString(t, { width: W, lineGap: 2 * k }) + 3 * k;
+          });
+          if (g.nota && g.base === '_barra') {
+            doc.font('Helvetica').fontSize(8.5 * k);
+            if (pintar) doc.fillColor('#999999').text(g.nota, X, y, { width: W, align: 'center' });
+            y += doc.heightOfString(g.nota, { width: W }) + 2 * k;
+          }
+        });
+        return y - (y0 || 0);
+      };
+      let k = 1.6;
+      while (k > 0.55 && medir(k) > bottom - top) k -= 0.05;
+      const alto = medir(k);
+      medir(k, true, top + Math.max(0, (bottom - top - alto) / 2));
 
-      dibujarLogos(ph - 65);
+      // Pie: precio, nota y logos
+      if (Number(menu.precio_persona)) {
+        const precio = euros(menu.precio_persona);
+        doc.font('Helvetica').fontSize(17);
+        const wP = doc.widthOfString(precio, { characterSpacing: 1 });
+        doc.font('Helvetica').fontSize(8);
+        const etiqueta = 'POR PERSONA';
+        const wE = doc.widthOfString(etiqueta, { characterSpacing: 1.6 });
+        const x0 = (pw - wP - 8 - wE) / 2;
+        doc.fillColor(dark).font('Helvetica').fontSize(17).text(precio, x0, ph - 150, { lineBreak: false, characterSpacing: 1 });
+        doc.fillColor('#888888').font('Helvetica').fontSize(8).text(etiqueta, x0 + wP + 8, ph - 143, { lineBreak: false, characterSpacing: 1.6 });
+      }
+      doc.fillColor('#999999').font('Helvetica').fontSize(7.5)
+        .text('IVA 10% no incluido  ·  Los consumos extra no incluidos en el menú se facturarán aparte', 0, ph - 122, { width: pw, align: 'center' });
+      dibujarLogos(ph - 95);
     });
 
     // ── PÁGINA FINAL: SUPLEMENTOS, OBSERVACIONES, CONFIRMACIÓN Y CONDICIONES ──

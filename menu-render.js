@@ -209,4 +209,4 @@
   ].join('\n');
 
   global.DFMenu = { agrupar: agrupar, a4: a4, triptico: triptico, ajustar: ajustar, css: CSS, euros: euros, fechaLarga: fechaLarga, esc: esc };
-})(window);
+})(typeof window !== 'undefined' ? window : module.exports); // también lo usa el servidor para los PDF
