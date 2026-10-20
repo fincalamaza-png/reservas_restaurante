@@ -1,0 +1,34 @@
+/* ═══ Estilo común Don Fadrique Gestión ═══
+   Tipografía Jost y colores de la casa: blanco roto, blanco, dorado y negro.
+   Se carga al final de cada app para unificarlas sin cambiar su funcionamiento. */
+@import url('/fonts/jost.css');
+:root{--df-fondo:#f7f4ee;--df-blanco:#ffffff;--df-oro:#b8965a;--df-oro-osc:#8b6a2e;--df-oro-claro:#f5efe3;--df-tinta:#1a1a1a;--df-gris:#9a9086;--df-borde:#e6dfd3}
+html,body,button,input,select,textarea{font-family:Jost,"Helvetica Neue",Helvetica,Arial,sans-serif!important}
+[style*="Georgia"]{font-family:Jost,"Helvetica Neue",Helvetica,Arial,sans-serif!important;font-weight:400}
+
+/* ── App de reservas (index.html) ── */
+body.df-reservas{background:var(--df-fondo)}
+body.df-reservas .page{background:var(--df-fondo)}
+body.df-reservas .top{background:var(--df-fondo);border-bottom-color:var(--df-borde)}
+body.df-reservas .bot{background:var(--df-blanco);border-top-color:var(--df-borde)}
+body.df-reservas .card,body.df-reservas .menu-card{border-color:var(--df-borde)}
+body.df-reservas #pin-login{background:var(--df-fondo)!important;color:var(--df-tinta)!important}
+body.df-reservas #pin-login>div:nth-child(2){font-weight:300!important;letter-spacing:10px!important;font-size:28px!important}
+body.df-reservas #pin-login>div:nth-child(3){color:var(--df-gris)!important}
+body.df-reservas #pin-teclado button{background:var(--df-blanco)!important;color:var(--df-tinta)!important;border:1px solid var(--df-borde)!important;font-weight:300!important}
+body.df-reservas #pin-teclado button:disabled{background:transparent!important;border:none!important}
+
+/* ── Portal del personal (camareros.html) ── */
+body.df-personal{--gold:#b8965a;--bg:#f7f4ee;--dark:#1a1a1a}
+body.df-personal #pin-screen{background:var(--df-fondo)}
+body.df-personal .brand-name{color:var(--df-tinta);font-weight:300;letter-spacing:.3em}
+body.df-personal .brand-sub{color:var(--df-oro)}
+body.df-personal .pin-box{background:var(--df-blanco);border-color:var(--df-borde);box-shadow:0 1px 3px rgba(60,45,20,.05)}
+body.df-personal .pin-prompt{color:var(--df-gris)}
+body.df-personal .pin-btn{background:var(--df-blanco);color:var(--df-tinta);border:1px solid var(--df-borde)}
+body.df-personal .pin-btn.del{background:#f3e9e9;color:#8b1a2a}
+body.df-personal .pin-btn.ok{background:var(--df-oro);color:#fff}
+body.df-personal .h-name{color:var(--df-oro-osc)}
+body.df-reservas #pin-login,body.df-reservas #pin-login *{font-family:Jost,"Helvetica Neue",Helvetica,Arial,sans-serif!important}
+body.df-reservas #pin-login>div:nth-child(3){font-weight:300}
+body.df-reservas .cal-nav button{color:var(--df-oro-osc)!important}
