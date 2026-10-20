@@ -892,11 +892,11 @@ function documentoCeleb(){
   var p1 = [c.nombre1, c.apellidos1].filter(Boolean).join(' '), p2 = [c.nombre2, c.apellidos2].filter(Boolean).join(' ');
   var hoy = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   var linea = function(v){ return v ? '<b>' + esc(v) + '</b>' : '<span class="hueco"></span>'; };
-  var doc = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Documento ' + esc(nombreCeleb(c)) + '</title><style>' +
-    '@page{size:A4 portrait;margin:0}*{box-sizing:border-box}body{margin:0;background:#eee;font-family:Georgia,serif;color:#222}' +
+  var doc = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Documento ' + esc(nombreCeleb(c)) + '</title><link rel="stylesheet" href="' + location.origin + '/fonts/jost.css"><style>' +
+    '@page{size:A4 portrait;margin:0}*{box-sizing:border-box}body{margin:0;background:#eee;font-family:Jost,Helvetica Neue,Arial,sans-serif;font-weight:300;color:#222}b{font-weight:500}' +
     '.h{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:22mm 22mm 18mm;font-size:11.5pt;line-height:1.6}' +
-    '.cab{text-align:center;border-bottom:1px solid #b8965a;padding-bottom:6mm;margin-bottom:8mm}.cab .n{letter-spacing:.4em;font-size:15pt;font-family:Arial,sans-serif;font-weight:700}.cab .s{font-size:9pt;color:#777;font-family:Arial,sans-serif;margin-top:2mm}' +
-    'h1{font-size:15pt;text-align:center;margin:0 0 8mm;letter-spacing:.05em}p{margin:0 0 4mm;text-align:justify}.hueco{display:inline-block;min-width:60mm;border-bottom:1px solid #999}' +
+    '.cab{text-align:center;border-bottom:.3mm solid #cbbd9e;padding-bottom:6mm;margin-bottom:8mm}.cab .n{letter-spacing:.5em;font-size:13pt;font-weight:500}.cab .s{font-size:8pt;color:#888;margin-top:2mm;letter-spacing:.05em}' +
+    'h1{font-size:14pt;font-weight:300;text-align:center;margin:0 0 8mm;letter-spacing:.2em}p{margin:0 0 4mm;text-align:justify}.hueco{display:inline-block;min-width:60mm;border-bottom:1px solid #999}' +
     '.firmas{display:flex;gap:10mm;margin-top:18mm}.firmas div{flex:1;text-align:center;font-size:10pt}.firmas .l{border-top:1px solid #333;margin-top:22mm;padding-top:2mm}' +
     '.bar{position:sticky;top:0;background:#1a1a1a;padding:10px;text-align:center}.bar button{background:#b8965a;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;margin:0 4px}' +
     '@media print{.bar{display:none}body{background:#fff}.h{margin:0}}</style></head><body>' +

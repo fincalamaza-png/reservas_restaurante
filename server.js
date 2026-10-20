@@ -3,7 +3,7 @@ const Database = require('better-sqlite3');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
 const path = require('path');
-const PDFDocument = require('pdfkit');
+const PDFDocument = require('./pdf-fuentes'); // pdfkit con la tipografía Jost
 const fs = require('fs');
 const crypto = require('crypto');
 
@@ -803,7 +803,7 @@ async function enviarEmailCliente(r, tipo) {
   const html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,sans-serif">
 <div style="max-width:520px;margin:0 auto">
   <div style="background:#b8965a;padding:24px;text-align:center;border-radius:8px 8px 0 0">
-    <div style="font-family:Georgia,serif;font-size:24px;color:#fff;letter-spacing:3px">Don Fadrique</div>
+    <div style="font-family:Jost,'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:300;font-size:24px;color:#fff;letter-spacing:3px">Don Fadrique</div>
     <div style="font-size:11px;color:#e8c8cc;margin-top:8px">Seleccionado Michelin 2026 · 1 Sol Repsol 2026 · Tierra de Sabor</div>
   </div>
   <div style="background:#fff;padding:24px;border:1px solid #ddd;border-top:none">
@@ -840,7 +840,7 @@ function emailHeader(titulo, subtitulo, color) {
   return `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
 <div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
   <div style="background:${color};padding:28px 24px;text-align:center">
-    <div style="font-family:Georgia,serif;font-size:26px;color:#fff;letter-spacing:3px;margin-bottom:4px">Don Fadrique</div>
+    <div style="font-family:Jost,'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:300;font-size:26px;color:#fff;letter-spacing:3px;margin-bottom:4px">Don Fadrique</div>
     <div style="font-size:11px;color:rgba(255,255,255,.75);letter-spacing:1px">RESTAURANTE · PALACIO CONDE DE ALDANA</div>
     <div style="margin-top:12px;display:flex;justify-content:center;gap:10px;align-items:center">
       <img src="${LOGO_MICHELIN}" style="height:28px;width:auto;object-fit:contain;vertical-align:middle">
@@ -1324,7 +1324,7 @@ app.post('/api/email/:id/:tipo', async (req, res) => {
 <div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
   <div style="background:#b8965a;padding:28px 24px;text-align:center">
     <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.7)">R E S T A U R A N T E</div>
-    <div style="font-family:Georgia,serif;font-size:28px;color:#fff;letter-spacing:3px;margin:4px 0">Don Fadrique</div>
+    <div style="font-family:Jost,'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:300;font-size:28px;color:#fff;letter-spacing:3px;margin:4px 0">Don Fadrique</div>
     <div style="font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.7)">P A L A C I O · C O N D E · D E · A L D A N A</div>
     <div style="margin-top:12px;display:inline-block;background:rgba(255,255,255,0.15);border-radius:20px;padding:4px 16px">
       <span style="font-size:12px;color:#fff;font-weight:600;letter-spacing:1px">ORDEN DE SERVICIO — ADMINISTRACION</span>
@@ -1986,11 +1986,11 @@ async function enviarEmailPresupuesto(presup, emailCliente, lineas) {
   // Generar PDF
   const pdfBuffer = await generarPDFPresupuesto(presup, lineas);
 
-  const htmlBody = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:sans-serif">
+  const htmlBody = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:Jost,Helvetica Neue,Helvetica,Arial,sans-serif">
 <div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
   <div style="background:#b8965a;padding:28px 24px;text-align:center">
     <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.7)">R E S T A U R A N T E</div>
-    <div style="font-family:Georgia,serif;font-size:28px;color:#fff;letter-spacing:3px;margin:4px 0">Don Fadrique</div>
+    <div style="font-family:Jost,'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:300;font-size:28px;color:#fff;letter-spacing:3px;margin:4px 0">Don Fadrique</div>
     <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.8)">Presupuesto Nº ${presup.numero}</div>
   </div>
   <div style="background:#fff;padding:24px;border:1px solid #e0dcd6;border-top:none">
@@ -2321,11 +2321,11 @@ async function enviarEmailPropuesta(prop, pdfBuffer) {
   }
   const confirmUrl = `https://restaurantefadrique.palaciocondealdana.com/confirmar/${prop.token}`;
 
-  const htmlBody = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:sans-serif">
+  const htmlBody = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:Jost,Helvetica Neue,Helvetica,Arial,sans-serif">
 <div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
   <div style="background:#b8965a;padding:28px 24px;text-align:center">
     <div style="font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.7)">R E S T A U R A N T E</div>
-    <div style="font-family:Georgia,serif;font-size:28px;color:#fff;letter-spacing:3px;margin:4px 0">Don Fadrique</div>
+    <div style="font-family:Jost,'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:300;font-size:28px;color:#fff;letter-spacing:3px;margin:4px 0">Don Fadrique</div>
     <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.8)">Propuesta de menú: ${prop.plantilla_nombre || ''}</div>
   </div>
   <div style="background:#fff;padding:24px;border:1px solid #e0dcd6;border-top:none">
@@ -2388,9 +2388,9 @@ async function enviarSeguimientoPropuesta(prop) {
   if (!prop.email) throw new Error('La propuesta no tiene email del cliente');
   const confirmUrl = `https://restaurantefadrique.palaciocondealdana.com/confirmar/${prop.token}`;
   const nombre = (prop.cliente || '').split(/[\s-]/)[0] || '';
-  const html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:sans-serif">
+  const html = `<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#f5f3ef;font-family:Jost,Helvetica Neue,Helvetica,Arial,sans-serif">
 <div style="max-width:560px;margin:0 auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)">
-  <div style="background:#b8965a;padding:22px 24px;text-align:center"><div style="font-family:Georgia,serif;font-size:26px;color:#fff;letter-spacing:3px">Don Fadrique</div></div>
+  <div style="background:#b8965a;padding:22px 24px;text-align:center"><div style="font-family:Jost,'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:300;font-size:26px;color:#fff;letter-spacing:3px">Don Fadrique</div></div>
   <div style="background:#fff;padding:24px;border:1px solid #e0dcd6;border-top:none;font-size:14px;color:#444;line-height:1.6">
     <p>Hola ${nombre}:</p>
     <p>Te escribimos para saber si pudiste revisar la propuesta de menú que te enviamos para el <strong>${fechaLarga(prop.fecha_evento)}</strong>. Si quieres cambiar algún plato o ajustar el número de personas, dínoslo y lo preparamos.</p>
@@ -2414,7 +2414,7 @@ async function enviarResumenDiario(enviadosHoy, estudioManuales) {
   const en14 = new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' });
   const eventos = db.prepare("SELECT * FROM reservas WHERE tipo = 'evento' AND fecha >= ? AND fecha <= ? AND (estado IS NULL OR estado != 'cancelada') ORDER BY fecha, hora").all(hoy, en14);
   const li = (t) => `<li style="margin-bottom:6px">${t}</li>`;
-  const bloque = (titulo, items) => items.length ? `<h3 style="font-family:Georgia,serif;color:#8b1a2a;margin:18px 0 6px">${titulo}</h3><ul style="padding-left:18px;margin:0">${items.join('')}</ul>` : '';
+  const bloque = (titulo, items) => items.length ? `<h3 style="font-family:Jost,'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:300;color:#8b1a2a;margin:18px 0 6px">${titulo}</h3><ul style="padding-left:18px;margin:0">${items.join('')}</ul>` : '';
   const html = [
     bloque('Seguimientos automáticos enviados hoy', enviadosHoy.map(p => li(`${p.cliente || 'Sin nombre'} · ${p.email}`))),
     bloque('Propuestas sin respuesta: llamar o escribir por WhatsApp', sinRespuesta.map(p => li(`${p.cliente || 'Sin nombre'} · evento ${fechaLarga(p.fecha_evento)} · tel. ${p.telefono || '—'} · enviada hace ${diasDesde(p.fecha_envio)} días`))),
@@ -2815,7 +2815,14 @@ function paginaConfirmacionHTML(titulo, cuerpoHtml, scriptExtra) {
   <title>${titulo} · Don Fadrique</title>
   <style>
     *{box-sizing:border-box}
-    body{font-family:-apple-system,sans-serif;background:#f5f2ee;margin:0;padding:24px 16px;color:#2c2c2c}
+    @font-face{font-family:'Jost';font-weight:200;font-display:block;src:url('/fonts/jost-latin-200-normal.woff2') format('woff2')}
+    @font-face{font-family:'Jost';font-weight:300;font-display:block;src:url('/fonts/jost-latin-300-normal.woff2') format('woff2')}
+    @font-face{font-family:'Jost';font-weight:300;font-style:italic;font-display:block;src:url('/fonts/jost-latin-300-italic.woff2') format('woff2')}
+    @font-face{font-family:'Jost';font-weight:400;font-display:block;src:url('/fonts/jost-latin-400-normal.woff2') format('woff2')}
+    @font-face{font-family:'Jost';font-weight:500;font-display:block;src:url('/fonts/jost-latin-500-normal.woff2') format('woff2')}
+    @font-face{font-family:'Jost';font-weight:600;font-display:block;src:url('/fonts/jost-latin-600-normal.woff2') format('woff2')}
+    @font-face{font-family:'Jost';font-weight:700;font-display:block;src:url('/fonts/jost-latin-700-normal.woff2') format('woff2')}
+    body{font-family:Jost,'Helvetica Neue',Helvetica,Arial,sans-serif;background:#f5f2ee;margin:0;padding:24px 16px;color:#2c2c2c}
     .card{max-width:480px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08)}
     .top{background:#b8965a;padding:26px 20px;text-align:center;color:#fff}
     .top .marca{font-size:24px;letter-spacing:2px;margin-bottom:4px}
@@ -3033,7 +3040,8 @@ app.get('/minuta-print', (req, res) => {
   const html = minutasTemp[req.query.id];
   if (!html) return res.status(404).send('Minuta no encontrada');
   res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Minuta</title>'
-    + '<style>*{margin:0;padding:0;box-sizing:border-box}body{background:white}'
+    + '<link rel="stylesheet" href="/fonts/jost.css">'
+    + '<style>*{margin:0;padding:0;box-sizing:border-box}body{background:white}*{font-family:Jost,Helvetica Neue,Helvetica,Arial,sans-serif!important}'
     + '@page{size:A4 landscape;margin:8mm}'
     + '</style></head><body>'
     + html

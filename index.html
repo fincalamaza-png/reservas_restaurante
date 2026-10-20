@@ -213,6 +213,16 @@ body{font-family:-apple-system,sans-serif;background:#f0ede8;height:100vh;overfl
 .orden-footer { border-top: 1px solid #e0dcd6; padding-top: 12px; display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
 .orden-footer span { font-size: 11px; color: #888; font-family: sans-serif; }
 .orden-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+
+/* Documentos (presupuesto, orden de servicio, minutas, listado): tipografía Jost */
+@font-face{font-family:'Jost';font-weight:200;font-display:block;src:url('/fonts/jost-latin-200-normal.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-weight:300;font-display:block;src:url('/fonts/jost-latin-300-normal.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-weight:300;font-style:italic;font-display:block;src:url('/fonts/jost-latin-300-italic.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-weight:400;font-display:block;src:url('/fonts/jost-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-weight:500;font-display:block;src:url('/fonts/jost-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-weight:600;font-display:block;src:url('/fonts/jost-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-weight:700;font-display:block;src:url('/fonts/jost-latin-700-normal.woff2') format('woff2')}
+.presup-doc,.presup-doc *,.orden-doc,.orden-doc *,#minuta-body,#minuta-body *,#listado-body,#listado-body *{font-family:Jost,'Helvetica Neue',Helvetica,Arial,sans-serif!important}
 </style>
 </head>
 <body>
@@ -2781,7 +2791,8 @@ function imprimirOrden() {
   win.document.write('<html><head><meta charset="UTF-8"><style>');
   win.document.write('@page{size:A4 portrait;margin:0}');
   win.document.write('*{box-sizing:border-box}');
-  win.document.write('body{margin:0;padding:0;background:white;font-family:Georgia,serif;color:#1a1a1a}');
+  win.document.write('@font-face{font-family:\'Jost\';font-weight:200;font-display:block;src:url(\'/fonts/jost-latin-200-normal.woff2\') format(\'woff2\')}@font-face{font-family:\'Jost\';font-weight:300;font-display:block;src:url(\'/fonts/jost-latin-300-normal.woff2\') format(\'woff2\')}@font-face{font-family:\'Jost\';font-weight:300;font-style:italic;font-display:block;src:url(\'/fonts/jost-latin-300-italic.woff2\') format(\'woff2\')}@font-face{font-family:\'Jost\';font-weight:400;font-display:block;src:url(\'/fonts/jost-latin-400-normal.woff2\') format(\'woff2\')}@font-face{font-family:\'Jost\';font-weight:500;font-display:block;src:url(\'/fonts/jost-latin-500-normal.woff2\') format(\'woff2\')}@font-face{font-family:\'Jost\';font-weight:600;font-display:block;src:url(\'/fonts/jost-latin-600-normal.woff2\') format(\'woff2\')}@font-face{font-family:\'Jost\';font-weight:700;font-display:block;src:url(\'/fonts/jost-latin-700-normal.woff2\') format(\'woff2\')}');
+  win.document.write('body{margin:0;padding:0;background:white;font-family:Jost,Helvetica Neue,Helvetica,Arial,sans-serif;color:#1a1a1a}*{font-family:Jost,Helvetica Neue,Helvetica,Arial,sans-serif!important}');
   win.document.write('.orden-doc{width:210mm;min-height:297mm;padding:16mm 18mm;background:white}');
   win.document.write('.orden-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}');
   win.document.write('.orden-brand .brand-rest{font-size:9px;letter-spacing:3px;color:#666;font-family:sans-serif}');
