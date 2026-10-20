@@ -751,25 +751,31 @@ module.exports = function montarPortal(app, db) {
     else db.prepare(`INSERT INTO trabajadores (${cols.join(',')}, tpv_usuario_id) VALUES (${cols.map(() => '?').join(',')}, ?)`).run(...cols.map(k => o[k]), tpvId);
     res.json({ ok: true, tpv_usuario_id: tpvId });
   });
-  // Fichajes de un trabajador en un mes, con horas por día
+  // Fichajes de un trabajador en un mes, con horas por día.
+  // Cada salida se empareja con la entrada anterior aunque sea del día antes (turnos que pasan
+  // de medianoche); las horas cuentan para el día de la entrada.
   app.get('/api/portal/personal/:tpvId/fichajes', async (req, res) => {
     const mes = /^\d{4}-\d{2}$/.test(req.query.mes || '') ? req.query.mes : new Date().toISOString().slice(0, 7);
     const [y, m] = mes.split('-').map(Number);
-    const hasta = mes + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0');
+    const desde = mes + '-01', hasta = mes + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0');
+    const dia = (iso, d) => { const t = new Date(iso + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + d); return t.toISOString().slice(0, 10); };
     try {
-      const l = await jsonTPV(`/api/personal/fichajes-usuario?usuario_id=${int(req.params.tpvId)}&desde=${mes}-01&hasta=${hasta}`);
+      const l = await jsonTPV(`/api/personal/fichajes-usuario?usuario_id=${int(req.params.tpvId)}&desde=${dia(desde, -1)}&hasta=${dia(hasta, 1)}`);
+      const aMin = f => Date.UTC(+f.fecha.slice(0, 4), +f.fecha.slice(5, 7) - 1, +f.fecha.slice(8, 10), +f.hora.slice(0, 2), +f.hora.slice(3, 5)) / 60000;
+      const minutosDia = {}, abiertoDia = {};
+      let ent = null;
+      l.forEach(f => {
+        if (f.tipo === 'entrada') { if (ent) abiertoDia[ent.fecha] = true; ent = f; }
+        else if (ent) { const mins = aMin(f) - aMin(ent); if (mins >= 0 && mins < 24 * 60) minutosDia[ent.fecha] = (minutosDia[ent.fecha] || 0) + mins; ent = null; }
+      });
+      if (ent) abiertoDia[ent.fecha] = true;
       const dias = {};
-      l.forEach(f => { (dias[f.fecha] = dias[f.fecha] || []).push(f); });
-      const min = h => { const [a, b] = String(h).split(':').map(Number); return a * 60 + b; };
+      l.filter(f => f.fecha >= desde && f.fecha <= hasta).forEach(f => { (dias[f.fecha] = dias[f.fecha] || []).push(f); });
+      Object.keys(minutosDia).forEach(f => { if (f >= desde && f <= hasta && !dias[f]) dias[f] = []; });
       let totalMin = 0;
       const resumen = Object.keys(dias).sort().map(fecha => {
-        let ent = null, mins = 0, abierto = false;
-        dias[fecha].forEach(f => {
-          if (f.tipo === 'entrada') { ent = f.hora; abierto = true; }
-          else if (ent) { mins += Math.max(0, min(f.hora) - min(ent)); ent = null; abierto = false; }
-        });
-        totalMin += mins;
-        return { fecha, fichajes: dias[fecha], minutos: mins, sin_salida: abierto };
+        const mins = minutosDia[fecha] || 0; totalMin += mins;
+        return { fecha, fichajes: dias[fecha], minutos: mins, sin_salida: !!abiertoDia[fecha] };
       });
       res.json({ mes, dias: resumen, total_minutos: totalMin });
     } catch (e) { res.status(502).json({ error: 'No se pudo leer el TPV: ' + e.message }); }

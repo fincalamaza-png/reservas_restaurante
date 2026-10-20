@@ -1221,7 +1221,7 @@ function vPersonal(app){
     };
     h += '<div class="sec-tit">En plantilla (' + act.length + ')</div>' + (act.map(item).join('') || '<div class="vacio">Aún no hay trabajadores</div>');
     if (baja.length) h += '<div class="sec-tit">De baja</div>' + baja.map(item).join('');
-    h += '<p class="muted" style="margin:10px 4px 24px">Cada trabajador ficha en el TPV con su PIN, pulsando el botón «Fichar» de la pantalla de entrada. Sus fichajes aparecen en su ficha.</p>';
+    h += '<p class="muted" style="margin:10px 4px 24px">Cada trabajador ficha con su clave en la app <b>Fichaje</b> (gestion.palaciocondealdana.com/fichaje.html), que se instala como un icono en el móvil o la tablet. Sus fichajes aparecen aquí, en su ficha.</p>';
     $('per-body').innerHTML = h;
   }).catch(fallo);
 }
@@ -1255,9 +1255,9 @@ function pintarTrabajador(mes){
     '<div class="fila">' + cmp('Horas por semana', 'horas_semana', ' inputmode="decimal"') + cmp('Salario bruto mensual (€)', 'salario', ' inputmode="decimal"') + '</div>' +
     '<div class="fila">' + cmp('Fecha de alta', 'fecha_alta', ' type="date"') + cmp('Fecha de baja', 'fecha_baja', ' type="date"') + '</div>' +
     cmp('Notas', 'notas') + '</div>';
-  h += '<div class="card"><h3>Fichar en el TPV</h3><div class="fila">' + cmp('PIN de 4 números', 'pin', ' inputmode="numeric" maxlength="4"') +
+  h += '<div class="card"><h3>Fichaje</h3><div class="fila">' + cmp('Clave para fichar (4 números)', 'pin', ' inputmode="numeric" maxlength="4"') +
     '<div class="field"><label>Qué puede hacer en el TPV</label><select onchange="TR.rol=this.value;marcar()">' + Object.keys(ROLES_TPV).map(function(r){ return '<option value="' + r + '"' + (t.rol === r ? ' selected' : '') + '>' + ROLES_TPV[r] + '</option>'; }).join('') + '</select></div></div>' +
-    '<p class="muted">Con este PIN ficha entrada y salida en el TPV (botón «Fichar»). Si pones fecha de baja, el PIN deja de funcionar.</p></div>';
+    '<p class="muted">Con esta clave ficha entrada y salida en la app Fichaje. Si pones fecha de baja, la clave deja de funcionar.</p></div>';
   h += '<button class="btn btn-p" onclick="guardarTrabajador()">Guardar</button><div style="height:30px"></div></div></div>';
   $('app').innerHTML = h;
   if (!nuevo) cargarFichajes(mes);
