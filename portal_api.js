@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const PERMISOS = require('./permisos');
 
 const TPV_URL = (process.env.TPV_URL || 'https://gestion.palaciocondealdana.com').replace(/\/$/, '');
+const HOTEL_URL = (process.env.HOTEL_URL || 'https://hotel.palaciocondealdana.com').replace(/\/$/, '');
 // Familias de la carta del restaurante en el TPV (las mismas que usa generar_carta.py)
 const FAMILIAS_EXCLUIDAS_CARTA = [15, 16];
 
@@ -460,6 +461,12 @@ module.exports = function montarPortal(app, db) {
     out.documentos.total_recibidas = Math.round((out.documentos.recibidas.hotel + out.documentos.recibidas.restaurante) * 100) / 100;
 
     out.total_ingresos = Math.round(((out.tpv ? out.tpv.total : 0) + out.celebraciones.total_cobros) * 100) / 100;
+    try {
+      const gm = gastosDelMes(mes);
+      out.gastos_admin = { total: Math.round(gm.reduce((t, g) => t + (g.importe_mes || 0), 0) * 100) / 100,
+        fijos: Math.round(gm.filter(g => g.tipo === 'fijo').reduce((t, g) => t + g.importe_mes, 0) * 100) / 100,
+        variables: Math.round(gm.filter(g => g.tipo === 'variable').reduce((t, g) => t + g.importe_mes, 0) * 100) / 100 };
+    } catch (e) {}
     res.json(out);
   });
 
@@ -536,5 +543,244 @@ module.exports = function montarPortal(app, db) {
     res.setHeader('Content-Type', d.archivo_tipo || 'application/octet-stream');
     res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(d.archivo_nombre || d.archivo) + '"');
     res.sendFile(f);
+  });
+
+  // ══ GASTOS FIJOS Y VARIABLES ════════════════════════════════════════════
+  db.exec(`CREATE TABLE IF NOT EXISTS gastos_admin (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL, importe REAL DEFAULT 0,
+    tipo TEXT DEFAULT 'variable', periodicidad TEXT DEFAULT 'mensual',
+    area TEXT DEFAULT 'general', fecha TEXT, fecha_fin TEXT,
+    forma_pago TEXT, notas TEXT, activo INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  const MESES_PERIODO = { mensual: 1, trimestral: 3, semestral: 6, anual: 12 };
+  function datosGasto(d, act) {
+    const o = {};
+    o.nombre = d.nombre !== undefined ? txt(d.nombre).slice(0, 120) : (act ? act.nombre : '');
+    o.importe = d.importe !== undefined ? num(d.importe) : (act ? act.importe : 0);
+    o.tipo = d.tipo === 'fijo' ? 'fijo' : (d.tipo === 'variable' ? 'variable' : (act ? act.tipo : 'variable'));
+    o.periodicidad = MESES_PERIODO[d.periodicidad] ? d.periodicidad : (act ? act.periodicidad : 'mensual');
+    o.area = ['hotel', 'restaurante', 'general'].includes(d.area) ? d.area : (act ? act.area : 'general');
+    ['fecha', 'fecha_fin', 'forma_pago', 'notas'].forEach(k => { o[k] = d[k] !== undefined ? txt(d[k]) : (act ? act[k] : ''); });
+    if (!o.fecha) o.fecha = new Date().toISOString().slice(0, 10);
+    o.activo = d.activo !== undefined ? (d.activo ? 1 : 0) : (act ? act.activo : 1);
+    return o;
+  }
+  // Gastos que tocan a un mes: los variables por su fecha; los fijos, su parte mensual
+  function gastosDelMes(mes) {
+    const desde = mes + '-01';
+    const [y, m] = mes.split('-').map(Number);
+    const hasta = mes + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0');
+    const out = [];
+    db.prepare('SELECT * FROM gastos_admin WHERE activo = 1').all().forEach(g => {
+      if (g.tipo === 'variable') { if (g.fecha >= desde && g.fecha <= hasta) out.push(Object.assign({}, g, { importe_mes: g.importe })); return; }
+      if ((g.fecha || '') > hasta) return;
+      if (g.fecha_fin && g.fecha_fin < desde) return;
+      const meses = MESES_PERIODO[g.periodicidad] || 1;
+      out.push(Object.assign({}, g, { importe_mes: Math.round(g.importe / meses * 100) / 100 }));
+    });
+    return out;
+  }
+  app.get('/api/portal/gastos', (req, res) => {
+    const mes = /^\d{4}-\d{2}$/.test(req.query.mes || '') ? req.query.mes : new Date().toISOString().slice(0, 7);
+    const delMes = gastosDelMes(mes);
+    const fijos = db.prepare("SELECT * FROM gastos_admin WHERE tipo = 'fijo' ORDER BY activo DESC, nombre").all();
+    const suma = l => Math.round(l.reduce((s, g) => s + (g.importe_mes || 0), 0) * 100) / 100;
+    res.json({ mes, fijos, del_mes: delMes, total_fijos: suma(delMes.filter(g => g.tipo === 'fijo')), total_variables: suma(delMes.filter(g => g.tipo === 'variable')), total: suma(delMes) });
+  });
+  app.get('/api/portal/gastos/:id', (req, res) => {
+    const g = db.prepare('SELECT * FROM gastos_admin WHERE id = ?').get(req.params.id);
+    if (!g) return res.status(404).json({ error: 'No encontrado' });
+    res.json(g);
+  });
+  app.post('/api/portal/gastos', (req, res) => {
+    const o = datosGasto(req.body || {}, null);
+    if (!o.nombre) return res.status(400).json({ error: 'Pon el nombre del gasto' });
+    const cols = Object.keys(o);
+    const r = db.prepare(`INSERT INTO gastos_admin (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(k => o[k]));
+    res.json(db.prepare('SELECT * FROM gastos_admin WHERE id = ?').get(r.lastInsertRowid));
+  });
+  app.put('/api/portal/gastos/:id', (req, res) => {
+    const act = db.prepare('SELECT * FROM gastos_admin WHERE id = ?').get(req.params.id);
+    if (!act) return res.status(404).json({ error: 'No encontrado' });
+    const o = datosGasto(req.body || {}, act); const cols = Object.keys(o);
+    db.prepare(`UPDATE gastos_admin SET ${cols.map(k => k + '=?').join(',')} WHERE id=?`).run(...cols.map(k => o[k]), req.params.id);
+    res.json(db.prepare('SELECT * FROM gastos_admin WHERE id = ?').get(req.params.id));
+  });
+  app.delete('/api/portal/gastos/:id', (req, res) => {
+    db.prepare('DELETE FROM gastos_admin WHERE id = ?').run(req.params.id);
+    res.json({ ok: true });
+  });
+
+  // ══ FACTURACIÓN Y COBROS (qué se ha facturado y cómo se ha cobrado) ══════
+  const FORMAS = ['Efectivo', 'Tarjeta', 'Transferencia', 'Bizum', 'Domiciliación', 'Sin indicar'];
+  const normForma = f => {
+    const x = String(f || '').toLowerCase();
+    if (x.startsWith('efect')) return 'Efectivo';
+    if (x.startsWith('tarj')) return 'Tarjeta';
+    if (x.startsWith('transf')) return 'Transferencia';
+    if (x.startsWith('bizum')) return 'Bizum';
+    if (x.startsWith('domic')) return 'Domiciliación';
+    return 'Sin indicar';
+  };
+  app.get('/api/portal/facturacion', async (req, res) => {
+    const mes = /^\d{4}-\d{2}$/.test(req.query.mes || '') ? req.query.mes : new Date().toISOString().slice(0, 7);
+    const desde = mes + '-01';
+    const [y, m] = mes.split('-').map(Number);
+    const hasta = mes + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0');
+    const enMes = f => f && f >= desde && f <= hasta;
+    const r2 = n => Math.round((n || 0) * 100) / 100;
+    const origenes = ['Restaurante (TPV)', 'Hotel', 'Eventos', 'Facturas emitidas'];
+    const cobros = {}; FORMAS.forEach(f => { cobros[f] = {}; origenes.forEach(o => { cobros[f][o] = 0; }); });
+    const facturado = {}; origenes.forEach(o => { facturado[o] = 0; });
+    const avisos = [];
+
+    // TPV: lo cobrado en el restaurante (efectivo / tarjeta)
+    try {
+      const dias = await (await tpv(`/api/informes/ventas?fecha_desde=${desde}&fecha_hasta=${hasta}`)).json();
+      (dias || []).forEach(d => {
+        facturado['Restaurante (TPV)'] += d.total || 0;
+        cobros.Efectivo['Restaurante (TPV)'] += d.efectivo || 0;
+        cobros.Tarjeta['Restaurante (TPV)'] += d.tarjeta || 0;
+        cobros['Sin indicar']['Restaurante (TPV)'] += Math.max(0, (d.total || 0) - (d.efectivo || 0) - (d.tarjeta || 0));
+      });
+    } catch (e) { avisos.push('No se pudo leer el TPV'); }
+
+    // Hotel: facturas emitidas en el mes (la app del hotel no guarda la forma de pago)
+    let facturasHotel = [];
+    try {
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 12000);
+      const fr = await fetch(HOTEL_URL + '/api/facturas', { signal: ctrl.signal }); clearTimeout(t);
+      if (!fr.ok) throw new Error(fr.status);
+      facturasHotel = (await fr.json()).filter(f => enMes(String(f.fecha_emision || f.created_at || '').slice(0, 10)) && f.estado !== 'anulada');
+      facturasHotel.forEach(f => { facturado.Hotel += f.total || 0; cobros['Sin indicar'].Hotel += f.total || 0; });
+    } catch (e) { avisos.push('No se pudo leer la app del hotel'); }
+
+    // Eventos (bodas, comuniones y eventos): fianzas y pagos con su forma de pago
+    db.prepare('SELECT * FROM celebraciones').all().map(parseCeleb).forEach(c => {
+      if (c.fianza_pagada && c.fianza_importe && enMes(c.fianza_fecha)) { cobros[normForma(c.fianza_forma)].Eventos += c.fianza_importe; facturado.Eventos += c.fianza_importe; }
+      c.pagos.forEach(p => { if (enMes(p.fecha) && num(p.importe)) { cobros[normForma(p.forma)].Eventos += num(p.importe); facturado.Eventos += num(p.importe); } });
+    });
+
+    // Facturas emitidas en Administración: facturado por fecha; cobrado por fecha de pago
+    const emitidas = db.prepare("SELECT * FROM documentos_admin WHERE tipo = 'factura' AND direccion = 'emitido'").all();
+    emitidas.forEach(d => {
+      if (enMes(d.fecha)) facturado['Facturas emitidas'] += d.total || 0;
+      if (d.estado === 'pagado' && enMes(d.fecha_pago || d.fecha)) cobros[normForma(d.forma_pago)]['Facturas emitidas'] += d.total || 0;
+    });
+    const pendientesCobro = emitidas.filter(d => d.estado !== 'pagado').map(d => ({ id: d.id, area: d.area, numero: d.numero, fecha: d.fecha, tercero: d.tercero, total: d.total }));
+
+    // Pagado a proveedores (facturas y albaranes recibidos pagados) y gastos del mes
+    const pagadoProv = {}; FORMAS.forEach(f => { pagadoProv[f] = 0; });
+    db.prepare("SELECT * FROM documentos_admin WHERE direccion = 'recibido' AND tipo IN ('factura','albaran') AND estado = 'pagado'").all()
+      .forEach(d => { if (enMes(d.fecha_pago || d.fecha)) pagadoProv[normForma(d.forma_pago)] += d.total || 0; });
+    const gastos = gastosDelMes(mes);
+
+    // Redondeo y totales
+    const filas = FORMAS.map(f => {
+      const fila = { forma: f, total: 0 };
+      origenes.forEach(o => { fila[o] = r2(cobros[f][o]); fila.total += cobros[f][o]; });
+      fila.total = r2(fila.total);
+      return fila;
+    }).filter(f => f.total || f.forma !== 'Sin indicar' && f.forma !== 'Domiciliación' && f.forma !== 'Bizum');
+    origenes.forEach(o => { facturado[o] = r2(facturado[o]); });
+    res.json({
+      mes, origenes, facturado, total_facturado: r2(origenes.reduce((s, o) => s + facturado[o], 0)),
+      cobros: filas, total_cobrado: r2(filas.reduce((s, f) => s + f.total, 0)),
+      pagado_proveedores: FORMAS.map(f => ({ forma: f, total: r2(pagadoProv[f]) })).filter(x => x.total),
+      total_pagado_proveedores: r2(FORMAS.reduce((s, f) => s + pagadoProv[f], 0)),
+      gastos_mes: r2(gastos.reduce((s, g) => s + (g.importe_mes || 0), 0)),
+      pendientes_cobro: pendientesCobro, facturas_hotel: facturasHotel.length, avisos
+    });
+  });
+
+  // ══ PERSONAL (solo administradores) ═════════════════════════════════════
+  // Los trabajadores están en el TPV (su PIN sirve para fichar allí); aquí se guarda su ficha.
+  db.exec(`CREATE TABLE IF NOT EXISTS trabajadores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tpv_usuario_id INTEGER UNIQUE,
+    nombre TEXT, apellidos TEXT, dni TEXT, nss TEXT, fecha_nacimiento TEXT,
+    telefono TEXT, email TEXT, direccion TEXT, iban TEXT,
+    puesto TEXT, area TEXT, contrato TEXT, jornada TEXT, horas_semana REAL,
+    salario REAL, fecha_alta TEXT, fecha_baja TEXT, notas TEXT,
+    created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+  const CAMPOS_TRAB = ['nombre', 'apellidos', 'dni', 'nss', 'fecha_nacimiento', 'telefono', 'email', 'direccion', 'iban', 'puesto', 'area', 'contrato', 'jornada', 'fecha_alta', 'fecha_baja', 'notas'];
+  const jsonTPV = async (ruta, metodo, cuerpo) => {
+    const r = await fetch(TPV_URL + ruta, { method: metodo || 'GET', headers: { 'Content-Type': 'application/json' }, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ('El TPV respondió ' + r.status));
+    return d;
+  };
+  app.get('/api/portal/personal', async (req, res) => {
+    const fichas = db.prepare('SELECT * FROM trabajadores').all();
+    let usuarios = [], error = null;
+    try { usuarios = await jsonTPV('/api/auth/usuarios/todos'); } catch (e) { error = 'No se pudo leer el TPV: ' + e.message; }
+    const porTpv = {}; fichas.forEach(f => { if (f.tpv_usuario_id) porTpv[f.tpv_usuario_id] = f; });
+    const lista = (usuarios || []).filter(u => u.rol !== 'propietario').map(u => {
+      const f = porTpv[u.id] || {};
+      return Object.assign({}, f, { id: f.id || null, tpv_usuario_id: u.id, nombre: f.nombre || u.nombre, apellidos: f.apellidos || u.apellidos || '', rol: u.rol, activo: !!u.activo, pin: u.pin, color: u.color });
+    });
+    fichas.filter(f => !f.tpv_usuario_id || !usuarios.some(u => u.id === f.tpv_usuario_id)).forEach(f => lista.push(Object.assign({}, f, { activo: !f.fecha_baja, sin_tpv: true })));
+    lista.sort((a, b) => (b.activo - a.activo) || String(a.nombre).localeCompare(String(b.nombre)));
+    res.json({ trabajadores: lista, error });
+  });
+  // Guardar ficha (alta o cambios). También crea o actualiza su usuario del TPV (PIN y puesto en el TPV).
+  app.post('/api/portal/personal', async (req, res) => {
+    const d = req.body || {};
+    const o = {}; CAMPOS_TRAB.forEach(k => { o[k] = d[k] !== undefined ? txt(d[k]) : ''; });
+    o.horas_semana = d.horas_semana ? num(d.horas_semana) : null;
+    o.salario = d.salario ? num(d.salario) : null;
+    if (!o.nombre) return res.status(400).json({ error: 'Falta el nombre' });
+    const pin = d.pin !== undefined ? String(d.pin).trim() : '';
+    if (pin && !/^\d{4}$/.test(pin)) return res.status(400).json({ error: 'El PIN para fichar tiene que ser de 4 números' });
+    const rol = ['camarero', 'cocinero', 'encargado', 'fichaje'].includes(d.rol) ? d.rol : 'fichaje';
+    let tpvId = d.tpv_usuario_id ? int(d.tpv_usuario_id) : null;
+    try {
+      const activo = !o.fecha_baja;
+      if (tpvId) await jsonTPV('/api/auth/usuarios/' + tpvId, 'PUT', Object.assign({ nombre: o.nombre, apellidos: o.apellidos, rol, activo }, pin ? { pin } : {}));
+      else {
+        if (!pin) return res.status(400).json({ error: 'Pon un PIN de 4 números para que pueda fichar en el TPV' });
+        tpvId = (await jsonTPV('/api/auth/usuarios', 'POST', { nombre: o.nombre, apellidos: o.apellidos, pin, rol, color: '#b8965a' })).id;
+      }
+    } catch (e) { return res.status(400).json({ error: e.message }); }
+    const existe = db.prepare('SELECT id FROM trabajadores WHERE tpv_usuario_id = ? OR id = ?').get(tpvId, int(d.id) || -1);
+    const cols = Object.keys(o);
+    if (existe) db.prepare(`UPDATE trabajadores SET ${cols.map(k => k + '=?').join(',')}, tpv_usuario_id=?, updated_at=datetime('now') WHERE id=?`).run(...cols.map(k => o[k]), tpvId, existe.id);
+    else db.prepare(`INSERT INTO trabajadores (${cols.join(',')}, tpv_usuario_id) VALUES (${cols.map(() => '?').join(',')}, ?)`).run(...cols.map(k => o[k]), tpvId);
+    res.json({ ok: true, tpv_usuario_id: tpvId });
+  });
+  // Fichajes de un trabajador en un mes, con horas por día
+  app.get('/api/portal/personal/:tpvId/fichajes', async (req, res) => {
+    const mes = /^\d{4}-\d{2}$/.test(req.query.mes || '') ? req.query.mes : new Date().toISOString().slice(0, 7);
+    const [y, m] = mes.split('-').map(Number);
+    const hasta = mes + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0');
+    try {
+      const l = await jsonTPV(`/api/personal/fichajes-usuario?usuario_id=${int(req.params.tpvId)}&desde=${mes}-01&hasta=${hasta}`);
+      const dias = {};
+      l.forEach(f => { (dias[f.fecha] = dias[f.fecha] || []).push(f); });
+      const min = h => { const [a, b] = String(h).split(':').map(Number); return a * 60 + b; };
+      let totalMin = 0;
+      const resumen = Object.keys(dias).sort().map(fecha => {
+        let ent = null, mins = 0, abierto = false;
+        dias[fecha].forEach(f => {
+          if (f.tipo === 'entrada') { ent = f.hora; abierto = true; }
+          else if (ent) { mins += Math.max(0, min(f.hora) - min(ent)); ent = null; abierto = false; }
+        });
+        totalMin += mins;
+        return { fecha, fichajes: dias[fecha], minutos: mins, sin_salida: abierto };
+      });
+      res.json({ mes, dias: resumen, total_minutos: totalMin });
+    } catch (e) { res.status(502).json({ error: 'No se pudo leer el TPV: ' + e.message }); }
+  });
+  app.post('/api/portal/personal/:tpvId/fichajes', async (req, res) => {
+    const d = req.body || {};
+    try { res.json(await jsonTPV('/api/personal/fichajes', 'POST', { usuario_id: int(req.params.tpvId), tipo: d.tipo, fecha: txt(d.fecha), hora: txt(d.hora) })); }
+    catch (e) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete('/api/portal/personal/fichajes/:id', async (req, res) => {
+    try { res.json(await jsonTPV('/api/personal/fichajes/' + int(req.params.id), 'DELETE')); }
+    catch (e) { res.status(400).json({ error: e.message }); }
   });
 };

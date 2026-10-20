@@ -311,7 +311,7 @@ function render(){
   SUCIO = false;
   if (!h) return vHome(app);
   var nec = { restaurante: ['reservas', 'carta'], carta: 'carta', menus: 'carta', menu: ['carta', 'bodas', 'comuniones', 'eventos'], personalizados: 'carta', personalizado: 'carta',
-    bodas: 'bodas', comuniones: 'comuniones', 'otros-eventos': 'eventos', eventos: EVENTOS, celebracion: EVENTOS, contabilidad: 'contabilidad', admin: 'contabilidad', documento: 'contabilidad', usuarios: 'admin' }[p[0]];
+    bodas: 'bodas', comuniones: 'comuniones', 'otros-eventos': 'eventos', eventos: EVENTOS, celebracion: EVENTOS, contabilidad: 'contabilidad', admin: 'contabilidad', documentos: 'contabilidad', facturacion: 'contabilidad', gastos: 'contabilidad', gasto: 'contabilidad', personal: 'admin', trabajador: 'admin', documento: 'contabilidad', usuarios: 'admin' }[p[0]];
   if (nec && !puede(nec)) { toast('No tienes acceso a esa sección'); location.hash = ''; return; }
   switch (p[0]) {
     case 'usuarios': return vUsuarios(app);
@@ -325,7 +325,13 @@ function render(){
     case 'comuniones': return vCelebraciones(app, 'comunion', p[1]);
     case 'otros-eventos': return vCelebraciones(app, 'evento', p[1]);
     case 'eventos': return vEventos(app);
-    case 'admin': return vAdmin(app, p[1]);
+    case 'admin': return vAdminPaleta(app);
+    case 'documentos': return vAdmin(app);
+    case 'facturacion': return vFacturacion(app, p[1]);
+    case 'gastos': return vGastos(app, p[1]);
+    case 'gasto': return vGasto(app, p[1]);
+    case 'personal': return vPersonal(app);
+    case 'trabajador': return vTrabajador(app, p[1], p[2]);
     case 'documento': return vDocumento(app, p[1], p[2]);
     case 'celebracion': return vCelebracion(app, p[1], p[2], p[3]);
     case 'contabilidad': return vContabilidad(app, p[1]);
@@ -946,7 +952,7 @@ function vContabilidad(app, mes){
   var ym = mes.split('-').map(Number);
   var txtMes = mesTxt(ym[0], ym[1]);
   var otro = function(d){ var f = new Date(ym[0], ym[1] - 1 + d, 1); return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0'); };
-  app.innerHTML = '<div class="vista">' + cabecera('Administración y Contabilidad', 'Resumen del mes', '#/') +
+  app.innerHTML = '<div class="vista">' + cabecera('Resumen del mes', 'Administración y Contabilidad', '#/admin') +
     '<div class="content">' + pestanasAdmin('resumen') + '<div class="card"><div class="cal-nav" style="margin:0"><button onclick="ir(\'#/contabilidad/' + otro(-1) + '\')">&#8249;</button><b>' + txtMes + '</b><button onclick="ir(\'#/contabilidad/' + otro(1) + '\')">&#8250;</button></div></div>' +
     '<div id="cont-body"><div class="cargando">Calculando…</div></div></div></div>';
   api('GET', '/api/portal/contabilidad?mes=' + mes).then(function(d){
@@ -957,6 +963,7 @@ function vContabilidad(app, mes){
       '<div class="kpi"><small>Cobros bodas</small><b>' + euros(c.cobros_bodas) + '</b></div>' +
       '<div class="kpi"><small>Cobros comuniones</small><b>' + euros(c.cobros_comuniones) + '</b></div>' +
       '<div class="kpi"><small>Cobros eventos</small><b>' + euros(c.cobros_eventos || 0) + '</b></div></div>';
+    if (d.gastos_admin) h += '<div class="card"><h3>Gastos del mes</h3><table class="tabla"><tr><td>Fijos</td><td class="r">' + euros(d.gastos_admin.fijos) + '</td></tr><tr><td>Variables</td><td class="r">' + euros(d.gastos_admin.variables) + '</td></tr><tr><th>Total</th><th class="r">' + euros(d.gastos_admin.total) + '</th></tr></table><button class="btn btn-s btn-sm" style="margin-top:8px" onclick="ir(\'#/gastos/' + mes + '\')">Ver gastos</button></div>';
     var dc = d.documentos;
     if (dc) h += '<div class="card"><h3>Facturas del mes (Administración)</h3><table class="tabla">' +
       '<tr><th></th><th class="r">Hotel</th><th class="r">Restaurante</th><th class="r">Total</th></tr>' +
@@ -1007,12 +1014,9 @@ function vContabilidad(app, mes){
 // ════════════════════════════════════════════════════════════════════════
 var TIPOS_DOC = { albaran: 'Albarán', factura: 'Factura', presupuesto: 'Presupuesto', proforma: 'Proforma' };
 var ADM = { area: '', tipo: '', q: '' };
-function pestanasAdmin(act){
-  return '<div class="chips"><button class="chip' + (act === 'docs' ? ' on' : '') + '" onclick="volverA(\'#/admin\')">Documentos</button>' +
-    '<button class="chip' + (act === 'resumen' ? ' on' : '') + '" onclick="volverA(\'#/contabilidad\')">Resumen del mes</button></div>';
-}
+function pestanasAdmin(){ return ''; }
 function vAdmin(app){
-  app.innerHTML = '<div class="vista">' + cabecera('Administración y Contabilidad', 'Documentos de hotel y restaurante', '#/', '<button class="acc" onclick="ir(\'#/documento/nuevo\')">+ Nuevo</button>') +
+  app.innerHTML = '<div class="vista">' + cabecera('Documentos', 'Albaranes, facturas, presupuestos y proformas', '#/admin', '<button class="acc" onclick="ir(\'#/documento/nuevo\')">+ Nuevo</button>') +
     '<div class="content">' + pestanasAdmin('docs') +
     '<div class="chips" id="f-area"></div><div class="chips" id="f-tipo"></div>' +
     '<input class="in" id="f-q" placeholder="Buscar proveedor, cliente, número o concepto" value="' + attr(ADM.q) + '" style="margin-bottom:12px">' +
@@ -1044,7 +1048,7 @@ var DOC = null, DOC_ARCHIVO = null;
 function vDocumento(app, id){
   var nuevo = id === 'nuevo';
   DOC_ARCHIVO = null;
-  app.innerHTML = '<div class="vista">' + cabecera('Documento', '', '#/admin') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  app.innerHTML = '<div class="vista">' + cabecera('Documento', '', '#/documentos') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
   var cargar = nuevo ? Promise.resolve({ area: ADM.area || 'restaurante', tipo: ADM.tipo || 'factura', direccion: 'recibido', fecha: hoyISO(), base: '', iva_pct: 21, estado: 'pendiente' }) : api('GET', '/api/portal/documentos/' + id);
   cargar.then(function(d){ DOC = clon(d); pintarDoc(); }).catch(fallo);
 }
@@ -1054,7 +1058,7 @@ function pintarDoc(){
     var sel = function(k, ops){ return '<select onchange="DOC.' + k + '=this.value;marcar();' + (k === 'direccion' || k === 'tipo' ? 'vDocumentoRefrescar()' : '') + '">' + ops.map(function(o){ return '<option value="' + o[0] + '"' + (String(DOC[k]) === String(o[0]) ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'; };
     var cmp = function(etq, k, extra){ return '<div class="field"><label>' + etq + '</label><input' + (extra || '') + ' value="' + attr(DOC[k]) + '" oninput="DOC.' + k + '=this.value;marcar();calcDoc()"></div>'; };
     var emit = DOC.direccion === 'emitido';
-    var h = '<div class="vista">' + cabecera(nuevo ? 'Nuevo documento' : (TIPOS_DOC[DOC.tipo] + ' ' + (DOC.numero || '')), DOC.area === 'hotel' ? 'Hotel' : 'Restaurante', '#/admin', '<button class="acc" onclick="guardarDoc()">Guardar</button>') + '<div class="content">' +
+    var h = '<div class="vista">' + cabecera(nuevo ? 'Nuevo documento' : (TIPOS_DOC[DOC.tipo] + ' ' + (DOC.numero || '')), DOC.area === 'hotel' ? 'Hotel' : 'Restaurante', '#/documentos', '<button class="acc" onclick="guardarDoc()">Guardar</button>') + '<div class="content">' +
       '<div class="card"><div class="fila"><div class="field"><label>Área</label>' + sel('area', [['restaurante', 'Restaurante'], ['hotel', 'Hotel']]) + '</div>' +
       '<div class="field"><label>Tipo</label>' + sel('tipo', [['albaran', 'Albarán'], ['factura', 'Factura'], ['presupuesto', 'Presupuesto'], ['proforma', 'Proforma']]) + '</div></div>' +
       '<div class="field"><label>¿De quién es?</label>' + sel('direccion', [['recibido', 'Recibido de un proveedor (gasto)'], ['emitido', 'Emitido por nosotros a un cliente (ingreso)']]) + '</div>' +
@@ -1088,12 +1092,210 @@ function guardarDoc(){
   api(nuevo ? 'POST' : 'PUT', '/api/portal/documentos' + (nuevo ? '' : '/' + DOC.id), d).then(function(r){
     var sube = f ? fetch('/api/portal/documentos/' + r.id + '/archivo', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Nombre': encodeURIComponent(f.name) }, body: f })
       .then(function(x){ return x.json().then(function(j){ if (!x.ok) throw new Error(j.error || 'No se pudo subir el archivo'); }); }) : Promise.resolve();
-    return sube.then(function(){ SUCIO = false; toast('Documento guardado'); ir('#/admin'); });
+    return sube.then(function(){ SUCIO = false; toast('Documento guardado'); ir('#/documentos'); });
   }).catch(fallo);
 }
 function borrarDoc(){
   if (!confirm('¿Eliminar este documento y su archivo?')) return;
-  api('DELETE', '/api/portal/documentos/' + DOC.id).then(function(){ SUCIO = false; ir('#/admin'); }).catch(fallo);
+  api('DELETE', '/api/portal/documentos/' + DOC.id).then(function(){ SUCIO = false; ir('#/documentos'); }).catch(fallo);
+}
+
+
+// ════════════════════════════════════════════════════════════════════════
+//  ADMINISTRACIÓN: paleta, facturación y cobros, gastos y personal
+// ════════════════════════════════════════════════════════════════════════
+function mesActual(){ return hoyISO().slice(0, 7); }
+function mesOtro(mes, d){ var ym = mes.split('-').map(Number), f = new Date(ym[0], ym[1] - 1 + d, 1); return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0'); }
+function navMes(mes, ruta){
+  var ym = mes.split('-').map(Number);
+  return '<div class="card"><div class="cal-nav" style="margin:0"><button onclick="ir(\'' + ruta + mesOtro(mes, -1) + '\')">&#8249;</button><b>' + mesTxt(ym[0], ym[1]) +
+    '</b><button onclick="ir(\'' + ruta + mesOtro(mes, 1) + '\')">&#8250;</button></div></div>';
+}
+function vAdminPaleta(app){
+  app.innerHTML = '<div class="home">' + cabeceraHome('ADMINISTRACIÓN', 'DON FADRIQUE', '#/') + '<div class="cuadros">' +
+    cuadro('&#128196;', 'Documentos', 'Albaranes, facturas, presupuestos y proformas', '#/documentos') +
+    cuadro('&#128182;', 'Facturación y cobros', 'Lo facturado y cómo se ha cobrado', '#/facturacion') +
+    cuadro('&#129534;', 'Gastos', 'Fijos y variables', '#/gastos') +
+    cuadro('&#128202;', 'Resumen del mes', 'TPV, eventos y facturas', '#/contabilidad') +
+    (ST.admin ? cuadro('&#128101;', 'Personal', 'Trabajadores, fichas y fichajes', '#/personal') : '') +
+    '</div></div>';
+}
+
+// ── Facturación y cobros ──
+function vFacturacion(app, mes){
+  mes = /^\d{4}-\d{2}$/.test(mes || '') ? mes : mesActual();
+  app.innerHTML = '<div class="vista">' + cabecera('Facturación y cobros', 'Lo facturado y cómo se ha cobrado', '#/admin') +
+    '<div class="content">' + navMes(mes, '#/facturacion/') + '<div id="fac-body"><div class="cargando">Calculando…</div></div></div></div>';
+  api('GET', '/api/portal/facturacion?mes=' + mes).then(function(d){
+    var h = '<div class="kpis"><div class="kpi grande"><small>Facturado en el mes</small><b>' + euros(d.total_facturado) + '</b></div>' +
+      '<div class="kpi"><small>Cobrado</small><b>' + euros(d.total_cobrado) + '</b></div>' +
+      '<div class="kpi"><small>Pagado a proveedores</small><b>' + euros(d.total_pagado_proveedores) + '</b></div>' +
+      '<div class="kpi"><small>Gastos del mes</small><b>' + euros(d.gastos_mes) + '</b></div>' +
+      '<div class="kpi"><small>Facturas sin cobrar</small><b>' + d.pendientes_cobro.length + '</b></div></div>';
+    if (d.avisos.length) h += '<div class="card" style="border-left:4px solid var(--ambar)"><p class="muted">' + d.avisos.map(esc).join(' · ') + '</p></div>';
+    h += '<div class="card"><h3>Facturado</h3><table class="tabla">' + d.origenes.map(function(o){ return '<tr><td>' + esc(o) + '</td><td class="r">' + euros(d.facturado[o]) + '</td></tr>'; }).join('') +
+      '<tr><th>Total</th><th class="r">' + euros(d.total_facturado) + '</th></tr></table>' +
+      '<p class="muted" style="margin-top:6px">Restaurante: tickets del TPV · Hotel: facturas del mes · Eventos: fianzas y pagos recibidos · Facturas emitidas: las registradas en Documentos.</p></div>';
+    var cols = d.origenes;
+    h += '<div class="card" style="overflow-x:auto"><h3>Cobrado según forma de pago</h3><table class="tabla"><tr><th></th>' + cols.map(function(o){ return '<th class="r">' + esc(o.replace(' (TPV)', '')) + '</th>'; }).join('') + '<th class="r">Total</th></tr>' +
+      d.cobros.map(function(f){ return '<tr><td><b>' + esc(f.forma) + '</b></td>' + cols.map(function(o){ return '<td class="r">' + (f[o] ? euros(f[o]) : '<span class="muted">—</span>') + '</td>'; }).join('') + '<td class="r"><b>' + euros(f.total) + '</b></td></tr>'; }).join('') +
+      '<tr><th>Total</th>' + cols.map(function(o){ return '<th class="r">' + euros(d.cobros.reduce(function(a, f){ return a + (f[o] || 0); }, 0)) + '</th>'; }).join('') + '<th class="r">' + euros(d.total_cobrado) + '</th></tr></table>' +
+      '<p class="muted" style="margin-top:6px">La app del hotel no guarda la forma de pago, por eso sale en «Sin indicar».</p></div>';
+    if (d.pagado_proveedores.length) h += '<div class="card"><h3>Pagado a proveedores</h3><table class="tabla">' + d.pagado_proveedores.map(function(x){ return '<tr><td>' + esc(x.forma) + '</td><td class="r">' + euros(x.total) + '</td></tr>'; }).join('') + '</table></div>';
+    if (d.pendientes_cobro.length) h += '<div class="card"><h3>Facturas emitidas pendientes de cobro</h3>' + d.pendientes_cobro.map(function(x){
+      return '<div class="item" onclick="ir(\'#/documento/' + x.id + '\')"><div class="tx"><b>' + esc(x.tercero || 'Sin nombre') + '</b><small>' + esc([x.numero, fechaCorta(x.fecha), x.area === 'hotel' ? 'Hotel' : 'Restaurante'].filter(Boolean).join(' · ')) + '</small></div><div class="der"><b>' + euros(x.total) + '</b></div></div>'; }).join('') + '</div>';
+    $('fac-body').innerHTML = h + '<div style="height:24px"></div>';
+  }).catch(fallo);
+}
+
+// ── Gastos fijos y variables ──
+var PERIODOS = { mensual: 'Mensual', trimestral: 'Trimestral', semestral: 'Semestral', anual: 'Anual' };
+var AREAS_G = { general: 'General', hotel: 'Hotel', restaurante: 'Restaurante' };
+function vGastos(app, mes){
+  mes = /^\d{4}-\d{2}$/.test(mes || '') ? mes : mesActual();
+  app.innerHTML = '<div class="vista">' + cabecera('Gastos', 'Fijos y variables', '#/admin', '<button class="acc" onclick="ir(\'#/gasto/nuevo\')">+ Nuevo</button>') +
+    '<div class="content">' + navMes(mes, '#/gastos/') + '<div id="gas-body"><div class="cargando">Cargando…</div></div></div></div>';
+  api('GET', '/api/portal/gastos?mes=' + mes).then(function(d){
+    var it = function(g, sub){ return '<div class="item" onclick="ir(\'#/gasto/' + g.id + '\')"><div class="tx"><b>' + esc(g.nombre) + '</b><small>' + sub + '</small></div><div class="der"><b>' + euros(g.importe_mes != null ? g.importe_mes : g.importe) + '</b></div></div>'; };
+    var h = '<div class="kpis"><div class="kpi grande"><small>Gastos del mes</small><b>' + euros(d.total) + '</b></div>' +
+      '<div class="kpi"><small>Fijos</small><b>' + euros(d.total_fijos) + '</b></div><div class="kpi"><small>Variables</small><b>' + euros(d.total_variables) + '</b></div></div>';
+    h += '<div class="btns" style="margin-bottom:6px"><button class="btn btn-p" onclick="ir(\'#/gasto/nuevo/variable\')">+ Gasto variable</button><button class="btn btn-s" onclick="ir(\'#/gasto/nuevo/fijo\')">+ Gasto fijo</button></div>';
+    var vars = d.del_mes.filter(function(g){ return g.tipo === 'variable'; }).sort(function(a, b){ return b.fecha.localeCompare(a.fecha); });
+    h += '<div class="sec-tit">Variables de este mes (' + vars.length + ')</div>' + (vars.map(function(g){ return it(g, esc(fechaCorta(g.fecha)) + ' · ' + AREAS_G[g.area] + (g.forma_pago ? ' · ' + esc(g.forma_pago) : '')); }).join('') || '<div class="vacio">Sin gastos variables este mes</div>');
+    var fijosMes = d.del_mes.filter(function(g){ return g.tipo === 'fijo'; });
+    h += '<div class="sec-tit">Fijos que cuentan este mes (' + fijosMes.length + ')</div>' + (fijosMes.map(function(g){ return it(g, PERIODOS[g.periodicidad] + (g.periodicidad !== 'mensual' ? ' · ' + euros(g.importe) + ' repartidos' : '') + ' · ' + AREAS_G[g.area]); }).join('') || '<div class="vacio">Sin gastos fijos</div>');
+    var inact = d.fijos.filter(function(g){ return !g.activo; });
+    if (inact.length) h += '<div class="sec-tit">Fijos dados de baja</div>' + inact.map(function(g){ return it(g, 'De baja'); }).join('');
+    h += '<p class="muted" style="margin:10px 4px 24px">Los gastos fijos trimestrales, semestrales o anuales se reparten por meses (por ejemplo, un seguro anual de 1.200 € cuenta 100 € cada mes).</p>';
+    $('gas-body').innerHTML = h;
+  }).catch(fallo);
+}
+var GA = null;
+function vGasto(app, id, tipo){
+  var nuevo = id === 'nuevo';
+  if (nuevo && tipo === undefined) { var hp = location.hash.split('/'); tipo = hp[3]; }
+  var cargar = nuevo ? Promise.resolve({ nombre: '', importe: '', tipo: tipo === 'fijo' ? 'fijo' : 'variable', periodicidad: 'mensual', area: 'general', fecha: hoyISO(), activo: 1 })
+    : api('GET', '/api/portal/gastos/' + id);
+  app.innerHTML = '<div class="vista">' + cabecera('Gasto', '', '#/gastos') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  cargar.then(function(g){ GA = clon(g); pintarGasto(); }).catch(function(e){ fallo(e); ir('#/gastos'); });
+}
+function pintarGasto(){
+  var g = GA, nuevo = !g.id, fijo = g.tipo === 'fijo';
+  var sel = function(k, ops, re){ return '<select onchange="GA.' + k + '=this.value;marcar();' + (re ? 'pintarGasto()' : '') + '">' + Object.keys(ops).map(function(v){ return '<option value="' + v + '"' + (g[k] === v ? ' selected' : '') + '>' + ops[v] + '</option>'; }).join('') + '</select>'; };
+  var cmp = function(etq, k, extra){ return '<div class="field"><label>' + etq + '</label><input' + (extra || '') + ' value="' + attr(g[k] == null ? '' : g[k]) + '" oninput="GA.' + k + '=this.value;marcar()"></div>'; };
+  $('app').innerHTML = '<div class="vista">' + cabecera(nuevo ? (fijo ? 'Nuevo gasto fijo' : 'Nuevo gasto variable') : g.nombre, fijo ? 'Gasto fijo' : 'Gasto variable', '#/gastos', '<button class="acc" onclick="guardarGasto()">Guardar</button>') + '<div class="content">' +
+    '<div class="card"><div class="chips"><button class="chip' + (!fijo ? ' on' : '') + '" onclick="GA.tipo=\'variable\';marcar();pintarGasto()">Variable</button><button class="chip' + (fijo ? ' on' : '') + '" onclick="GA.tipo=\'fijo\';marcar();pintarGasto()">Fijo</button></div>' +
+    cmp('Nombre del gasto', 'nombre', ' placeholder="' + (fijo ? 'Ej.: Alquiler, seguro, luz, gestoría…' : 'Ej.: Reparación cámara frigorífica') + '"') +
+    '<div class="fila">' + cmp('Importe (€)', 'importe', ' inputmode="decimal"') + (fijo ? '<div class="field"><label>Cada cuánto</label>' + sel('periodicidad', PERIODOS) + '</div>' : cmp('Fecha', 'fecha', ' type="date"')) + '</div>' +
+    (fijo ? '<div class="fila">' + cmp('Desde', 'fecha', ' type="date"') + cmp('Hasta (opcional)', 'fecha_fin', ' type="date"') + '</div>' : '') +
+    '<div class="fila"><div class="field"><label>Área</label>' + sel('area', AREAS_G) + '</div><div class="field"><label>Forma de pago</label>' +
+      sel('forma_pago', { '': '', 'Efectivo': 'Efectivo', 'Tarjeta': 'Tarjeta', 'Transferencia': 'Transferencia', 'Domiciliación': 'Domiciliación', 'Bizum': 'Bizum' }) + '</div></div>' +
+    cmp('Notas', 'notas') +
+    (fijo && !nuevo ? '<div class="sw-row"><span>Activo (sigue contando cada mes)</span><label class="sw"><input type="checkbox"' + (g.activo ? ' checked' : '') + ' onchange="GA.activo=this.checked?1:0;marcar()"><span class="sw-sl"></span></label></div>' : '') +
+    '</div><button class="btn btn-p" onclick="guardarGasto()">Guardar</button>' + (nuevo ? '' : '<button class="btn btn-d" onclick="borrarGasto()">Eliminar gasto</button>') + '<div style="height:30px"></div></div></div>';
+}
+function guardarGasto(){
+  if (!String(GA.nombre || '').trim()) return toast('Pon el nombre del gasto');
+  api(GA.id ? 'PUT' : 'POST', '/api/portal/gastos' + (GA.id ? '/' + GA.id : ''), GA).then(function(g){ SUCIO = false; toast('Gasto guardado'); ir('#/gastos/' + (g.tipo === 'variable' ? g.fecha.slice(0, 7) : mesActual())); }).catch(fallo);
+}
+function borrarGasto(){
+  if (!confirm('¿Eliminar "' + GA.nombre + '"?')) return;
+  api('DELETE', '/api/portal/gastos/' + GA.id).then(function(){ SUCIO = false; ir('#/gastos'); }).catch(fallo);
+}
+
+// ── Personal (solo administradores) ──
+var ROLES_TPV = { fichaje: 'Solo fichar', camarero: 'Camarero/a (usa el TPV)', cocinero: 'Cocina (usa el TPV)', encargado: 'Encargado/a (panel del TPV)' };
+var PERSONAL = null;
+function vPersonal(app){
+  app.innerHTML = '<div class="vista">' + cabecera('Personal', 'Trabajadores, fichas y fichajes', '#/admin', '<button class="acc" onclick="ir(\'#/trabajador/nuevo\')">+ Alta</button>') +
+    '<div class="content" id="per-body"><div class="cargando">Cargando…</div></div></div>';
+  api('GET', '/api/portal/personal').then(function(d){
+    PERSONAL = d.trabajadores;
+    var h = d.error ? '<div class="card" style="border-left:4px solid var(--ambar)"><p class="muted">' + esc(d.error) + '</p></div>' : '';
+    h += '<button class="btn btn-p" style="margin-bottom:12px" onclick="ir(\'#/trabajador/nuevo\')">+ Dar de alta un trabajador</button>';
+    var act = PERSONAL.filter(function(t){ return t.activo; }), baja = PERSONAL.filter(function(t){ return !t.activo; });
+    var item = function(t){
+      var k = t.tpv_usuario_id ? 'tpv' + t.tpv_usuario_id : 'f' + t.id;
+      return '<div class="item" onclick="ir(\'#/trabajador/' + k + '\')"><div class="tx"><b>' + esc([t.nombre, t.apellidos].filter(Boolean).join(' ')) + '</b><small>' +
+        esc([t.puesto, t.area].filter(Boolean).join(' · ') || ROLES_TPV[t.rol] || '') + (t.ficha_incompleta || !t.id ? ' · <span class="badge b-ambar">Ficha sin completar</span>' : '') + '</small></div><div class="der">&#8250;</div></div>';
+    };
+    h += '<div class="sec-tit">En plantilla (' + act.length + ')</div>' + (act.map(item).join('') || '<div class="vacio">Aún no hay trabajadores</div>');
+    if (baja.length) h += '<div class="sec-tit">De baja</div>' + baja.map(item).join('');
+    h += '<p class="muted" style="margin:10px 4px 24px">Cada trabajador ficha en el TPV con su PIN, pulsando el botón «Fichar» de la pantalla de entrada. Sus fichajes aparecen en su ficha.</p>';
+    $('per-body').innerHTML = h;
+  }).catch(fallo);
+}
+var TR = null;
+function vTrabajador(app, clave, mes){
+  var nuevo = clave === 'nuevo';
+  app.innerHTML = '<div class="vista">' + cabecera('Trabajador', '', '#/personal') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  var cargar = PERSONAL && !nuevo ? Promise.resolve(PERSONAL) : (nuevo ? Promise.resolve([]) : api('GET', '/api/portal/personal').then(function(d){ PERSONAL = d.trabajadores; return PERSONAL; }));
+  cargar.then(function(l){
+    if (nuevo) TR = { nombre: '', apellidos: '', rol: 'fichaje', fecha_alta: hoyISO(), pin: '' };
+    else {
+      var t = l.filter(function(x){ return (x.tpv_usuario_id ? 'tpv' + x.tpv_usuario_id : 'f' + x.id) === clave; })[0];
+      if (!t) throw new Error('Trabajador no encontrado');
+      TR = clon(t);
+    }
+    pintarTrabajador(mes);
+  }).catch(fallo);
+}
+function pintarTrabajador(mes){
+  var t = TR, nuevo = !t.tpv_usuario_id;
+  var cmp = function(etq, k, extra){ return '<div class="field"><label>' + etq + '</label><input' + (extra || '') + ' value="' + attr(t[k] == null ? '' : t[k]) + '" oninput="TR.' + k + '=this.value;marcar()"></div>'; };
+  var h = '<div class="vista">' + cabecera(nuevo ? 'Alta de trabajador' : [t.nombre, t.apellidos].filter(Boolean).join(' '), nuevo ? 'Personal' : (t.puesto || 'Ficha del trabajador'), '#/personal', '<button class="acc" onclick="guardarTrabajador()">Guardar</button>') + '<div class="content">';
+  if (!nuevo) h += '<div id="fich-body"><div class="cargando">Cargando fichajes…</div></div>';
+  h += '<div class="card"><h3>Datos personales</h3><div class="fila">' + cmp('Nombre', 'nombre') + cmp('Apellidos', 'apellidos') + '</div>' +
+    '<div class="fila">' + cmp('DNI / NIE', 'dni', ' autocapitalize="characters"') + cmp('Nº Seguridad Social', 'nss') + '</div>' +
+    '<div class="fila">' + cmp('Fecha de nacimiento', 'fecha_nacimiento', ' type="date"') + cmp('Teléfono', 'telefono', ' type="tel"') + '</div>' +
+    cmp('Email', 'email', ' type="email"') + cmp('Dirección', 'direccion') + cmp('IBAN (cuenta para la nómina)', 'iban', ' autocapitalize="characters"') + '</div>';
+  h += '<div class="card"><h3>Puesto y contrato</h3><div class="fila">' + cmp('Puesto', 'puesto', ' placeholder="Camarero, cocinero, limpieza, recepción…"') +
+    '<div class="field"><label>Área</label><select onchange="TR.area=this.value;marcar()">' + ['', 'Cocina', 'Sala', 'Hotel', 'Limpieza', 'Mantenimiento', 'Administración'].map(function(a){ return '<option' + (t.area === a ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div></div>' +
+    '<div class="fila">' + cmp('Tipo de contrato', 'contrato', ' placeholder="Indefinido, temporal, fijo discontinuo…"') + cmp('Jornada', 'jornada', ' placeholder="Completa, parcial…"') + '</div>' +
+    '<div class="fila">' + cmp('Horas por semana', 'horas_semana', ' inputmode="decimal"') + cmp('Salario bruto mensual (€)', 'salario', ' inputmode="decimal"') + '</div>' +
+    '<div class="fila">' + cmp('Fecha de alta', 'fecha_alta', ' type="date"') + cmp('Fecha de baja', 'fecha_baja', ' type="date"') + '</div>' +
+    cmp('Notas', 'notas') + '</div>';
+  h += '<div class="card"><h3>Fichar en el TPV</h3><div class="fila">' + cmp('PIN de 4 números', 'pin', ' inputmode="numeric" maxlength="4"') +
+    '<div class="field"><label>Qué puede hacer en el TPV</label><select onchange="TR.rol=this.value;marcar()">' + Object.keys(ROLES_TPV).map(function(r){ return '<option value="' + r + '"' + (t.rol === r ? ' selected' : '') + '>' + ROLES_TPV[r] + '</option>'; }).join('') + '</select></div></div>' +
+    '<p class="muted">Con este PIN ficha entrada y salida en el TPV (botón «Fichar»). Si pones fecha de baja, el PIN deja de funcionar.</p></div>';
+  h += '<button class="btn btn-p" onclick="guardarTrabajador()">Guardar</button><div style="height:30px"></div></div></div>';
+  $('app').innerHTML = h;
+  if (!nuevo) cargarFichajes(mes);
+}
+function guardarTrabajador(){
+  api('POST', '/api/portal/personal', TR).then(function(r){
+    SUCIO = false; PERSONAL = null; toast('Ficha guardada');
+    if (!TR.tpv_usuario_id) ir('#/trabajador/tpv' + r.tpv_usuario_id); else ir('#/personal');
+  }).catch(fallo);
+}
+function hm(min){ return Math.floor(min / 60) + ' h ' + String(min % 60).padStart(2, '0') + ' min'; }
+function cargarFichajes(mes){
+  mes = /^\d{4}-\d{2}$/.test(mes || '') ? mes : mesActual();
+  var base = '#/trabajador/tpv' + TR.tpv_usuario_id + '/';
+  api('GET', '/api/portal/personal/' + TR.tpv_usuario_id + '/fichajes?mes=' + mes).then(function(d){
+    var h = '<div class="card"><h3>Fichajes</h3>' + navMes(mes, base).replace('<div class="card">', '<div>') +
+      '<div class="kpis" style="margin-top:10px"><div class="kpi"><small>Horas del mes</small><b>' + hm(d.total_minutos) + '</b></div><div class="kpi"><small>Días trabajados</small><b>' + d.dias.length + '</b></div></div>';
+    h += d.dias.length ? '<table class="tabla"><tr><th>Día</th><th>Fichajes</th><th class="r">Horas</th></tr>' + d.dias.slice().reverse().map(function(x){
+      return '<tr><td>' + esc(fechaSinAno(x.fecha)) + '</td><td>' + x.fichajes.map(function(f){
+        return '<span class="badge ' + (f.tipo === 'entrada' ? 'b-verde' : 'b-oro') + '" style="margin:1px" title="' + (f.metodo === 'manual' ? 'Añadido a mano' : 'Fichado en el TPV') + '">' + (f.tipo === 'entrada' ? '&#8594; ' : '&#8592; ') + esc(f.hora) + (f.metodo === 'manual' ? '*' : '') +
+          ' <a href="javascript:void 0" onclick="borrarFichaje(' + f.id + ',\'' + mes + '\')" style="text-decoration:none;color:#999">&#215;</a></span>';
+      }).join(' ') + (x.sin_salida ? ' <span class="badge b-ambar">Sin salida</span>' : '') + '</td><td class="r">' + hm(x.minutos) + '</td></tr>';
+    }).join('') + '</table>' : '<div class="muted" style="padding:8px 0">Sin fichajes este mes</div>';
+    h += '<details style="margin-top:10px"><summary class="muted" style="cursor:pointer">Añadir un fichaje a mano (si se olvidó fichar)</summary><div class="fila" style="margin-top:8px">' +
+      '<input class="in" type="date" id="fm-fecha" value="' + hoyISO() + '"><input class="in" type="time" id="fm-hora"><select class="in" id="fm-tipo"><option value="entrada">Entrada</option><option value="salida">Salida</option></select></div>' +
+      '<button class="btn btn-s btn-sm" style="margin-top:8px" onclick="ficharManual(\'' + mes + '\')">Añadir</button></details>' +
+      '<p class="muted" style="margin-top:8px">→ entrada · ← salida · * añadido a mano</p></div>';
+    $('fich-body').innerHTML = h;
+  }).catch(function(e){ $('fich-body').innerHTML = '<div class="card"><p class="muted">' + esc(e.message) + '</p></div>'; });
+}
+function ficharManual(mes){
+  var f = $('fm-fecha').value, h = $('fm-hora').value;
+  if (!f || !h) return toast('Pon fecha y hora');
+  api('POST', '/api/portal/personal/' + TR.tpv_usuario_id + '/fichajes', { fecha: f, hora: h, tipo: $('fm-tipo').value }).then(function(){ toast('Fichaje añadido'); cargarFichajes(f.slice(0, 7)); }).catch(fallo);
+}
+function borrarFichaje(id, mes){
+  if (!confirm('¿Borrar este fichaje?')) return;
+  api('DELETE', '/api/portal/personal/fichajes/' + id).then(function(){ cargarFichajes(mes); }).catch(fallo);
 }
 
 // ════════════════════════════════════════════════════════════════════════
