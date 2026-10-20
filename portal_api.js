@@ -545,49 +545,110 @@ module.exports = function montarPortal(app, db) {
     res.sendFile(f);
   });
 
-  // ══ GASTOS FIJOS Y VARIABLES ════════════════════════════════════════════
+  // ══ GASTOS FIJOS, PAGOS Y PANEL «MI DÍA» ═════════════════════════════════
+  // · gastos_admin: gastos FIJOS (luz, agua, seguro…) con su importe y cada cuánto se pagan.
+  //   En los listados se reparten por días (prorrateo) según las fechas que se miren.
+  // · pagos: TODO lo que se paga (pescado, carne, recibo de la luz…), con fecha, forma de pago
+  //   y quién lo paga. Los de categorías variables cuentan como gasto del día; los de categorías
+  //   fijas solo cuentan como dinero que ha salido (el gasto ya está en el fijo prorrateado).
   db.exec(`CREATE TABLE IF NOT EXISTS gastos_admin (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL, importe REAL DEFAULT 0,
-    tipo TEXT DEFAULT 'variable', periodicidad TEXT DEFAULT 'mensual',
-    area TEXT DEFAULT 'general', fecha TEXT, fecha_fin TEXT,
+    tipo TEXT DEFAULT 'fijo', periodicidad TEXT DEFAULT 'mensual',
+    area TEXT DEFAULT 'restaurante', fecha TEXT, fecha_fin TEXT,
     forma_pago TEXT, notas TEXT, activo INTEGER DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now'))
   )`);
+  try { db.exec("ALTER TABLE gastos_admin ADD COLUMN categoria TEXT"); } catch (e) {}
+  db.exec(`CREATE TABLE IF NOT EXISTS pagos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT NOT NULL, area TEXT DEFAULT 'restaurante',
+    categoria TEXT, tipo_gasto TEXT DEFAULT 'variable',
+    concepto TEXT, proveedor TEXT, importe REAL DEFAULT 0,
+    forma_pago TEXT, pagado_por TEXT, notas TEXT,
+    creado_por TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+  // Migración única: los antiguos gastos «variables» pasan a ser pagos
+  (function () {
+    const f = db.prepare("SELECT valor FROM config WHERE clave = 'pagos_v1'").get();
+    if (f && f.valor === '1') return;
+    db.prepare("SELECT * FROM gastos_admin WHERE tipo = 'variable'").all().forEach(g => {
+      db.prepare('INSERT INTO pagos (fecha, area, categoria, tipo_gasto, concepto, importe, forma_pago, notas) VALUES (?,?,?,?,?,?,?,?)')
+        .run(g.fecha, g.area === 'hotel' ? 'hotel' : 'restaurante', 'Varios', 'variable', g.nombre, g.importe, g.forma_pago || '', g.notas || '');
+    });
+    db.prepare("DELETE FROM gastos_admin WHERE tipo = 'variable'").run();
+    db.prepare("UPDATE gastos_admin SET categoria = COALESCE(categoria, nombre) WHERE tipo = 'fijo'").run();
+    db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('pagos_v1', '1')").run();
+  })();
+
+  const CATEGORIAS = {
+    restaurante: { fijos: ['Luz', 'Agua', 'Gas', 'Seguro', 'Personal', 'IBI'], variables: ['Pescado', 'Carne', 'Fruta y verdura', 'Bebidas', 'Café', 'Varios', 'Otros'] },
+    hotel: { fijos: ['Luz', 'Agua', 'Gas', 'Seguro', 'Personal'], variables: ['Comisiones', 'Publicidad', 'Mantenimiento', 'Varios'] }
+  };
+  const AREAS = ['restaurante', 'hotel'];
   const MESES_PERIODO = { mensual: 1, trimestral: 3, semestral: 6, anual: 12 };
-  function datosGasto(d, act) {
+  const FORMAS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia', 'Domiciliación', 'Bizum'];
+  const fijasDe = area => {
+    const extra = db.prepare("SELECT DISTINCT categoria FROM gastos_admin WHERE area = ? AND categoria IS NOT NULL").all(area).map(r => r.categoria);
+    return Array.from(new Set((CATEGORIAS[area] || CATEGORIAS.restaurante).fijos.concat(extra)));
+  };
+  const tipoDeCategoria = (area, cat) => fijasDe(area).includes(cat) ? 'fijo' : 'variable';
+  const r2 = n => Math.round((n || 0) * 100) / 100;
+  const diasEntre = (desde, hasta) => { const out = []; let d = desde; while (d <= hasta && out.length < 1200) { out.push(d); const t = new Date(d + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + 1); d = t.toISOString().slice(0, 10); } return out; };
+  const diasMes = d => new Date(+d.slice(0, 4), +d.slice(5, 7), 0).getDate();
+
+  // Gastos de un periodo: fijos repartidos por día + pagos de categorías variables
+  function gastosEnRango(desde, hasta) {
+    const dias = diasEntre(desde, hasta);
+    const fijos = db.prepare("SELECT * FROM gastos_admin WHERE tipo = 'fijo' AND activo = 1").all().map(g => {
+      let imp = 0;
+      const mensual = (g.importe || 0) / (MESES_PERIODO[g.periodicidad] || 1);
+      dias.forEach(d => { if ((g.fecha || '') <= d && (!g.fecha_fin || g.fecha_fin >= d)) imp += mensual / diasMes(d); });
+      return Object.assign({}, g, { categoria: g.categoria || g.nombre, prorrateado: r2(imp), mensual: r2(mensual) });
+    }).filter(g => g.prorrateado);
+    const pagosVar = db.prepare("SELECT * FROM pagos WHERE fecha >= ? AND fecha <= ? AND tipo_gasto = 'variable' ORDER BY fecha").all(desde, hasta);
+    return { fijos, variables: pagosVar };
+  }
+  // Compatibilidad con el resumen mensual
+  function gastosDelMes(mes) {
+    const desde = mes + '-01', hasta = mes + '-' + String(diasMes(desde)).padStart(2, '0');
+    const g = gastosEnRango(desde, hasta);
+    return g.fijos.map(f => Object.assign({}, f, { tipo: 'fijo', importe_mes: f.prorrateado }))
+      .concat(g.variables.map(v => ({ id: v.id, nombre: v.concepto || v.categoria, tipo: 'variable', fecha: v.fecha, area: v.area, importe_mes: v.importe })));
+  }
+
+  // ── Opciones para los formularios: categorías, formas de pago y quién puede pagar
+  function pagadores() {
+    const pines = (() => { try { return JSON.parse(db.prepare("SELECT valor FROM config WHERE clave = 'pin_admin'").get().valor || '{}'); } catch (e) { return {}; } })();
+    return Object.keys(pines).filter(n => PERMISOS.puede(db, n, 'pagos'));
+  }
+  app.get('/api/portal/pagos/opciones', (req, res) => {
+    const cats = {}; AREAS.forEach(a => {
+      const extraVar = db.prepare("SELECT DISTINCT categoria FROM pagos WHERE area = ? AND tipo_gasto = 'variable' AND categoria IS NOT NULL").all(a).map(r => r.categoria);
+      cats[a] = { fijos: fijasDe(a), variables: Array.from(new Set(CATEGORIAS[a].variables.concat(extraVar))) };
+    });
+    res.json({ categorias: cats, formas: FORMAS_PAGO, pagadores: pagadores(), puede_anotar: PERMISOS.puede(db, req.usuario, 'pagos'), usuario: req.usuario });
+  });
+
+  // ── Gastos fijos (definiciones)
+  function datosFijo(d, act) {
     const o = {};
-    o.nombre = d.nombre !== undefined ? txt(d.nombre).slice(0, 120) : (act ? act.nombre : '');
+    o.categoria = d.categoria !== undefined ? txt(d.categoria).slice(0, 60) : (act ? act.categoria : '');
+    o.nombre = (d.nombre !== undefined ? txt(d.nombre).slice(0, 120) : (act ? act.nombre : '')) || o.categoria;
     o.importe = d.importe !== undefined ? num(d.importe) : (act ? act.importe : 0);
-    o.tipo = d.tipo === 'fijo' ? 'fijo' : (d.tipo === 'variable' ? 'variable' : (act ? act.tipo : 'variable'));
+    o.tipo = 'fijo';
     o.periodicidad = MESES_PERIODO[d.periodicidad] ? d.periodicidad : (act ? act.periodicidad : 'mensual');
-    o.area = ['hotel', 'restaurante', 'general'].includes(d.area) ? d.area : (act ? act.area : 'general');
+    o.area = AREAS.includes(d.area) ? d.area : (act ? act.area : 'restaurante');
     ['fecha', 'fecha_fin', 'forma_pago', 'notas'].forEach(k => { o[k] = d[k] !== undefined ? txt(d[k]) : (act ? act[k] : ''); });
-    if (!o.fecha) o.fecha = new Date().toISOString().slice(0, 10);
+    if (!o.fecha) o.fecha = new Date().toISOString().slice(0, 8) + '01';
     o.activo = d.activo !== undefined ? (d.activo ? 1 : 0) : (act ? act.activo : 1);
     return o;
   }
-  // Gastos que tocan a un mes: los variables por su fecha; los fijos, su parte mensual
-  function gastosDelMes(mes) {
-    const desde = mes + '-01';
-    const [y, m] = mes.split('-').map(Number);
-    const hasta = mes + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0');
-    const out = [];
-    db.prepare('SELECT * FROM gastos_admin WHERE activo = 1').all().forEach(g => {
-      if (g.tipo === 'variable') { if (g.fecha >= desde && g.fecha <= hasta) out.push(Object.assign({}, g, { importe_mes: g.importe })); return; }
-      if ((g.fecha || '') > hasta) return;
-      if (g.fecha_fin && g.fecha_fin < desde) return;
-      const meses = MESES_PERIODO[g.periodicidad] || 1;
-      out.push(Object.assign({}, g, { importe_mes: Math.round(g.importe / meses * 100) / 100 }));
-    });
-    return out;
-  }
   app.get('/api/portal/gastos', (req, res) => {
-    const mes = /^\d{4}-\d{2}$/.test(req.query.mes || '') ? req.query.mes : new Date().toISOString().slice(0, 7);
-    const delMes = gastosDelMes(mes);
-    const fijos = db.prepare("SELECT * FROM gastos_admin WHERE tipo = 'fijo' ORDER BY activo DESC, nombre").all();
-    const suma = l => Math.round(l.reduce((s, g) => s + (g.importe_mes || 0), 0) * 100) / 100;
-    res.json({ mes, fijos, del_mes: delMes, total_fijos: suma(delMes.filter(g => g.tipo === 'fijo')), total_variables: suma(delMes.filter(g => g.tipo === 'variable')), total: suma(delMes) });
+    const l = db.prepare("SELECT * FROM gastos_admin WHERE tipo = 'fijo' ORDER BY area, activo DESC, categoria, nombre").all()
+      .map(g => Object.assign({}, g, { mensual: r2((g.importe || 0) / (MESES_PERIODO[g.periodicidad] || 1)) }));
+    const total = a => r2(l.filter(g => g.activo && g.area === a).reduce((t, g) => t + g.mensual, 0));
+    res.json({ fijos: l, mensual_restaurante: total('restaurante'), mensual_hotel: total('hotel') });
   });
   app.get('/api/portal/gastos/:id', (req, res) => {
     const g = db.prepare('SELECT * FROM gastos_admin WHERE id = ?').get(req.params.id);
@@ -595,8 +656,8 @@ module.exports = function montarPortal(app, db) {
     res.json(g);
   });
   app.post('/api/portal/gastos', (req, res) => {
-    const o = datosGasto(req.body || {}, null);
-    if (!o.nombre) return res.status(400).json({ error: 'Pon el nombre del gasto' });
+    const o = datosFijo(req.body || {}, null);
+    if (!o.categoria) return res.status(400).json({ error: 'Elige o escribe la categoría del gasto' });
     const cols = Object.keys(o);
     const r = db.prepare(`INSERT INTO gastos_admin (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(k => o[k]));
     res.json(db.prepare('SELECT * FROM gastos_admin WHERE id = ?').get(r.lastInsertRowid));
@@ -604,13 +665,141 @@ module.exports = function montarPortal(app, db) {
   app.put('/api/portal/gastos/:id', (req, res) => {
     const act = db.prepare('SELECT * FROM gastos_admin WHERE id = ?').get(req.params.id);
     if (!act) return res.status(404).json({ error: 'No encontrado' });
-    const o = datosGasto(req.body || {}, act); const cols = Object.keys(o);
+    const o = datosFijo(req.body || {}, act); const cols = Object.keys(o);
     db.prepare(`UPDATE gastos_admin SET ${cols.map(k => k + '=?').join(',')} WHERE id=?`).run(...cols.map(k => o[k]), req.params.id);
     res.json(db.prepare('SELECT * FROM gastos_admin WHERE id = ?').get(req.params.id));
   });
   app.delete('/api/portal/gastos/:id', (req, res) => {
     db.prepare('DELETE FROM gastos_admin WHERE id = ?').run(req.params.id);
     res.json({ ok: true });
+  });
+
+  // ── Pagos (solo los usuarios con permiso «pagos» pueden anotarlos)
+  function datosPago(d, act, usuario) {
+    const o = {};
+    o.fecha = /^\d{4}-\d{2}-\d{2}$/.test(d.fecha || '') ? d.fecha : (act ? act.fecha : new Date().toISOString().slice(0, 10));
+    o.area = AREAS.includes(d.area) ? d.area : (act ? act.area : 'restaurante');
+    o.categoria = d.categoria !== undefined ? txt(d.categoria).slice(0, 60) : (act ? act.categoria : '');
+    o.tipo_gasto = tipoDeCategoria(o.area, o.categoria);
+    ['concepto', 'proveedor', 'notas'].forEach(k => { o[k] = d[k] !== undefined ? txt(d[k]) : (act ? act[k] : ''); });
+    o.importe = d.importe !== undefined ? num(d.importe) : (act ? act.importe : 0);
+    o.forma_pago = d.forma_pago !== undefined ? txt(d.forma_pago) : (act ? act.forma_pago : '');
+    o.pagado_por = d.pagado_por !== undefined ? txt(d.pagado_por) : (act ? act.pagado_por : usuario);
+    return o;
+  }
+  function validarPago(o) {
+    if (!o.categoria) return 'Elige la categoría';
+    if (!(o.importe > 0)) return 'Pon el importe';
+    if (!o.forma_pago) return 'Indica cómo se ha pagado';
+    if (!pagadores().includes(o.pagado_por)) return 'Indica quién lo ha pagado';
+    return null;
+  }
+  app.get('/api/portal/pagos', (req, res) => {
+    const desde = /^\d{4}-\d{2}-\d{2}$/.test(req.query.desde || '') ? req.query.desde : new Date().toISOString().slice(0, 8) + '01';
+    const hasta = /^\d{4}-\d{2}-\d{2}$/.test(req.query.hasta || '') ? req.query.hasta : new Date().toISOString().slice(0, 10);
+    res.json(db.prepare('SELECT * FROM pagos WHERE fecha >= ? AND fecha <= ? ORDER BY fecha DESC, id DESC').all(desde, hasta));
+  });
+  app.get('/api/portal/pagos/:id', (req, res) => {
+    const p = db.prepare('SELECT * FROM pagos WHERE id = ?').get(req.params.id);
+    if (!p) return res.status(404).json({ error: 'No encontrado' });
+    res.json(p);
+  });
+  app.post('/api/portal/pagos', (req, res) => {
+    const o = datosPago(req.body || {}, null, req.usuario);
+    const err = validarPago(o); if (err) return res.status(400).json({ error: err });
+    const cols = Object.keys(o);
+    const r = db.prepare(`INSERT INTO pagos (${cols.join(',')}, creado_por) VALUES (${cols.map(() => '?').join(',')}, ?)`).run(...cols.map(k => o[k]), req.usuario || '');
+    res.json(db.prepare('SELECT * FROM pagos WHERE id = ?').get(r.lastInsertRowid));
+  });
+  app.put('/api/portal/pagos/:id', (req, res) => {
+    const act = db.prepare('SELECT * FROM pagos WHERE id = ?').get(req.params.id);
+    if (!act) return res.status(404).json({ error: 'No encontrado' });
+    const o = datosPago(req.body || {}, act, req.usuario);
+    const err = validarPago(o); if (err) return res.status(400).json({ error: err });
+    const cols = Object.keys(o);
+    db.prepare(`UPDATE pagos SET ${cols.map(k => k + '=?').join(',')}, updated_at=datetime('now') WHERE id=?`).run(...cols.map(k => o[k]), req.params.id);
+    res.json(db.prepare('SELECT * FROM pagos WHERE id = ?').get(req.params.id));
+  });
+  app.delete('/api/portal/pagos/:id', (req, res) => {
+    db.prepare('DELETE FROM pagos WHERE id = ?').run(req.params.id);
+    res.json({ ok: true });
+  });
+
+  // ── Panel «Mi día»: facturado, cobrado, gastos y pagos de un periodo (en directo si incluye hoy)
+  app.get('/api/portal/panel', async (req, res) => {
+    const ok = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
+    let desde = ok(req.query.desde) ? req.query.desde : null, hasta = ok(req.query.hasta) ? req.query.hasta : null;
+    const out = { avisos: [] };
+    // 1) Restaurante (TPV) por jornadas de 03:00 a 03:00
+    let tpvD = null;
+    try {
+      tpvD = await (await tpv(`/api/informes/jornada${desde ? `?desde=${desde}&hasta=${hasta || desde}` : ''}`)).json();
+      desde = desde || tpvD.desde; hasta = hasta || tpvD.hasta;
+      out.jornada_actual = tpvD.jornada_actual;
+    } catch (e) { out.avisos.push('No se pudo leer el TPV'); }
+    if (!desde) { desde = new Date().toISOString().slice(0, 10); }
+    if (!hasta || hasta < desde) hasta = desde;
+    out.desde = desde; out.hasta = hasta;
+    const enRango = f => f && f >= desde && f <= hasta;
+
+    const facturado = { 'Restaurante': 0, 'Hotel': 0, 'Eventos': 0, 'Facturas emitidas': 0 };
+    const cobrado = {}; ['Efectivo', 'Tarjeta', 'Transferencia', 'Bizum', 'Empresa / a cuenta', 'Sin indicar'].forEach(f => { cobrado[f] = 0; });
+    if (tpvD) {
+      facturado.Restaurante = tpvD.total;
+      cobrado.Efectivo += tpvD.efectivo; cobrado.Tarjeta += tpvD.tarjeta; cobrado['Empresa / a cuenta'] += tpvD.empresa; cobrado['Sin indicar'] += tpvD.otros;
+      out.tpv = { total: r2(tpvD.total), tickets: tpvD.tickets, ticket_medio: tpvD.tickets ? r2(tpvD.total / tpvD.tickets) : 0, efectivo: r2(tpvD.efectivo), tarjeta: r2(tpvD.tarjeta),
+        espacios: Object.keys(tpvD.espacios).map(k => ({ espacio: k, total: r2(tpvD.espacios[k].total), tickets: tpvD.espacios[k].tickets })).sort((a, b) => b.total - a.total),
+        dias: tpvD.dias, ultima_venta: tpvD.ultima_venta, comandas_abiertas: tpvD.comandas_abiertas, en_mesas: tpvD.en_mesas, cierres: tpvD.cierres };
+    }
+    // 2) Hotel: facturas emitidas en esas fechas
+    try {
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 10000);
+      const fr = await fetch(HOTEL_URL + '/api/facturas', { signal: ctrl.signal }); clearTimeout(t);
+      if (!fr.ok) throw new Error(fr.status);
+      (await fr.json()).filter(f => enRango(String(f.fecha_emision || f.created_at || '').slice(0, 10)) && f.estado !== 'anulada')
+        .forEach(f => { facturado.Hotel += f.total || 0; cobrado['Sin indicar'] += f.total || 0; });
+    } catch (e) { out.avisos.push('No se pudo leer la app del hotel'); }
+    // 3) Eventos: fianzas y pagos recibidos
+    const formaN = f => { const x = String(f || '').toLowerCase(); return x.startsWith('efect') ? 'Efectivo' : x.startsWith('tarj') ? 'Tarjeta' : x.startsWith('transf') ? 'Transferencia' : x.startsWith('bizum') ? 'Bizum' : 'Sin indicar'; };
+    db.prepare('SELECT * FROM celebraciones').all().map(parseCeleb).forEach(c => {
+      if (c.fianza_pagada && c.fianza_importe && enRango(c.fianza_fecha)) { facturado.Eventos += c.fianza_importe; cobrado[formaN(c.fianza_forma)] += c.fianza_importe; }
+      c.pagos.forEach(p => { if (enRango(p.fecha) && num(p.importe)) { facturado.Eventos += num(p.importe); cobrado[formaN(p.forma)] += num(p.importe); } });
+    });
+    // 4) Facturas emitidas registradas en Documentos
+    db.prepare("SELECT * FROM documentos_admin WHERE tipo = 'factura' AND direccion = 'emitido'").all().forEach(d => {
+      if (enRango(d.fecha)) facturado['Facturas emitidas'] += d.total || 0;
+      if (d.estado === 'pagado' && enRango(d.fecha_pago || d.fecha)) cobrado[formaN(d.forma_pago)] += d.total || 0;
+    });
+    Object.keys(facturado).forEach(k => { facturado[k] = r2(facturado[k]); });
+    Object.keys(cobrado).forEach(k => { cobrado[k] = r2(cobrado[k]); });
+    out.facturado = facturado; out.total_facturado = r2(Object.values(facturado).reduce((a, b) => a + b, 0));
+    out.cobrado = cobrado; out.total_cobrado = r2(Object.values(cobrado).reduce((a, b) => a + b, 0));
+
+    // 5) Gastos (fijos prorrateados + variables) por área y categoría
+    const g = gastosEnRango(desde, hasta);
+    const gastos = {};
+    AREAS.forEach(a => {
+      const fij = {}, vari = {};
+      g.fijos.filter(x => x.area === a).forEach(x => { fij[x.categoria] = r2((fij[x.categoria] || 0) + x.prorrateado); });
+      g.variables.filter(x => x.area === a).forEach(x => { vari[x.categoria] = r2((vari[x.categoria] || 0) + x.importe); });
+      const lista = o => Object.keys(o).map(k => ({ categoria: k, importe: o[k] })).sort((x, y) => y.importe - x.importe);
+      gastos[a] = { fijos: lista(fij), variables: lista(vari), total_fijos: r2(Object.values(fij).reduce((s, v) => s + v, 0)), total_variables: r2(Object.values(vari).reduce((s, v) => s + v, 0)) };
+      gastos[a].total = r2(gastos[a].total_fijos + gastos[a].total_variables);
+    });
+    out.gastos = gastos;
+    out.total_gastos = r2(AREAS.reduce((s, a) => s + gastos[a].total, 0));
+    out.resultado = r2(out.total_facturado - out.total_gastos);
+
+    // 6) Pagos anotados (dinero que ha salido), por forma de pago y por quién
+    const pagos = db.prepare('SELECT * FROM pagos WHERE fecha >= ? AND fecha <= ? ORDER BY fecha DESC, id DESC').all(desde, hasta);
+    const porForma = {}, porPersona = {};
+    pagos.forEach(p => { porForma[p.forma_pago || 'Sin indicar'] = r2((porForma[p.forma_pago || 'Sin indicar'] || 0) + p.importe); porPersona[p.pagado_por || '—'] = r2((porPersona[p.pagado_por || '—'] || 0) + p.importe); });
+    out.pagos = pagos.slice(0, 200);
+    out.total_pagado = r2(pagos.reduce((s, p) => s + p.importe, 0));
+    out.pagado_por_forma = porForma; out.pagado_por_persona = porPersona;
+    out.dias = diasEntre(desde, hasta).length;
+    out.actualizado = new Date().toISOString();
+    res.json(out);
   });
 
   // ══ FACTURACIÓN Y COBROS (qué se ha facturado y cómo se ha cobrado) ══════

@@ -4,7 +4,7 @@
 // Los administradores (Manuel y Nicolás) tienen acceso a todo y gestionan los usuarios.
 'use strict';
 
-const MODULOS = ['hotel', 'reservas', 'tpv', 'carta', 'bodas', 'comuniones', 'eventos', 'contabilidad'];
+const MODULOS = ['hotel', 'reservas', 'tpv', 'carta', 'bodas', 'comuniones', 'eventos', 'contabilidad', 'pagos'];
 const ADMINS_INICIALES = ['Manuel', 'Nicolás'];
 
 function leer(db, clave, def) {
@@ -41,7 +41,9 @@ function moduloDeRuta(ruta, metodo) {
   if (/^\/api\/(sesion|login|logout)$/.test(ruta)) return null;
   if (/^\/api\/portal\/usuarios/.test(ruta)) return 'admin';
   if (/^\/api\/portal\/personal/.test(ruta)) return 'admin'; // Personal: solo Manuel y Nicolás
-  if (/^\/api\/portal\/(contabilidad|documentos|gastos|facturacion)/.test(ruta)) return 'contabilidad';
+  // Anotar pagos y gastos fijos: solo quien tenga el permiso «pagos» (Manuel, Nicolás y Ángela)
+  if (/^\/api\/portal\/(pagos|gastos)/.test(ruta) && metodo !== 'GET') return 'pagos';
+  if (/^\/api\/portal\/(contabilidad|documentos|gastos|facturacion|pagos|panel)/.test(ruta)) return 'contabilidad';
   if (/^\/api\/portal\/celebraciones/.test(ruta)) return 'celebraciones'; // se comprueba por tipo en la propia ruta
   // Los menús los consultan también bodas, comuniones y reservas; editarlos es de Carta y Menús
   if (/^\/api\/portal\/plantillas/.test(ruta)) return metodo === 'GET' ? ['carta', 'bodas', 'comuniones', 'eventos', 'reservas'] : ['carta', 'bodas', 'comuniones', 'eventos'];

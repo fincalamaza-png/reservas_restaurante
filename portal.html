@@ -87,6 +87,7 @@ a{color:inherit}
 .home-pie button{background:none;border:none;color:#7d756b;text-decoration:underline;font-size:12px;cursor:pointer;margin-left:6px;font-family:inherit}
 .home .volver{background:none;border:none;color:var(--tinta);font-size:24px;cursor:pointer;padding:4px 8px;align-self:flex-start}
 .vacio-home{grid-column:1/-1;text-align:center;color:#9a9086;padding:20px}
+@keyframes latido{0%,100%{opacity:1}50%{opacity:.25}}
 @media(min-width:700px){.cuadros{grid-template-columns:repeat(3,1fr);max-width:720px}}
 
 /* Listas */
@@ -203,7 +204,7 @@ var MENUS_RESTAURANTE = ['Reunión Familiar Tradicional 1', 'Reunión Familiar T
 
 var ST = { usuario: null, admin: false, modulos: [], plantillas: null };
 var RESTAURANTE = ['reservas', 'tpv', 'carta', 'bodas', 'comuniones', 'contabilidad'];
-var NOMBRES_MOD = { hotel: 'Hotel', reservas: 'Reservas', tpv: 'TPV Restaurante', carta: 'Carta y Menús', bodas: 'Bodas', comuniones: 'Comuniones', eventos: 'Eventos', contabilidad: 'Administración y Contabilidad' };
+var NOMBRES_MOD = { pagos: 'Anotar pagos y gastos fijos', hotel: 'Hotel', reservas: 'Reservas', tpv: 'TPV Restaurante', carta: 'Carta y Menús', bodas: 'Bodas', comuniones: 'Comuniones', eventos: 'Eventos', contabilidad: 'Administración y Contabilidad' };
 // ¿Puede el usuario entrar? (texto o lista de módulos; 'admin' solo administradores)
 function puede(m){
   if (ST.admin) return true;
@@ -309,9 +310,10 @@ function render(){
   var app = $('app');
   window.scrollTo(0, 0);
   SUCIO = false;
+  if (PANEL_T) { clearInterval(PANEL_T); PANEL_T = null; }
   if (!h) return vHome(app);
   var nec = { restaurante: ['reservas', 'carta'], carta: 'carta', menus: 'carta', menu: ['carta', 'bodas', 'comuniones', 'eventos'], personalizados: 'carta', personalizado: 'carta',
-    bodas: 'bodas', comuniones: 'comuniones', 'otros-eventos': 'eventos', eventos: EVENTOS, celebracion: EVENTOS, contabilidad: 'contabilidad', admin: 'contabilidad', documentos: 'contabilidad', facturacion: 'contabilidad', gastos: 'contabilidad', gasto: 'contabilidad', personal: 'admin', trabajador: 'admin', documento: 'contabilidad', usuarios: 'admin' }[p[0]];
+    bodas: 'bodas', comuniones: 'comuniones', 'otros-eventos': 'eventos', eventos: EVENTOS, celebracion: EVENTOS, contabilidad: 'contabilidad', admin: 'contabilidad', documentos: 'contabilidad', facturacion: 'contabilidad', gastos: 'contabilidad', gasto: 'contabilidad', panel: 'contabilidad', pagos: 'contabilidad', pago: 'contabilidad', personal: 'admin', trabajador: 'admin', documento: 'contabilidad', usuarios: 'admin' }[p[0]];
   if (nec && !puede(nec)) { toast('No tienes acceso a esa sección'); location.hash = ''; return; }
   switch (p[0]) {
     case 'usuarios': return vUsuarios(app);
@@ -327,7 +329,10 @@ function render(){
     case 'eventos': return vEventos(app);
     case 'admin': return vAdminPaleta(app);
     case 'documentos': return vAdmin(app);
-    case 'facturacion': return vFacturacion(app, p[1]);
+    case 'facturacion': return vPanel(app, 'mes', p[1]);
+    case 'panel': return vPanel(app, p[1], p[2], p[3]);
+    case 'pagos': return vPagos(app, p[1]);
+    case 'pago': return vPago(app, p[1]);
     case 'gastos': return vGastos(app, p[1]);
     case 'gasto': return vGasto(app, p[1]);
     case 'personal': return vPersonal(app);
@@ -1113,93 +1118,215 @@ function navMes(mes, ruta){
 }
 function vAdminPaleta(app){
   app.innerHTML = '<div class="home">' + cabeceraHome('ADMINISTRACIÓN', 'DON FADRIQUE', '#/') + '<div class="cuadros">' +
+    cuadro('&#9728;&#65039;', 'Mi día', 'Facturado, cobrado, gastos y pagos en directo', '#/panel') +
+    cuadro('&#128176;', 'Pagos', 'Qué se paga, cómo y quién', '#/pagos') +
+    cuadro('&#129534;', 'Gastos fijos', 'Luz, agua, seguro, personal…', '#/gastos') +
     cuadro('&#128196;', 'Documentos', 'Albaranes, facturas, presupuestos y proformas', '#/documentos') +
-    cuadro('&#128182;', 'Facturación y cobros', 'Lo facturado y cómo se ha cobrado', '#/facturacion') +
-    cuadro('&#129534;', 'Gastos', 'Fijos y variables', '#/gastos') +
     cuadro('&#128202;', 'Resumen del mes', 'TPV, eventos y facturas', '#/contabilidad') +
     (ST.admin ? cuadro('&#128101;', 'Personal', 'Trabajadores, fichas y fichajes', '#/personal') : '') +
     '</div></div>';
 }
 
-// ── Facturación y cobros ──
-function vFacturacion(app, mes){
-  mes = /^\d{4}-\d{2}$/.test(mes || '') ? mes : mesActual();
-  app.innerHTML = '<div class="vista">' + cabecera('Facturación y cobros', 'Lo facturado y cómo se ha cobrado', '#/admin') +
-    '<div class="content">' + navMes(mes, '#/facturacion/') + '<div id="fac-body"><div class="cargando">Calculando…</div></div></div></div>';
-  api('GET', '/api/portal/facturacion?mes=' + mes).then(function(d){
-    var h = '<div class="kpis"><div class="kpi grande"><small>Facturado en el mes</small><b>' + euros(d.total_facturado) + '</b></div>' +
-      '<div class="kpi"><small>Cobrado</small><b>' + euros(d.total_cobrado) + '</b></div>' +
-      '<div class="kpi"><small>Pagado a proveedores</small><b>' + euros(d.total_pagado_proveedores) + '</b></div>' +
-      '<div class="kpi"><small>Gastos del mes</small><b>' + euros(d.gastos_mes) + '</b></div>' +
-      '<div class="kpi"><small>Facturas sin cobrar</small><b>' + d.pendientes_cobro.length + '</b></div></div>';
-    if (d.avisos.length) h += '<div class="card" style="border-left:4px solid var(--ambar)"><p class="muted">' + d.avisos.map(esc).join(' · ') + '</p></div>';
-    h += '<div class="card"><h3>Facturado</h3><table class="tabla">' + d.origenes.map(function(o){ return '<tr><td>' + esc(o) + '</td><td class="r">' + euros(d.facturado[o]) + '</td></tr>'; }).join('') +
-      '<tr><th>Total</th><th class="r">' + euros(d.total_facturado) + '</th></tr></table>' +
-      '<p class="muted" style="margin-top:6px">Restaurante: tickets del TPV · Hotel: facturas del mes · Eventos: fianzas y pagos recibidos · Facturas emitidas: las registradas en Documentos.</p></div>';
-    var cols = d.origenes;
-    h += '<div class="card" style="overflow-x:auto"><h3>Cobrado según forma de pago</h3><table class="tabla"><tr><th></th>' + cols.map(function(o){ return '<th class="r">' + esc(o.replace(' (TPV)', '')) + '</th>'; }).join('') + '<th class="r">Total</th></tr>' +
-      d.cobros.map(function(f){ return '<tr><td><b>' + esc(f.forma) + '</b></td>' + cols.map(function(o){ return '<td class="r">' + (f[o] ? euros(f[o]) : '<span class="muted">—</span>') + '</td>'; }).join('') + '<td class="r"><b>' + euros(f.total) + '</b></td></tr>'; }).join('') +
-      '<tr><th>Total</th>' + cols.map(function(o){ return '<th class="r">' + euros(d.cobros.reduce(function(a, f){ return a + (f[o] || 0); }, 0)) + '</th>'; }).join('') + '<th class="r">' + euros(d.total_cobrado) + '</th></tr></table>' +
-      '<p class="muted" style="margin-top:6px">La app del hotel no guarda la forma de pago, por eso sale en «Sin indicar».</p></div>';
-    if (d.pagado_proveedores.length) h += '<div class="card"><h3>Pagado a proveedores</h3><table class="tabla">' + d.pagado_proveedores.map(function(x){ return '<tr><td>' + esc(x.forma) + '</td><td class="r">' + euros(x.total) + '</td></tr>'; }).join('') + '</table></div>';
-    if (d.pendientes_cobro.length) h += '<div class="card"><h3>Facturas emitidas pendientes de cobro</h3>' + d.pendientes_cobro.map(function(x){
-      return '<div class="item" onclick="ir(\'#/documento/' + x.id + '\')"><div class="tx"><b>' + esc(x.tercero || 'Sin nombre') + '</b><small>' + esc([x.numero, fechaCorta(x.fecha), x.area === 'hotel' ? 'Hotel' : 'Restaurante'].filter(Boolean).join(' · ')) + '</small></div><div class="der"><b>' + euros(x.total) + '</b></div></div>'; }).join('') + '</div>';
-    $('fac-body').innerHTML = h + '<div style="height:24px"></div>';
-  }).catch(fallo);
+// ── Fechas de jornada (de 03:00 a 03:00, hora de España) ──
+function jornadaHoy(){
+  var t = new Date(Date.now() - 3 * 3600 * 1000);
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(t);
+}
+function sumarDias(f, n){ var t = new Date(f + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); }
+function lunesDe(f){ var t = new Date(f + 'T12:00:00Z'); var d = (t.getUTCDay() + 6) % 7; return sumarDias(f, -d); }
+function finMes(m){ var ym = m.split('-').map(Number); return m + '-' + String(new Date(ym[0], ym[1], 0).getDate()).padStart(2, '0'); }
+function rangoPanel(modo, a, b){
+  var hoy = jornadaHoy();
+  if (modo === 'semana') { var l = lunesDe(a || hoy); return { desde: l, hasta: sumarDias(l, 6), modo: modo, ref: l }; }
+  if (modo === 'mes') { var m = (a || hoy).slice(0, 7); return { desde: m + '-01', hasta: finMes(m), modo: modo, ref: m }; }
+  if (modo === 'fechas') { var d = a || sumarDias(hoy, -6), h = b || hoy; if (h < d) { var x = d; d = h; h = x; } return { desde: d, hasta: h, modo: modo, ref: d + '/' + h }; }
+  var dia = a || hoy; return { desde: dia, hasta: dia, modo: 'dia', ref: dia };
+}
+function moverRango(r, n){
+  if (r.modo === 'dia') return '#/panel/dia/' + sumarDias(r.desde, n);
+  if (r.modo === 'semana') return '#/panel/semana/' + sumarDias(r.desde, 7 * n);
+  if (r.modo === 'mes') return '#/panel/mes/' + mesOtro(r.ref, n);
+  var dias = Math.round((new Date(r.hasta) - new Date(r.desde)) / 864e5) + 1;
+  return '#/panel/fechas/' + sumarDias(r.desde, dias * n) + '/' + sumarDias(r.hasta, dias * n);
+}
+function tituloRango(r){
+  var hoy = jornadaHoy();
+  var f = function(d, o){ return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', o); };
+  if (r.modo === 'dia') return (r.desde === hoy ? 'Hoy · ' : r.desde === sumarDias(hoy, -1) ? 'Ayer · ' : '') + f(r.desde, { weekday: 'long', day: 'numeric', month: 'long' });
+  if (r.modo === 'semana') return 'Semana del ' + f(r.desde, { day: 'numeric', month: 'short' }) + ' al ' + f(r.hasta, { day: 'numeric', month: 'short' });
+  if (r.modo === 'mes') { var ym = r.ref.split('-').map(Number); return mesTxt(ym[0], ym[1]); }
+  return f(r.desde, { day: 'numeric', month: 'short', year: 'numeric' }) + ' — ' + f(r.hasta, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// ── Gastos fijos y variables ──
+// ── Panel «Mi día» ──
+var PANEL_T = null, OPC = null;
+function opcionesPagos(){ if (OPC) return Promise.resolve(OPC); return api('GET', '/api/portal/pagos/opciones').then(function(d){ OPC = d; return d; }); }
+function vPanel(app, modo, a, b){
+  var r = rangoPanel(modo, a, b);
+  var chip = function(m, txt){ return '<button class="chip' + (r.modo === m ? ' on' : '') + '" onclick="ir(\'#/panel/' + m + '\')">' + txt + '</button>'; };
+  app.innerHTML = '<div class="vista">' + cabecera('Mi día', 'Facturado, cobrado, gastos y pagos', '#/admin', '<button class="acc" onclick="ir(\'#/pago/nuevo\')">+ Pago</button>') +
+    '<div class="content"><div class="chips">' + chip('dia', 'Día') + chip('semana', 'Semana') + chip('mes', 'Mes') + chip('fechas', 'Fechas') + '</div>' +
+    '<div class="card"><div class="cal-nav" style="margin:0"><button onclick="ir(\'' + moverRango(r, -1) + '\')">&#8249;</button><b style="text-align:center">' + esc(tituloRango(r)) + '</b><button onclick="ir(\'' + moverRango(r, 1) + '\')">&#8250;</button></div>' +
+    (r.modo === 'fechas' ? '<div class="fila" style="margin-top:10px"><input class="in" type="date" id="pf-d" value="' + r.desde + '"><input class="in" type="date" id="pf-h" value="' + r.hasta + '"><button class="btn btn-s btn-sm" style="flex:0 0 auto" onclick="ir(\'#/panel/fechas/\'+$(\'pf-d\').value+\'/\'+$(\'pf-h\').value)">Ver</button></div>' : '') +
+    (r.modo !== 'dia' || r.desde !== jornadaHoy() ? '<div style="text-align:center;margin-top:8px"><button class="btn btn-s btn-sm" onclick="ir(\'#/panel/dia\')">Ir a hoy</button></div>' : '') +
+    '</div><div id="panel-body"><div class="cargando">Cargando…</div></div></div></div>';
+  var vivo = r.desde <= jornadaHoy() && r.hasta >= jornadaHoy();
+  var cargar = function(){
+    api('GET', '/api/portal/panel?desde=' + r.desde + '&hasta=' + r.hasta).then(function(d){ if ($('panel-body')) pintarPanel(d, vivo); }).catch(function(e){ if ($('panel-body')) $('panel-body').innerHTML = '<div class="vacio">' + esc(e.message) + '</div>'; });
+  };
+  cargar();
+  opcionesPagos().catch(function(){});
+  if (vivo) PANEL_T = setInterval(cargar, 30000); // en directo: se actualiza cada 30 segundos
+}
+function pintarPanel(d, vivo){
+  var t = d.tpv, h = '';
+  var hora = new Date(d.actualizado).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (vivo) h += '<div class="muted" style="text-align:center;margin:-2px 0 10px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2e8b57;margin-right:6px;animation:latido 1.6s infinite"></span>En directo · actualizado a las ' + hora + '</div>';
+  h += '<div class="kpis">' +
+    '<div class="kpi grande"><small>Facturado</small><b>' + euros(d.total_facturado) + '</b></div>' +
+    '<div class="kpi"><small>Cobrado</small><b>' + euros(d.total_cobrado) + '</b></div>' +
+    '<div class="kpi"><small>Gastos' + (d.dias > 1 ? '' : ' del día') + '</small><b>' + euros(d.total_gastos) + '</b></div>' +
+    '<div class="kpi"><small>Resultado</small><b style="color:' + (d.resultado >= 0 ? '#1d6640' : '#a3283a') + '">' + euros(d.resultado) + '</b></div>' +
+    '<div class="kpi"><small>Pagado</small><b>' + euros(d.total_pagado) + '</b></div></div>';
+  if (d.avisos.length) h += '<div class="card" style="border-left:4px solid var(--ambar)"><p class="muted">' + d.avisos.map(esc).join(' · ') + '</p></div>';
+  if (t && vivo) h += '<div class="card"><h3>Restaurante ahora</h3><div class="kpis" style="margin:0">' +
+    '<div class="kpi"><small>Vendido hoy</small><b>' + euros(t.total) + '</b></div><div class="kpi"><small>Tickets</small><b>' + t.tickets + '</b></div>' +
+    '<div class="kpi"><small>Mesas abiertas</small><b>' + (t.comandas_abiertas == null ? '—' : t.comandas_abiertas) + '</b></div><div class="kpi"><small>En mesas sin cobrar</small><b>' + euros(t.en_mesas || 0) + '</b></div></div>' +
+    (t.ultima_venta ? '<p class="muted" style="margin-top:8px">Última venta: ' + new Date(String(t.ultima_venta).replace(' ', 'T') + 'Z').toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + ' · ticket medio ' + euros(t.ticket_medio) + '</p>' : '') + '</div>';
+  // Facturado y cobrado
+  h += '<div class="card"><h3>Facturado</h3><table class="tabla">' + Object.keys(d.facturado).map(function(k){ return '<tr><td>' + esc(k) + '</td><td class="r">' + euros(d.facturado[k]) + '</td></tr>'; }).join('') +
+    '<tr><th>Total</th><th class="r">' + euros(d.total_facturado) + '</th></tr></table></div>';
+  h += '<div class="card"><h3>Cobrado según forma de pago</h3><table class="tabla">' + Object.keys(d.cobrado).filter(function(k){ return d.cobrado[k]; }).map(function(k){ return '<tr><td>' + esc(k) + '</td><td class="r">' + euros(d.cobrado[k]) + '</td></tr>'; }).join('') +
+    '<tr><th>Total</th><th class="r">' + euros(d.total_cobrado) + '</th></tr></table>' + (d.cobrado['Sin indicar'] ? '<p class="muted" style="margin-top:6px">«Sin indicar»: facturas del hotel (su app no guarda la forma de pago) y cobros sin forma anotada.</p>' : '') + '</div>';
+  if (t && t.espacios.length) h += '<div class="card"><h3>Restaurante por espacio</h3><table class="tabla">' + t.espacios.map(function(e){ return '<tr><td>' + esc(e.espacio) + '</td><td class="r muted">' + e.tickets + ' tickets</td><td class="r">' + euros(e.total) + '</td></tr>'; }).join('') + '</table></div>';
+  // Gastos por área
+  [['restaurante', 'Gastos del restaurante'], ['hotel', 'Gastos del hotel']].forEach(function(x){
+    var g = d.gastos[x[0]]; if (!g) return;
+    var filas = function(l){ return l.map(function(c){ return '<tr><td>' + esc(c.categoria) + '</td><td class="r">' + euros(c.importe) + '</td></tr>'; }).join('') || '<tr><td class="muted" colspan="2">—</td></tr>'; };
+    h += '<div class="card"><h3>' + x[1] + ' · ' + euros(g.total) + '</h3><div class="sec-tit" style="margin-top:0">Fijos (repartidos en ' + (d.dias === 1 ? 'el día' : d.dias + ' días') + ') · ' + euros(g.total_fijos) + '</div><table class="tabla">' + filas(g.fijos) + '</table>' +
+      '<div class="sec-tit">Variables · ' + euros(g.total_variables) + '</div><table class="tabla">' + filas(g.variables) + '</table></div>';
+  });
+  // Pagos
+  h += '<div class="card"><h3>Pagos anotados · ' + euros(d.total_pagado) + '</h3>';
+  if (Object.keys(d.pagado_por_forma).length) h += '<div class="muted" style="margin-bottom:8px">' + Object.keys(d.pagado_por_forma).map(function(k){ return esc(k) + ': <b>' + euros(d.pagado_por_forma[k]) + '</b>'; }).join(' · ') + '<br>' +
+    Object.keys(d.pagado_por_persona).map(function(k){ return 'Pagado por ' + esc(k) + ': <b>' + euros(d.pagado_por_persona[k]) + '</b>'; }).join(' · ') + '</div>';
+  h += d.pagos.length ? d.pagos.map(itemPago).join('') : '<div class="muted">Sin pagos en estas fechas</div>';
+  if (OPC && OPC.puede_anotar) h += '<button class="btn btn-p" style="margin-top:8px" onclick="ir(\'#/pago/nuevo\')">+ Anotar un pago</button>';
+  h += '</div>';
+  // Cierres de caja
+  if (t && t.cierres && t.cierres.length) h += '<div class="card"><h3>Cierres de caja</h3><table class="tabla"><tr><th>Jornada</th><th class="r">Tickets</th><th class="r">Efectivo</th><th class="r">Tarjeta</th><th class="r">Total</th></tr>' +
+    t.cierres.map(function(z){ return '<tr><td>' + esc(fechaSinAno(z.fecha)) + '<div class="muted">' + (z.automatico ? 'Automático ' : 'Manual ') + esc(String(z.hora).slice(0, 5)) + '</div></td><td class="r">' + z.tickets_count + '</td><td class="r">' + euros(z.efectivo) + '</td><td class="r">' + euros(z.tarjeta) + '</td><td class="r"><b>' + euros(z.total_bruto) + '</b></td></tr>'; }).join('') + '</table>' +
+    '<p class="muted" style="margin-top:6px">La caja se cierra sola cada día a las 03:00 con todo lo vendido en la jornada.</p></div>';
+  else if (t) h += '<p class="muted" style="text-align:center;margin:6px 0 4px">La caja se cierra sola cada día a las 03:00 (la jornada va de 03:00 a 03:00).</p>';
+  $('panel-body').innerHTML = h + '<div style="height:24px"></div>';
+}
+function itemPago(p){
+  return '<div class="item" onclick="ir(\'#/pago/' + p.id + '\')"><div class="tx"><b>' + esc(p.categoria) + (p.concepto ? ' · ' + esc(p.concepto) : '') + '</b><small>' +
+    esc([fechaSinAno(p.fecha), p.area === 'hotel' ? 'Hotel' : 'Restaurante', p.proveedor].filter(Boolean).join(' · ')) + '<br>' +
+    '<span class="badge b-gris">' + esc(p.forma_pago || 'Sin indicar') + '</span> <span class="badge b-oro">' + esc(p.pagado_por || '—') + '</span>' + (p.tipo_gasto === 'fijo' ? ' <span class="badge b-ambar">fijo</span>' : '') + '</small></div><div class="der"><b>' + euros(p.importe) + '</b></div></div>';
+}
+
+// ── Pagos (listado por meses y formulario) ──
+function vPagos(app, mes){
+  mes = /^\d{4}-\d{2}$/.test(mes || '') ? mes : jornadaHoy().slice(0, 7);
+  app.innerHTML = '<div class="vista">' + cabecera('Pagos', 'Qué se ha pagado, cómo y quién', '#/admin', '<button class="acc" onclick="ir(\'#/pago/nuevo\')">+ Pago</button>') +
+    '<div class="content">' + navMes(mes, '#/pagos/') + '<div id="pag-body"><div class="cargando">Cargando…</div></div></div></div>';
+  Promise.all([api('GET', '/api/portal/pagos?desde=' + mes + '-01&hasta=' + finMes(mes)), opcionesPagos()]).then(function(r){
+    var l = r[0], o = r[1], tot = l.reduce(function(a, p){ return a + p.importe; }, 0);
+    var h = (o.puede_anotar ? '<button class="btn btn-p" style="margin-bottom:12px" onclick="ir(\'#/pago/nuevo\')">+ Anotar un pago</button>' : '<div class="card"><p class="muted">Solo pueden anotar pagos: ' + esc(o.pagadores.join(', ')) + '.</p></div>');
+    h += '<div class="sec-tit">' + l.length + ' pagos · ' + euros(tot) + '</div>' + (l.map(itemPago).join('') || '<div class="vacio">Sin pagos este mes</div>');
+    $('pag-body').innerHTML = h + '<div style="height:24px"></div>';
+  }).catch(fallo);
+}
+var PG = null;
+function vPago(app, id){
+  var nuevo = id === 'nuevo';
+  app.innerHTML = '<div class="vista">' + cabecera('Pago', '', '#/panel') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  Promise.all([nuevo ? Promise.resolve(null) : api('GET', '/api/portal/pagos/' + id), opcionesPagos()]).then(function(r){
+    var o = r[1];
+    if (!o.puede_anotar) { app.querySelector('.content').innerHTML = '<div class="card"><p>Solo pueden anotar o cambiar pagos: <b>' + esc(o.pagadores.join(', ')) + '</b>.</p></div>' + (r[0] ? itemPago(r[0]) : ''); return; }
+    PG = r[0] ? clon(r[0]) : { fecha: jornadaHoy(), area: 'restaurante', categoria: '', importe: '', forma_pago: '', pagado_por: o.pagadores.indexOf(o.usuario) > -1 ? o.usuario : '' };
+    pintarPago();
+  }).catch(fallo);
+}
+function pintarPago(){
+  var o = OPC, p = PG, nuevo = !p.id, cats = o.categorias[p.area] || { fijos: [], variables: [] };
+  var chips = function(lista, campo, extra){ return '<div class="chips" style="margin-bottom:6px">' + lista.map(function(v){ return '<button class="chip' + (p[campo] === v ? ' on' : '') + '" onclick="PG.' + campo + '=' + attr(JSON.stringify(v)) + ';marcar();pintarPago()">' + esc(v) + '</button>'; }).join('') + (extra || '') + '</div>'; };
+  var todas = cats.variables.concat(cats.fijos);
+  var otra = p.categoria && todas.indexOf(p.categoria) === -1;
+  var h = '<div class="vista">' + cabecera(nuevo ? 'Anotar un pago' : 'Pago', p.area === 'hotel' ? 'Hotel' : 'Restaurante', '#/panel', '<button class="acc" onclick="guardarPago()">Guardar</button>') + '<div class="content">' +
+    '<div class="card"><div class="fila"><div class="field"><label>Fecha</label><input type="date" value="' + attr(p.fecha) + '" oninput="PG.fecha=this.value;marcar()"></div>' +
+    '<div class="field"><label>Importe (€)</label><input inputmode="decimal" value="' + attr(p.importe) + '" oninput="PG.importe=this.value;marcar()" placeholder="0,00" style="font-size:20px"></div></div>' +
+    '<label class="muted">Área</label>' + chips(['restaurante', 'hotel'].map(function(a){ return a; }), 'area').replace('>restaurante<', '>Restaurante<').replace('>hotel<', '>Hotel<') +
+    '<label class="muted">Gastos variables</label>' + chips(cats.variables, 'categoria') +
+    '<label class="muted">Gastos fijos (pago del recibo)</label>' + chips(cats.fijos, 'categoria') +
+    '<div class="field" style="margin-top:6px"><label>Otra categoría</label><input value="' + attr(otra ? p.categoria : '') + '" placeholder="Escribe una categoría nueva" oninput="PG.categoria=this.value;marcar()"></div>' +
+    '<div class="fila"><div class="field"><label>Proveedor</label><input value="' + attr(p.proveedor) + '" oninput="PG.proveedor=this.value;marcar()"></div><div class="field"><label>Concepto</label><input value="' + attr(p.concepto) + '" oninput="PG.concepto=this.value;marcar()"></div></div></div>' +
+    '<div class="card"><label class="muted">¿Cómo se ha pagado?</label>' + chips(o.formas, 'forma_pago') +
+    '<label class="muted">¿Quién lo ha pagado?</label>' + chips(o.pagadores, 'pagado_por') +
+    '<div class="field" style="margin-top:6px"><label>Notas</label><input value="' + attr(p.notas) + '" oninput="PG.notas=this.value;marcar()"></div></div>' +
+    '<p class="muted" style="margin:0 4px 10px">Los pagos de gastos fijos (recibo de la luz, seguro…) cuentan como dinero pagado, pero no se suman otra vez como gasto: el gasto fijo ya se reparte cada día.</p>' +
+    '<button class="btn btn-p" onclick="guardarPago()">Guardar pago</button>' + (nuevo ? '' : '<button class="btn btn-d" onclick="borrarPago()">Eliminar pago</button>') + '<div style="height:30px"></div></div></div>';
+  var y = window.scrollY; $('app').innerHTML = h; window.scrollTo(0, y);
+}
+function guardarPago(){
+  api(PG.id ? 'PUT' : 'POST', '/api/portal/pagos' + (PG.id ? '/' + PG.id : ''), PG).then(function(){ SUCIO = false; toast('Pago guardado'); OPC = null; history.length > 1 ? history.back() : ir('#/panel'); }).catch(fallo);
+}
+function borrarPago(){
+  if (!confirm('¿Eliminar este pago?')) return;
+  api('DELETE', '/api/portal/pagos/' + PG.id).then(function(){ SUCIO = false; history.back(); }).catch(fallo);
+}
+
+// ── Gastos fijos (luz, agua, seguro…) ──
 var PERIODOS = { mensual: 'Mensual', trimestral: 'Trimestral', semestral: 'Semestral', anual: 'Anual' };
-var AREAS_G = { general: 'General', hotel: 'Hotel', restaurante: 'Restaurante' };
-function vGastos(app, mes){
-  mes = /^\d{4}-\d{2}$/.test(mes || '') ? mes : mesActual();
-  app.innerHTML = '<div class="vista">' + cabecera('Gastos', 'Fijos y variables', '#/admin', '<button class="acc" onclick="ir(\'#/gasto/nuevo\')">+ Nuevo</button>') +
-    '<div class="content">' + navMes(mes, '#/gastos/') + '<div id="gas-body"><div class="cargando">Cargando…</div></div></div></div>';
-  api('GET', '/api/portal/gastos?mes=' + mes).then(function(d){
-    var it = function(g, sub){ return '<div class="item" onclick="ir(\'#/gasto/' + g.id + '\')"><div class="tx"><b>' + esc(g.nombre) + '</b><small>' + sub + '</small></div><div class="der"><b>' + euros(g.importe_mes != null ? g.importe_mes : g.importe) + '</b></div></div>'; };
-    var h = '<div class="kpis"><div class="kpi grande"><small>Gastos del mes</small><b>' + euros(d.total) + '</b></div>' +
-      '<div class="kpi"><small>Fijos</small><b>' + euros(d.total_fijos) + '</b></div><div class="kpi"><small>Variables</small><b>' + euros(d.total_variables) + '</b></div></div>';
-    h += '<div class="btns" style="margin-bottom:6px"><button class="btn btn-p" onclick="ir(\'#/gasto/nuevo/variable\')">+ Gasto variable</button><button class="btn btn-s" onclick="ir(\'#/gasto/nuevo/fijo\')">+ Gasto fijo</button></div>';
-    var vars = d.del_mes.filter(function(g){ return g.tipo === 'variable'; }).sort(function(a, b){ return b.fecha.localeCompare(a.fecha); });
-    h += '<div class="sec-tit">Variables de este mes (' + vars.length + ')</div>' + (vars.map(function(g){ return it(g, esc(fechaCorta(g.fecha)) + ' · ' + AREAS_G[g.area] + (g.forma_pago ? ' · ' + esc(g.forma_pago) : '')); }).join('') || '<div class="vacio">Sin gastos variables este mes</div>');
-    var fijosMes = d.del_mes.filter(function(g){ return g.tipo === 'fijo'; });
-    h += '<div class="sec-tit">Fijos que cuentan este mes (' + fijosMes.length + ')</div>' + (fijosMes.map(function(g){ return it(g, PERIODOS[g.periodicidad] + (g.periodicidad !== 'mensual' ? ' · ' + euros(g.importe) + ' repartidos' : '') + ' · ' + AREAS_G[g.area]); }).join('') || '<div class="vacio">Sin gastos fijos</div>');
-    var inact = d.fijos.filter(function(g){ return !g.activo; });
-    if (inact.length) h += '<div class="sec-tit">Fijos dados de baja</div>' + inact.map(function(g){ return it(g, 'De baja'); }).join('');
-    h += '<p class="muted" style="margin:10px 4px 24px">Los gastos fijos trimestrales, semestrales o anuales se reparten por meses (por ejemplo, un seguro anual de 1.200 € cuenta 100 € cada mes).</p>';
-    $('gas-body').innerHTML = h;
+function vGastos(app){
+  app.innerHTML = '<div class="vista">' + cabecera('Gastos fijos', 'Se reparten por días en el panel', '#/admin', '<button class="acc" onclick="ir(\'#/gasto/nuevo\')">+ Nuevo</button>') +
+    '<div class="content" id="gas-body"><div class="cargando">Cargando…</div></div></div>';
+  Promise.all([api('GET', '/api/portal/gastos'), opcionesPagos()]).then(function(r){
+    var d = r[0], o = r[1], h = '';
+    h += '<div class="kpis"><div class="kpi"><small>Restaurante al mes</small><b>' + euros(d.mensual_restaurante) + '</b></div><div class="kpi"><small>Hotel al mes</small><b>' + euros(d.mensual_hotel) + '</b></div></div>';
+    if (o.puede_anotar) h += '<button class="btn btn-p" style="margin-bottom:6px" onclick="ir(\'#/gasto/nuevo\')">+ Añadir gasto fijo</button>';
+    ['restaurante', 'hotel'].forEach(function(a){
+      var l = d.fijos.filter(function(g){ return g.area === a; });
+      h += '<div class="sec-tit">' + (a === 'hotel' ? 'Hotel' : 'Restaurante') + '</div>' + (l.map(function(g){
+        return '<div class="item" onclick="ir(\'#/gasto/' + g.id + '\')" style="' + (g.activo ? '' : 'opacity:.5') + '"><div class="tx"><b>' + esc(g.categoria || g.nombre) + (g.nombre && g.nombre !== g.categoria ? ' · ' + esc(g.nombre) : '') + '</b><small>' +
+          euros(g.importe) + ' ' + PERIODOS[g.periodicidad].toLowerCase() + (g.periodicidad !== 'mensual' ? ' · ' + euros(g.mensual) + '/mes' : '') + (g.activo ? '' : ' · de baja') + '</small></div><div class="der"><b>' + euros(g.mensual) + '</b><br><span class="muted">al mes</span></div></div>';
+      }).join('') || '<div class="vacio">Sin gastos fijos. Añade luz, agua, gas, seguro, personal, IBI…</div>');
+    });
+    $('gas-body').innerHTML = h + '<p class="muted" style="margin:10px 4px 24px">Cada gasto fijo se reparte por días: un seguro anual de 1.200 € cuenta 100 € al mes y unos 3,30 € cada día.</p>';
   }).catch(fallo);
 }
 var GA = null;
-function vGasto(app, id, tipo){
+function vGasto(app, id){
   var nuevo = id === 'nuevo';
-  if (nuevo && tipo === undefined) { var hp = location.hash.split('/'); tipo = hp[3]; }
-  var cargar = nuevo ? Promise.resolve({ nombre: '', importe: '', tipo: tipo === 'fijo' ? 'fijo' : 'variable', periodicidad: 'mensual', area: 'general', fecha: hoyISO(), activo: 1 })
-    : api('GET', '/api/portal/gastos/' + id);
-  app.innerHTML = '<div class="vista">' + cabecera('Gasto', '', '#/gastos') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
-  cargar.then(function(g){ GA = clon(g); pintarGasto(); }).catch(function(e){ fallo(e); ir('#/gastos'); });
+  app.innerHTML = '<div class="vista">' + cabecera('Gasto fijo', '', '#/gastos') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  Promise.all([nuevo ? Promise.resolve({ area: 'restaurante', categoria: '', nombre: '', importe: '', periodicidad: 'mensual', fecha: jornadaHoy().slice(0, 8) + '01', activo: 1 }) : api('GET', '/api/portal/gastos/' + id), opcionesPagos()])
+    .then(function(r){ GA = clon(r[0]); pintarGasto(); }).catch(fallo);
 }
 function pintarGasto(){
-  var g = GA, nuevo = !g.id, fijo = g.tipo === 'fijo';
-  var sel = function(k, ops, re){ return '<select onchange="GA.' + k + '=this.value;marcar();' + (re ? 'pintarGasto()' : '') + '">' + Object.keys(ops).map(function(v){ return '<option value="' + v + '"' + (g[k] === v ? ' selected' : '') + '>' + ops[v] + '</option>'; }).join('') + '</select>'; };
+  var g = GA, o = OPC, nuevo = !g.id, cats = (o.categorias[g.area] || {}).fijos || [];
+  var chip = function(v, campo, txt){ return '<button class="chip' + (g[campo] === v ? ' on' : '') + '" onclick="GA.' + campo + '=' + attr(JSON.stringify(v)) + ';marcar();pintarGasto()">' + esc(txt || v) + '</button>'; };
   var cmp = function(etq, k, extra){ return '<div class="field"><label>' + etq + '</label><input' + (extra || '') + ' value="' + attr(g[k] == null ? '' : g[k]) + '" oninput="GA.' + k + '=this.value;marcar()"></div>'; };
-  $('app').innerHTML = '<div class="vista">' + cabecera(nuevo ? (fijo ? 'Nuevo gasto fijo' : 'Nuevo gasto variable') : g.nombre, fijo ? 'Gasto fijo' : 'Gasto variable', '#/gastos', '<button class="acc" onclick="guardarGasto()">Guardar</button>') + '<div class="content">' +
-    '<div class="card"><div class="chips"><button class="chip' + (!fijo ? ' on' : '') + '" onclick="GA.tipo=\'variable\';marcar();pintarGasto()">Variable</button><button class="chip' + (fijo ? ' on' : '') + '" onclick="GA.tipo=\'fijo\';marcar();pintarGasto()">Fijo</button></div>' +
-    cmp('Nombre del gasto', 'nombre', ' placeholder="' + (fijo ? 'Ej.: Alquiler, seguro, luz, gestoría…' : 'Ej.: Reparación cámara frigorífica') + '"') +
-    '<div class="fila">' + cmp('Importe (€)', 'importe', ' inputmode="decimal"') + (fijo ? '<div class="field"><label>Cada cuánto</label>' + sel('periodicidad', PERIODOS) + '</div>' : cmp('Fecha', 'fecha', ' type="date"')) + '</div>' +
-    (fijo ? '<div class="fila">' + cmp('Desde', 'fecha', ' type="date"') + cmp('Hasta (opcional)', 'fecha_fin', ' type="date"') + '</div>' : '') +
-    '<div class="fila"><div class="field"><label>Área</label>' + sel('area', AREAS_G) + '</div><div class="field"><label>Forma de pago</label>' +
-      sel('forma_pago', { '': '', 'Efectivo': 'Efectivo', 'Tarjeta': 'Tarjeta', 'Transferencia': 'Transferencia', 'Domiciliación': 'Domiciliación', 'Bizum': 'Bizum' }) + '</div></div>' +
-    cmp('Notas', 'notas') +
-    (fijo && !nuevo ? '<div class="sw-row"><span>Activo (sigue contando cada mes)</span><label class="sw"><input type="checkbox"' + (g.activo ? ' checked' : '') + ' onchange="GA.activo=this.checked?1:0;marcar()"><span class="sw-sl"></span></label></div>' : '') +
-    '</div><button class="btn btn-p" onclick="guardarGasto()">Guardar</button>' + (nuevo ? '' : '<button class="btn btn-d" onclick="borrarGasto()">Eliminar gasto</button>') + '<div style="height:30px"></div></div></div>';
+  var otra = g.categoria && cats.indexOf(g.categoria) === -1;
+  var h = '<div class="vista">' + cabecera(nuevo ? 'Nuevo gasto fijo' : (g.categoria || g.nombre), g.area === 'hotel' ? 'Hotel' : 'Restaurante', '#/gastos', o.puede_anotar ? '<button class="acc" onclick="guardarGasto()">Guardar</button>' : '') + '<div class="content"><div class="card">' +
+    '<label class="muted">Área</label><div class="chips">' + chip('restaurante', 'area', 'Restaurante') + chip('hotel', 'area', 'Hotel') + '</div>' +
+    '<label class="muted">Categoría</label><div class="chips">' + cats.map(function(c){ return chip(c, 'categoria'); }).join('') + '</div>' +
+    '<div class="field"><label>Otra categoría</label><input value="' + attr(otra ? g.categoria : '') + '" placeholder="Ej.: Gestoría, alarma, internet…" oninput="GA.categoria=this.value;marcar()"></div>' +
+    cmp('Descripción (opcional)', 'nombre', ' placeholder="Ej.: Iberdrola, Mapfre…"') +
+    '<div class="fila">' + cmp('Importe (€)', 'importe', ' inputmode="decimal"') + '<div class="field"><label>Cada cuánto se paga</label><select onchange="GA.periodicidad=this.value;marcar()">' +
+      Object.keys(PERIODOS).map(function(k){ return '<option value="' + k + '"' + (g.periodicidad === k ? ' selected' : '') + '>' + PERIODOS[k] + '</option>'; }).join('') + '</select></div></div>' +
+    '<div class="fila">' + cmp('Desde', 'fecha', ' type="date"') + cmp('Hasta (opcional)', 'fecha_fin', ' type="date"') + '</div>' +
+    (!nuevo ? '<div class="sw-row"><span>Activo (se sigue repartiendo cada día)</span><label class="sw"><input type="checkbox"' + (g.activo ? ' checked' : '') + ' onchange="GA.activo=this.checked?1:0;marcar()"><span class="sw-sl"></span></label></div>' : '') +
+    '</div>' + (o.puede_anotar ? '<button class="btn btn-p" onclick="guardarGasto()">Guardar</button>' + (nuevo ? '' : '<button class="btn btn-d" onclick="borrarGasto()">Eliminar</button>') : '<p class="muted">Solo pueden cambiarlo: ' + esc(o.pagadores.join(', ')) + '.</p>') +
+    '<div style="height:30px"></div></div></div>';
+  var y = window.scrollY; $('app').innerHTML = h; window.scrollTo(0, y);
 }
 function guardarGasto(){
-  if (!String(GA.nombre || '').trim()) return toast('Pon el nombre del gasto');
-  api(GA.id ? 'PUT' : 'POST', '/api/portal/gastos' + (GA.id ? '/' + GA.id : ''), GA).then(function(g){ SUCIO = false; toast('Gasto guardado'); ir('#/gastos/' + (g.tipo === 'variable' ? g.fecha.slice(0, 7) : mesActual())); }).catch(fallo);
+  if (!String(GA.categoria || '').trim()) return toast('Elige la categoría');
+  api(GA.id ? 'PUT' : 'POST', '/api/portal/gastos' + (GA.id ? '/' + GA.id : ''), GA).then(function(){ SUCIO = false; OPC = null; toast('Gasto fijo guardado'); ir('#/gastos'); }).catch(fallo);
 }
 function borrarGasto(){
-  if (!confirm('¿Eliminar "' + GA.nombre + '"?')) return;
+  if (!confirm('¿Eliminar este gasto fijo?')) return;
   api('DELETE', '/api/portal/gastos/' + GA.id).then(function(){ SUCIO = false; ir('#/gastos'); }).catch(fallo);
 }
 
