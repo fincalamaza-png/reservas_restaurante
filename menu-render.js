@@ -131,26 +131,19 @@
   }
 
   // ── Tríptico A4 horizontal: portada + dos paneles de platos ──
+  // ── A4 horizontal con 3 menús iguales, para cortar y entregar uno a cada cliente ──
   function triptico(m) {
     var grupos = agrupar(m.secciones);
-    var peso = grupos.map(function (g) { return g.lineas.length + 1.6; });
-    var total = peso.reduce(function (a, b) { return a + b; }, 0), acum = 0, corte = grupos.length;
-    for (var i = 0; i < grupos.length; i++) { if (acum + peso[i] / 2 > total / 2) { corte = i; break; } acum += peso[i]; }
-    if (corte === 0 && grupos.length > 1) corte = 1;
-    var izq = grupos.slice(0, corte), der = grupos.slice(corte);
-    return '<div class="dfm-hoja dfm-trip">' +
-      '<div class="dfm-panel dfm-portada">' +
-        '<div class="dfm-casa">DON FADRIQUE</div><div class="dfm-lugar">Alba de Tormes · Salamanca</div>' +
-        '<div class="dfm-orla"></div>' +
-        '<div class="dfm-nombre">' + esc(m.titulo || m.nombre || 'Menú') + '</div>' +
-        (limpio(m.subtitulo) ? '<div class="dfm-subt">' + esc(m.subtitulo) + '</div>' : '') +
-        cabeceraCliente(m) +
-        '<div style="flex:1"></div>' + logos(m._base) +
-      '</div>' +
-      '<div class="dfm-panel"><div class="dfm-cuerpo dfm-ajustar"><div class="dfm-in">' + izq.map(htmlGrupo).join('<div class="dfm-sep">·</div>') + '</div></div></div>' +
-      '<div class="dfm-panel"><div class="dfm-cuerpo dfm-ajustar"><div class="dfm-in">' + der.map(htmlGrupo).join('<div class="dfm-sep">·</div>') + '</div></div>' +
-        '<div class="dfm-final">' + pie(m) + '</div></div>' +
-      '</div>';
+    var uno = '<div class="dfm-panel"><div class="dfm-marco3">' +
+      '<div class="dfm-casa">DON FADRIQUE</div><div class="dfm-lugar">Alba de Tormes</div>' +
+      '<div class="dfm-nombre">' + esc(m.titulo || m.nombre || 'Menú') + '</div>' +
+      (limpio(m.subtitulo) ? '<div class="dfm-subt">' + esc(m.subtitulo) + '</div>' : '') +
+      cabeceraCliente(m) +
+      '<div class="dfm-orla"></div>' +
+      '<div class="dfm-cuerpo dfm-ajustar"><div class="dfm-in">' + grupos.map(htmlGrupo).join('<div class="dfm-sep">·</div>') + '</div></div>' +
+      '<div class="dfm-final">' + pie(m) + logos(m._base) + '</div>' +
+      '</div></div>';
+    return '<div class="dfm-hoja dfm-trip">' + uno + uno + uno + '</div>';
   }
 
   // Reduce la letra si un bloque no cabe en su hoja/panel
@@ -158,7 +151,7 @@
     (raiz || document).querySelectorAll('.dfm-ajustar').forEach(function (el) {
       var k = 1;
       el.style.removeProperty('--k');
-      var cont = el.closest('.dfm-marco, .dfm-panel') || el.parentElement;
+      var cont = el.closest('.dfm-marco, .dfm-marco3') || el.parentElement;
       for (var n = 0; n < 30 && (cont.scrollHeight > cont.clientHeight + 1 || el.scrollHeight > el.clientHeight + 1) && k > 0.55; n++) {
         k -= 0.03; el.style.setProperty('--k', k);
       }
@@ -196,13 +189,21 @@
     '.dfm-logos{display:flex;justify-content:center;align-items:center;gap:7mm;margin-top:5mm}',
     '.dfm-logos img{height:11mm;width:auto;object-fit:contain}',
     '.dfm-trip{width:297mm;height:210mm;display:flex}',
-    '.dfm-panel{width:99mm;height:210mm;padding:14mm 10mm 10mm;display:flex;flex-direction:column;align-items:center;text-align:center;overflow:hidden;position:relative}',
-    '.dfm-panel+.dfm-panel:before{content:"";position:absolute;left:0;top:12mm;bottom:12mm;border-left:1px dashed #e4dccb}',
-    '.dfm-trip .dfm-cuerpo{flex:1;overflow:hidden;display:flex;flex-direction:column;font-size:calc(13.5pt * var(--k, 1))}',
-    '.dfm-portada{background:#faf6ee;justify-content:flex-start;padding-top:38mm}',
-    '.dfm-portada .dfm-nombre{font-size:25pt}',
-    '.dfm-portada .dfm-logos{gap:5mm}.dfm-portada .dfm-logos img{height:10mm}',
-    '@media print{.dfm-hoja{box-shadow:none;margin:0}.dfm-panel+.dfm-panel:before{display:none}}'
+    '.dfm-panel{width:99mm;height:210mm;padding:7mm 6mm;position:relative}',
+    '.dfm-panel+.dfm-panel:before{content:"";position:absolute;left:0;top:0;bottom:0;border-left:.3mm dashed #d9d2c4}',
+    '.dfm-marco3{height:100%;border:1px solid #c9b07a;padding:8mm 6mm 5mm;display:flex;flex-direction:column;align-items:center;text-align:center;overflow:hidden}',
+    '.dfm-trip .dfm-casa{font-size:11pt}',
+    '.dfm-trip .dfm-lugar{font-size:6pt;margin-top:1.2mm}',
+    '.dfm-trip .dfm-nombre{font-size:19pt;margin-top:5mm}',
+    '.dfm-trip .dfm-subt{font-size:10pt}',
+    '.dfm-trip .dfm-cliente{font-size:6.5pt}',
+    '.dfm-trip .dfm-orla{margin:4mm auto}',
+    '.dfm-trip .dfm-cuerpo{flex:1;overflow:hidden;display:flex;flex-direction:column;font-size:calc(11pt * var(--k, 1))}',
+    '.dfm-trip .dfm-final{padding-top:2mm}',
+    '.dfm-trip .dfm-precio{font-size:13pt}.dfm-trip .dfm-precio span{font-size:8pt}',
+    '.dfm-trip .dfm-nota{font-size:6pt}',
+    '.dfm-trip .dfm-logos{gap:4mm;margin-top:3mm}.dfm-trip .dfm-logos img{height:7.5mm}',
+    '@media print{.dfm-hoja{box-shadow:none;margin:0}}'
   ].join('\n');
 
   global.DFMenu = { agrupar: agrupar, a4: a4, triptico: triptico, ajustar: ajustar, css: CSS, euros: euros, fechaLarga: fechaLarga, esc: esc };

@@ -7,6 +7,7 @@
 'use strict';
 const path = require('path');
 const crypto = require('crypto');
+const PERMISOS = require('./permisos');
 
 const TPV_URL = (process.env.TPV_URL || 'https://gestion.palaciocondealdana.com').replace(/\/$/, '');
 // Familias de la carta del restaurante en el TPV (las mismas que usa generar_carta.py)
@@ -248,9 +249,21 @@ module.exports = function montarPortal(app, db) {
     if (o.fianza_pagada && !o.fianza_fecha) o.fianza_fecha = new Date().toISOString().slice(0, 10);
     return o;
   }
+  // Bodas y comuniones tienen permiso por separado
+  const modTipo = t => (t === 'comunion' ? 'comuniones' : 'bodas');
+  const puedeTipo = (req, t) => PERMISOS.puede(db, req.usuario, modTipo(t));
+  const sinPermiso = res => res.status(403).json({ error: 'No tienes permiso para esta sección' });
+  app.use('/api/portal/celebraciones/:id', (req, res, next) => {
+    const r = db.prepare('SELECT tipo FROM celebraciones WHERE id = ?').get(req.params.id);
+    if (r && !puedeTipo(req, r.tipo)) return sinPermiso(res);
+    next();
+  });
   app.get('/api/portal/celebraciones', (req, res) => {
-    let sql = 'SELECT * FROM celebraciones WHERE 1=1';
-    const p = [];
+    const tipos = ['boda', 'comunion'].filter(t => puedeTipo(req, t));
+    if (req.query.tipo && !tipos.includes(req.query.tipo)) return sinPermiso(res);
+    if (!tipos.length) return sinPermiso(res);
+    let sql = 'SELECT * FROM celebraciones WHERE tipo IN (' + tipos.map(() => '?').join(',') + ')';
+    const p = tipos.slice();
     if (req.query.tipo) { sql += ' AND tipo = ?'; p.push(req.query.tipo); }
     if (req.query.desde) { sql += ' AND fecha >= ?'; p.push(req.query.desde); }
     if (req.query.hasta) { sql += ' AND fecha <= ?'; p.push(req.query.hasta); }
@@ -265,6 +278,7 @@ module.exports = function montarPortal(app, db) {
   app.post('/api/portal/celebraciones', (req, res) => {
     const d = req.body || {};
     const tipo = d.tipo === 'comunion' ? 'comunion' : 'boda';
+    if (!puedeTipo(req, tipo)) return sinPermiso(res);
     if (!d.fecha) return res.status(400).json({ error: 'Falta la fecha' });
     const o = datosCeleb(d, null);
     const cols = Object.keys(o);

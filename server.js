@@ -514,7 +514,8 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/sesion', (req, res) => {
   const u = usuarioSesion(req);
   if (!u) return res.status(401).json({ error: 'Sin sesión' });
-  res.json({ usuario: u });
+  const p = PERMISOS.permisosDe(db, u);
+  res.json({ usuario: u, admin: p.admin, modulos: p.modulos });
 });
 
 // Archivos del servidor que nunca deben descargarse
@@ -534,14 +535,25 @@ app.use('/api', (req, res, next) => {
   req.usuario = u;
   next();
 });
+// Permisos por usuario: cada uno solo usa los módulos que tenga marcados (Manuel y Nicolás, todo)
+const PERMISOS = require('./permisos');
+PERMISOS.iniciar(db);
+app.use('/api', PERMISOS.middleware(db));
+PERMISOS.montar(app, db);
+// Páginas de la app de reservas: sin permiso de Reservas se vuelve a la portada
+function paginaReservas(req, res, next) {
+  const u = usuarioSesion(req);
+  if (u && !PERMISOS.puede(db, u, 'reservas')) return res.redirect('/');
+  next();
+}
 app.use(['/minuta-print'], (req, res, next) => {
   if (!usuarioSesion(req)) return res.redirect('/');
   next();
-});
+}, paginaReservas);
 
 // Portada de gestión (Hotel / Restaurante) en la raíz; la app de reservas pasa a /reservas
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'portal.html')));
-app.get('/reservas', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/reservas', paginaReservas, (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 app.use(express.static(path.join(__dirname), { index: false }));
 
@@ -2477,7 +2489,7 @@ function estudioGuardar(col, id, data, usuario) {
   db.prepare("INSERT OR REPLACE INTO estudio_docs (col, id, data, actualizado, usuario) VALUES (?, ?, ?, datetime('now'), ?)").run(col, id, JSON.stringify(data), usuario || null);
 }
 
-app.get('/presupuestos', (req, res) => {
+app.get('/presupuestos', paginaReservas, (req, res) => {
   if (!usuarioSesion(req)) return res.redirect('/');
   res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(ESTUDIO_DIR, 'index.html'));

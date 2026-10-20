@@ -203,7 +203,15 @@ var URL_TPV = 'https://gestion.palaciocondealdana.com';
 var LUGARES = ['Don Fadrique', 'La Cúpula (Don Fadrique)', 'Zona de piscina (Don Fadrique)', 'Palacio Conde Aldana', 'Las Úrsulas', 'Bodega Díscolo', 'Catering en otro lugar'];
 var MENUS_RESTAURANTE = ['Reunión Familiar Tradicional 1', 'Reunión Familiar Tradicional 2', 'Menú Sabor de la Memoria', 'Menú Instinto'];
 
-var ST = { usuario: null, plantillas: null };
+var ST = { usuario: null, admin: false, modulos: [], plantillas: null };
+var RESTAURANTE = ['reservas', 'tpv', 'carta', 'bodas', 'comuniones', 'contabilidad'];
+var NOMBRES_MOD = { hotel: 'Hotel', reservas: 'Reservas', tpv: 'TPV', carta: 'Carta y Menús', bodas: 'Bodas', comuniones: 'Comuniones', contabilidad: 'Contabilidad' };
+// ¿Puede el usuario entrar? (texto o lista de módulos; 'admin' solo administradores)
+function puede(m){
+  if (ST.admin) return true;
+  if (m === 'admin') return false;
+  return (Array.isArray(m) ? m : [m]).some(function(x){ return ST.modulos.indexOf(x) > -1; });
+}
 
 // ════════════════════════════════════════════════════════════════════════
 //  UTILIDADES
@@ -256,7 +264,7 @@ function entrarPin(){
     .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
     .then(function(x){
       enviandoPin = false;
-      if (x.ok) { try { localStorage.setItem('df_usuario', x.d.usuario); } catch(e) {} ST.usuario = x.d.usuario; $('pin').style.display = 'none'; render(); }
+      if (x.ok) { try { localStorage.setItem('df_usuario', x.d.usuario); } catch(e) {} $('pin').style.display = 'none'; cargarSesion(); }
       else { PIN = ''; pintarPin(); $('pin-error').textContent = x.d.error || 'PIN incorrecto'; }
     }).catch(function(){ enviandoPin = false; PIN = ''; pintarPin(); $('pin-error').textContent = 'Sin conexión'; });
 }
@@ -304,7 +312,11 @@ function render(){
   window.scrollTo(0, 0);
   SUCIO = false;
   if (!h) return vHome(app);
+  var nec = { restaurante: RESTAURANTE, carta: 'carta', menus: 'carta', menu: ['carta', 'bodas', 'comuniones'], personalizados: 'carta', personalizado: 'carta',
+    bodas: 'bodas', comuniones: 'comuniones', celebracion: ['bodas', 'comuniones'], contabilidad: 'contabilidad', usuarios: 'admin' }[p[0]];
+  if (nec && !puede(nec)) { toast('No tienes acceso a esa sección'); location.hash = ''; return; }
   switch (p[0]) {
+    case 'usuarios': return vUsuarios(app);
     case 'restaurante': return vRestaurante(app);
     case 'carta': return vCarta(app);
     case 'menus': return vMenus(app);
@@ -326,8 +338,11 @@ function vHome(app){
   app.innerHTML = '<div class="home">' +
     '<div class="home-cab"><div class="k">GESTIÓN</div><div class="n">DON FADRIQUE</div><div class="l">Alba de Tormes · Salamanca</div></div>' +
     '<div class="home-grid">' +
-      '<a class="tile" href="' + URL_HOTEL + '" target="_blank" rel="noopener"><div class="ic">&#128719;</div><div class="tx"><b>Don Fadrique Hotel</b><small>Planning, reservas de habitaciones y facturas</small></div><div class="fl">&#8599;</div></a>' +
-      '<button class="tile" onclick="ir(\'#/restaurante\')"><div class="ic">&#127869;</div><div class="tx"><b>Don Fadrique Restaurante</b><small>Reservas, TPV, carta y menús, bodas, comuniones y contabilidad</small></div><div class="fl">&#8250;</div></button>' +
+      (puede('hotel') ? '<a class="tile" href="' + URL_HOTEL + '" target="_blank" rel="noopener"><div class="ic">&#128719;</div><div class="tx"><b>Don Fadrique Hotel</b><small>Planning, reservas de habitaciones y facturas</small></div><div class="fl">&#8599;</div></a>' : '') +
+      (puede(RESTAURANTE) ? '<button class="tile" onclick="ir(\'#/restaurante\')"><div class="ic">&#127869;</div><div class="tx"><b>Don Fadrique Restaurante</b><small>' +
+        RESTAURANTE.filter(puede).map(function(m){ return NOMBRES_MOD[m]; }).join(', ') + '</small></div><div class="fl">&#8250;</div></button>' : '') +
+      (ST.admin ? '<button class="tile" onclick="ir(\'#/usuarios\')"><div class="ic">&#128101;</div><div class="tx"><b>Usuarios y permisos</b><small>PIN de cada persona y a qué botones puede entrar</small></div><div class="fl">&#8250;</div></button>' : '') +
+      (!puede('hotel') && !puede(RESTAURANTE) && !ST.admin ? '<div class="vacio" style="color:#a39a8f">Todavía no tienes acceso a ninguna sección. Pídeselo a Manuel o a Nicolás.</div>' : '') +
     '</div>' +
     '<div class="home-pie">' + esc(ST.usuario || '') + '<button onclick="cerrarSesion()">Cerrar sesión</button></div>' +
   '</div>';
@@ -339,12 +354,12 @@ function vRestaurante(app){
     '<div class="top-osc"><button onclick="ir(\'#/\')">&#8592;</button></div>' +
     '<div class="home-cab" style="margin-top:0"><div class="k">RESTAURANTE</div><div class="n" style="font-size:26px">DON FADRIQUE</div></div>' +
     '<div class="paleta">' +
-      b('&#128197;', 'Reservas', 'Mesas, eventos, extras y propuestas', '/reservas') +
-      b('&#128179;', 'TPV', 'Comandas, cobros, caja y stock', URL_TPV) +
-      b('&#128214;', 'Carta y Menús', 'Carta, menús para imprimir y personalizados', '#/carta') +
-      b('&#128141;', 'Bodas', 'Calendario, fichas, fianzas y menús', '#/bodas') +
-      b('&#128330;', 'Comuniones', 'Calendario, fichas, fianzas y menús', '#/comuniones') +
-      b('&#128202;', 'Contabilidad', 'TPV, bodas, comuniones y presupuestos', '#/contabilidad') +
+      (puede('reservas') ? b('&#128197;', 'Reservas', 'Mesas, eventos, extras y propuestas', '/reservas') : '') +
+      (puede('tpv') ? b('&#128179;', 'TPV', 'Comandas, cobros, caja y stock', URL_TPV) : '') +
+      (puede('carta') ? b('&#128214;', 'Carta y Menús', 'Carta, menús para imprimir y personalizados', '#/carta') : '') +
+      (puede('bodas') ? b('&#128141;', 'Bodas', 'Calendario, fichas, fianzas y menús', '#/bodas') : '') +
+      (puede('comuniones') ? b('&#128330;', 'Comuniones', 'Calendario, fichas, fianzas y menús', '#/comuniones') : '') +
+      (puede('contabilidad') ? b('&#128202;', 'Contabilidad', 'TPV, bodas, comuniones y presupuestos', '#/contabilidad') : '') +
     '</div>' +
   '</div>';
 }
@@ -416,7 +431,7 @@ function tipoMenu(p){
 }
 function tarjetaMenu(p){
   return '<div class="item" onclick="ir(\'#/menu/' + p.id + '\')"><div class="tx"><b>' + esc(p.nombre) + '</b><small>' +
-    (p.formato === 'triptico' ? '<span class="badge b-oro">Tríptico A4 horizontal</span> ' : '<span class="badge b-gris">A4</span> ') +
+    (p.formato === 'triptico' ? '<span class="badge b-oro">A4 horizontal · 3 menús por hoja</span> ' : '<span class="badge b-gris">A4</span> ') +
     (Number(p.precio_persona) ? euros(p.precio_persona) + ' / persona' : 'Sin precio') + '</small></div>' +
     '<div class="acciones"><a class="btn btn-s btn-sm" href="/menu.html?plantilla=' + p.id + '" onclick="event.stopPropagation()">&#128424;</a></div></div>';
 }
@@ -545,7 +560,7 @@ function vEditorPlantilla(app, id){
         '<div class="field"><label>Nombre del menú</label><input value="' + attr(ED.nombre) + '" oninput="ED.nombre=this.value;marcar()"></div>' +
         '<div class="field"><label>Subtítulo (opcional, sale bajo el nombre)</label><input value="' + attr(ED.subtitulo) + '" oninput="ED.subtitulo=this.value;marcar()"></div>' +
         '<div class="fila"><div class="field"><label>Precio por persona (€)</label><input inputmode="decimal" value="' + attr(ED.precio_persona || '') + '" oninput="ED.precio_persona=n2(this.value);marcar()"></div>' +
-        '<div class="field"><label>Formato de impresión</label><select onchange="ED.formato=this.value;marcar()"><option value="a4"' + (ED.formato !== 'triptico' ? ' selected' : '') + '>A4 vertical</option><option value="triptico"' + (ED.formato === 'triptico' ? ' selected' : '') + '>Tríptico A4 horizontal</option></select></div></div>' +
+        '<div class="field"><label>Formato de impresión</label><select onchange="ED.formato=this.value;marcar()"><option value="a4"' + (ED.formato !== 'triptico' ? ' selected' : '') + '>A4 vertical</option><option value="triptico"' + (ED.formato === 'triptico' ? ' selected' : '') + '>A4 horizontal · 3 menús por hoja</option></select></div></div>' +
         '<div class="fila"><div class="field"><label>Tipo</label><select onchange="ED.tipo=this.value;marcar()">' +
           [['comida','Comida / reunión'],['degustacion','Degustación'],['coctel','Cóctel'],['boda','Boda'],['comunion','Comunión']].map(function(o){ return '<option value="' + o[0] + '"' + (ED.tipo === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
         '<div class="field"><label>Nota al pie (opcional)</label><input value="' + attr(ED.nota) + '" placeholder="Ej.: IVA incluido · Pan, agua y café" oninput="ED.nota=this.value;marcar()"></div></div>' +
@@ -613,7 +628,7 @@ function vEditorPersonalizado(app, id){
         '<div class="fila"><div class="field"><label>Fecha</label><input type="date" value="' + attr(ED.fecha) + '" oninput="ED.fecha=this.value;marcar()"></div>' +
         '<div class="field"><label>Comensales</label><input inputmode="numeric" value="' + attr(ED.pax || '') + '" oninput="ED.pax=parseInt(this.value)||null;marcar()"></div></div>' +
         '<div class="fila"><div class="field"><label>Precio por persona (€)</label><input inputmode="decimal" value="' + attr(ED.precio_persona || '') + '" oninput="ED.precio_persona=n2(this.value);marcar()"></div>' +
-        '<div class="field"><label>Formato</label><select onchange="ED.formato=this.value;marcar()"><option value="a4"' + (ED.formato !== 'triptico' ? ' selected' : '') + '>A4 vertical</option><option value="triptico"' + (ED.formato === 'triptico' ? ' selected' : '') + '>Tríptico A4 horizontal</option></select></div></div>' +
+        '<div class="field"><label>Formato</label><select onchange="ED.formato=this.value;marcar()"><option value="a4"' + (ED.formato !== 'triptico' ? ' selected' : '') + '>A4 vertical</option><option value="triptico"' + (ED.formato === 'triptico' ? ' selected' : '') + '>A4 horizontal · 3 menús por hoja</option></select></div></div>' +
         '<div class="field"><label>Nota al pie</label><input value="' + attr(ED.nota) + '" oninput="ED.nota=this.value;marcar()"></div>' +
         '<div class="field" style="margin:0"><label>Partir de un menú existente</label><select onchange="partirDe(this.value);this.value=\'\'"><option value="">Elegir…</option>' +
           ps.map(function(p){ return '<option value="' + p.id + '">' + esc(p.nombre) + '</option>'; }).join('') + '</select></div>' +
@@ -961,13 +976,68 @@ function vContabilidad(app, mes){
   }).catch(fallo);
 }
 
+
+// ════════════════════════════════════════════════════════════════════════
+//  USUARIOS Y PERMISOS (solo administradores)
+// ════════════════════════════════════════════════════════════════════════
+var US = null;
+function vUsuarios(app){
+  app.innerHTML = '<div class="vista">' + cabecera('Usuarios y permisos', 'Quién entra y a qué', '#/', '<button class="acc" onclick="editarUsuario()">+ Nuevo</button>') +
+    '<div class="content" id="us-body"><div class="cargando">Cargando…</div></div></div>';
+  api('GET', '/api/portal/usuarios').then(function(d){
+    US = d;
+    var h = '<p class="muted" style="margin-bottom:12px">Cada persona entra con su PIN y solo ve los botones que tenga marcados. Los administradores lo ven todo y pueden gestionar los usuarios.</p>';
+    d.usuarios.forEach(function(u, i){
+      h += '<div class="item" onclick="editarUsuario(' + i + ')"><div class="tx"><b>' + esc(u.nombre) + (u.nombre === ST.usuario ? ' <span class="muted">(tú)</span>' : '') + '</b><small>' +
+        (u.admin ? '<span class="badge b-oro">Administrador · todo</span>' : (u.modulos.map(function(m){ return NOMBRES_MOD[m]; }).join(' · ') || 'Sin acceso')) + '</small></div><div class="der">&#8250;</div></div>';
+    });
+    h += '<button class="btn btn-p" style="margin-top:8px" onclick="editarUsuario()">+ Nuevo usuario</button>';
+    $('us-body').innerHTML = h;
+  }).catch(fallo);
+}
+function editarUsuario(i){
+  var u = i === undefined ? { nombre: '', pin: '', admin: false, modulos: [] } : clon(US.usuarios[i]);
+  var nuevo = i === undefined;
+  US.ant = nuevo ? null : u.nombre;
+  var h = '<div class="card"><h3>' + (nuevo ? 'Nuevo usuario' : esc(u.nombre)) + '</h3>' +
+    '<div class="field"><label>Nombre</label><input id="u-nombre" value="' + attr(u.nombre) + '"></div>' +
+    '<div class="field"><label>PIN (4 números)</label><input id="u-pin" inputmode="numeric" maxlength="4" value="' + attr(u.pin) + '"></div>' +
+    '<div class="sw-row" style="border-top:1px solid #f0ede8;padding-top:10px"><b>Administrador (acceso a todo)</b><label class="sw"><input type="checkbox" id="u-admin"' + (u.admin ? ' checked' : '') + ' onchange="$(\'u-mods\').style.opacity=this.checked?.4:1"><span class="sw-sl"></span></label></div>' +
+    '<div id="u-mods" style="' + (u.admin ? 'opacity:.4' : '') + '"><div class="sec-tit" style="margin-top:10px">Puede entrar en</div>' +
+    US.modulos.map(function(m){
+      return '<div class="sw-row"><span>' + NOMBRES_MOD[m] + (m === 'hotel' || m === 'tpv' ? ' <span class="muted">(botón; la app tiene su propia clave)</span>' : '') + '</span><label class="sw"><input type="checkbox" class="u-mod" value="' + m + '"' + (u.modulos.indexOf(m) > -1 ? ' checked' : '') + '><span class="sw-sl"></span></label></div>';
+    }).join('') + '</div></div>' +
+    '<button class="btn btn-p" onclick="guardarUsuario(US.ant)">Guardar</button>' +
+    '<button class="btn btn-s" onclick="vUsuarios($(\'app\'))">Cancelar</button>' +
+    (nuevo || u.nombre === ST.usuario ? '' : '<button class="btn btn-d" onclick="borrarUsuario(US.ant)">Eliminar usuario</button>') +
+    '<div style="height:30px"></div>';
+  $('us-body').innerHTML = h;
+  window.scrollTo(0, 0);
+}
+function guardarUsuario(anterior){
+  var d = { anterior: anterior, nombre: $('u-nombre').value.trim(), pin: $('u-pin').value.trim(), admin: $('u-admin').checked,
+    modulos: Array.prototype.slice.call(document.querySelectorAll('.u-mod:checked')).map(function(x){ return x.value; }) };
+  api('POST', '/api/portal/usuarios', d).then(function(){
+    toast('Usuario guardado');
+    if (anterior === ST.usuario) { cargarSesion(); return; }
+    vUsuarios($('app'));
+  }).catch(fallo);
+}
+function borrarUsuario(n){
+  if (!confirm('¿Eliminar a ' + n + '? Ya no podrá entrar con su PIN.')) return;
+  api('DELETE', '/api/portal/usuarios/' + encodeURIComponent(n)).then(function(){ toast('Usuario eliminado'); vUsuarios($('app')); }).catch(fallo);
+}
+
 // ════════════════════════════════════════════════════════════════════════
 //  ARRANQUE
 // ════════════════════════════════════════════════════════════════════════
-fetch('/api/sesion', { credentials: 'same-origin' }).then(function(r){
-  if (!r.ok) { mostrarPin(); return; }
-  return r.json().then(function(d){ ST.usuario = d.usuario; render(); });
-}).catch(function(){ mostrarPin(); });
+function cargarSesion(){
+  return fetch('/api/sesion', { credentials: 'same-origin' }).then(function(r){
+    if (!r.ok) { mostrarPin(); return; }
+    return r.json().then(function(d){ ST.usuario = d.usuario; ST.admin = !!d.admin; ST.modulos = d.modulos || []; render(); });
+  }).catch(function(){ mostrarPin(); });
+}
+cargarSesion();
 if ('serviceWorker' in navigator) window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
 </script>
 </body>
