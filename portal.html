@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Don Fadrique · Gestión</title>
 <link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/fonts/jost.css">
 <link rel="apple-touch-icon" href="/icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
 <meta name="theme-color" content="#1a1a1a">
@@ -19,7 +20,8 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--crema);color:var(--tinta);font-size:14px}
+body{font-family:Jost,"Helvetica Neue",Helvetica,Arial,sans-serif;background:var(--crema);color:var(--tinta);font-size:14px}
+input,select,textarea{font-family:inherit}
 button{font-family:inherit}
 a{color:inherit}
 .vista{min-height:100vh;display:flex;flex-direction:column}
@@ -67,33 +69,25 @@ a{color:inherit}
 .vacio{text-align:center;color:var(--gris);padding:26px 10px;font-size:13px}
 .cargando{text-align:center;color:var(--gris);padding:40px 10px}
 
-/* ── Portada ── */
-.home{background:radial-gradient(ellipse at top,#2a2520 0%,#151311 60%);color:#fff;min-height:100vh;display:flex;flex-direction:column;padding:calc(26px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom))}
-.home-cab{text-align:center;margin:18px 0 30px}
-.home-cab .k{font-size:11px;letter-spacing:5px;color:var(--oro)}
-.home-cab .n{font-family:Georgia,"Times New Roman",serif;font-size:32px;letter-spacing:4px;margin:6px 0 4px}
-.home-cab .l{font-size:12px;color:#9c948a;letter-spacing:1px}
-.home-grid{display:grid;gap:14px;max-width:560px;width:100%;margin:0 auto}
-.tile{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:linear-gradient(135deg,#2b2723,#1f1c19);border:1px solid #3a342c;border-radius:16px;padding:20px 18px;color:#fff;cursor:pointer;text-decoration:none;transition:transform .12s,border-color .12s}
-.tile:active{transform:scale(.98)}
-.tile:hover{border-color:var(--oro)}
-.tile .ic{width:54px;height:54px;border-radius:14px;background:rgba(184,150,90,.14);border:1px solid rgba(184,150,90,.35);display:flex;align-items:center;justify-content:center;font-size:27px;flex-shrink:0}
-.tile .tx b{display:block;font-size:17px;font-family:Georgia,serif;letter-spacing:.5px}
-.tile .tx small{display:block;color:#a39a8f;font-size:12px;margin-top:3px}
-.tile .fl{margin-left:auto;color:var(--oro);font-size:20px}
-.home-pie{margin-top:auto;padding-top:28px;text-align:center;font-size:12px;color:#7d756b}
-.home-pie button{background:none;border:none;color:#a39a8f;text-decoration:underline;font-size:12px;cursor:pointer;margin-left:6px}
-
-/* Paleta restaurante */
-.paleta{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:560px;width:100%;margin:0 auto}
-.pbtn{background:linear-gradient(160deg,#2b2723,#1f1c19);border:1px solid #3a342c;border-radius:16px;padding:20px 12px 16px;color:#fff;text-align:center;cursor:pointer;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:8px;min-height:128px;justify-content:center;transition:transform .12s,border-color .12s}
-.pbtn:active{transform:scale(.97)}
-.pbtn:hover{border-color:var(--oro)}
-.pbtn .ic{font-size:32px}
-.pbtn b{font-size:15px;font-family:Georgia,serif;letter-spacing:.3px}
-.pbtn small{font-size:11px;color:#a39a8f;line-height:1.3}
-.home .top-osc{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.home .top-osc button{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px}
+/* ── Portada y paletas: blanco roto con botones cuadrados ── */
+.home{background:#f7f4ee;color:var(--tinta);min-height:100vh;display:flex;flex-direction:column;padding:calc(22px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom))}
+.home-cab{text-align:center;margin:22px 0 30px}
+.home-cab .k{font-size:10px;letter-spacing:6px;color:var(--oro);font-weight:500;padding-left:6px}
+.home-cab .n{font-size:28px;letter-spacing:9px;font-weight:300;margin:8px 0 6px;padding-left:9px}
+.home-cab .l{font-size:11px;color:#9a9086;letter-spacing:2px}
+.home-cab .lin{width:34px;height:1px;background:#cbbd9e;margin:16px auto 0}
+.cuadros{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:560px;width:100%;margin:0 auto}
+.cuadro{aspect-ratio:1/1;background:#fff;border:1px solid #e6dfd3;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px;text-align:center;color:var(--tinta);text-decoration:none;cursor:pointer;box-shadow:0 1px 3px rgba(60,45,20,.05);transition:transform .12s,border-color .12s,box-shadow .12s;font-family:inherit}
+.cuadro:hover{border-color:var(--oro);box-shadow:0 4px 14px rgba(60,45,20,.08)}
+.cuadro:active{transform:scale(.97)}
+.cuadro .ic{width:58px;height:58px;border-radius:16px;background:#f5efe3;display:flex;align-items:center;justify-content:center;font-size:28px}
+.cuadro b{font-size:14px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;line-height:1.3}
+.cuadro small{font-size:11px;color:#9a9086;line-height:1.3;margin-top:-6px}
+.home-pie{margin-top:auto;padding-top:28px;text-align:center;font-size:12px;color:#9a9086}
+.home-pie button{background:none;border:none;color:#7d756b;text-decoration:underline;font-size:12px;cursor:pointer;margin-left:6px;font-family:inherit}
+.home .volver{background:none;border:none;color:var(--tinta);font-size:24px;cursor:pointer;padding:4px 8px;align-self:flex-start}
+.vacio-home{grid-column:1/-1;text-align:center;color:#9a9086;padding:20px}
+@media(min-width:700px){.cuadros{grid-template-columns:repeat(3,1fr);max-width:720px}}
 
 /* Listas */
 .item{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer}
@@ -205,7 +199,7 @@ var MENUS_RESTAURANTE = ['Reunión Familiar Tradicional 1', 'Reunión Familiar T
 
 var ST = { usuario: null, admin: false, modulos: [], plantillas: null };
 var RESTAURANTE = ['reservas', 'tpv', 'carta', 'bodas', 'comuniones', 'contabilidad'];
-var NOMBRES_MOD = { hotel: 'Hotel', reservas: 'Reservas', tpv: 'TPV', carta: 'Carta y Menús', bodas: 'Bodas', comuniones: 'Comuniones', contabilidad: 'Contabilidad' };
+var NOMBRES_MOD = { hotel: 'Hotel', reservas: 'Reservas', tpv: 'TPV Restaurante', carta: 'Carta y Menús', bodas: 'Bodas', comuniones: 'Comuniones', eventos: 'Eventos', contabilidad: 'Administración y Contabilidad' };
 // ¿Puede el usuario entrar? (texto o lista de módulos; 'admin' solo administradores)
 function puede(m){
   if (ST.admin) return true;
@@ -312,8 +306,8 @@ function render(){
   window.scrollTo(0, 0);
   SUCIO = false;
   if (!h) return vHome(app);
-  var nec = { restaurante: RESTAURANTE, carta: 'carta', menus: 'carta', menu: ['carta', 'bodas', 'comuniones'], personalizados: 'carta', personalizado: 'carta',
-    bodas: 'bodas', comuniones: 'comuniones', celebracion: ['bodas', 'comuniones'], contabilidad: 'contabilidad', usuarios: 'admin' }[p[0]];
+  var nec = { restaurante: ['reservas', 'carta'], carta: 'carta', menus: 'carta', menu: ['carta', 'bodas', 'comuniones', 'eventos'], personalizados: 'carta', personalizado: 'carta',
+    bodas: 'bodas', comuniones: 'comuniones', 'otros-eventos': 'eventos', eventos: EVENTOS, celebracion: EVENTOS, contabilidad: 'contabilidad', admin: 'contabilidad', documento: 'contabilidad', usuarios: 'admin' }[p[0]];
   if (nec && !puede(nec)) { toast('No tienes acceso a esa sección'); location.hash = ''; return; }
   switch (p[0]) {
     case 'usuarios': return vUsuarios(app);
@@ -325,6 +319,10 @@ function render(){
     case 'personalizado': return vEditorPersonalizado(app, p[1]);
     case 'bodas': return vCelebraciones(app, 'boda', p[1]);
     case 'comuniones': return vCelebraciones(app, 'comunion', p[1]);
+    case 'otros-eventos': return vCelebraciones(app, 'evento', p[1]);
+    case 'eventos': return vEventos(app);
+    case 'admin': return vAdmin(app, p[1]);
+    case 'documento': return vDocumento(app, p[1], p[2]);
     case 'celebracion': return vCelebracion(app, p[1], p[2], p[3]);
     case 'contabilidad': return vContabilidad(app, p[1]);
     default: return vHome(app);
@@ -334,34 +332,39 @@ function render(){
 // ════════════════════════════════════════════════════════════════════════
 //  PORTADA
 // ════════════════════════════════════════════════════════════════════════
-function vHome(app){
-  app.innerHTML = '<div class="home">' +
-    '<div class="home-cab"><div class="k">GESTIÓN</div><div class="n">DON FADRIQUE</div><div class="l">Alba de Tormes · Salamanca</div></div>' +
-    '<div class="home-grid">' +
-      (puede('hotel') ? '<a class="tile" href="' + URL_HOTEL + '" target="_blank" rel="noopener"><div class="ic">&#128719;</div><div class="tx"><b>Don Fadrique Hotel</b><small>Planning, reservas de habitaciones y facturas</small></div><div class="fl">&#8599;</div></a>' : '') +
-      (puede(RESTAURANTE) ? '<button class="tile" onclick="ir(\'#/restaurante\')"><div class="ic">&#127869;</div><div class="tx"><b>Don Fadrique Restaurante</b><small>' +
-        RESTAURANTE.filter(puede).map(function(m){ return NOMBRES_MOD[m]; }).join(', ') + '</small></div><div class="fl">&#8250;</div></button>' : '') +
-      (ST.admin ? '<button class="tile" onclick="ir(\'#/usuarios\')"><div class="ic">&#128101;</div><div class="tx"><b>Usuarios y permisos</b><small>PIN de cada persona y a qué botones puede entrar</small></div><div class="fl">&#8250;</div></button>' : '') +
-      (!puede('hotel') && !puede(RESTAURANTE) && !ST.admin ? '<div class="vacio" style="color:#a39a8f">Todavía no tienes acceso a ninguna sección. Pídeselo a Manuel o a Nicolás.</div>' : '') +
-    '</div>' +
-    '<div class="home-pie">' + esc(ST.usuario || '') + '<button onclick="cerrarSesion()">Cerrar sesión</button></div>' +
-  '</div>';
+function cuadro(icono, titulo, sub, accion){
+  var ext = accion.indexOf('http') === 0, pag = accion.indexOf('/') === 0;
+  var abre = (ext || pag) ? '<a class="cuadro" href="' + accion + '"' + (ext ? ' target="_blank" rel="noopener"' : '') + '>' : '<button class="cuadro" onclick="ir(\'' + accion + '\')">';
+  return abre + '<div class="ic">' + icono + '</div><b>' + titulo + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + ((ext || pag) ? '</a>' : '</button>');
 }
-
+function cabeceraHome(k, n, atras){
+  return (atras ? '<button class="volver" onclick="ir(\'' + atras + '\')">&#8592;</button>' : '') +
+    '<div class="home-cab"' + (atras ? ' style="margin-top:0"' : '') + '><div class="k">' + k + '</div><div class="n">' + n + '</div>' + (atras ? '' : '<div class="l">Alba de Tormes · Salamanca</div>') + '<div class="lin"></div></div>';
+}
+var EVENTOS = ['bodas', 'comuniones', 'eventos'];
+function vHome(app){
+  var h = (puede('hotel') ? cuadro('&#128719;', 'Hotel', 'Planning y habitaciones', URL_HOTEL) : '') +
+    (puede(['reservas', 'carta']) ? cuadro('&#127869;', 'Restaurante', 'Reservas, carta y menús', '#/restaurante') : '') +
+    (puede(EVENTOS) ? cuadro('&#127881;', 'Eventos', 'Bodas, comuniones y eventos', '#/eventos') : '') +
+    (puede('tpv') ? cuadro('&#128179;', 'TPV Restaurante', 'Comandas, cobros y caja', URL_TPV) : '') +
+    (puede('contabilidad') ? cuadro('&#128202;', 'Administración y Contabilidad', '', '#/admin') : '') +
+    (ST.admin ? cuadro('&#128101;', 'Usuarios', 'PIN y permisos', '#/usuarios') : '');
+  app.innerHTML = '<div class="home">' + cabeceraHome('GESTIÓN', 'DON FADRIQUE') +
+    '<div class="cuadros">' + (h || '<div class="vacio-home">Todavía no tienes acceso a ninguna sección. Pídeselo a Manuel o a Nicolás.</div>') + '</div>' +
+    '<div class="home-pie">' + esc(ST.usuario || '') + '<button onclick="cerrarSesion()">Cerrar sesión</button></div></div>';
+}
 function vRestaurante(app){
-  var b = function(icono, titulo, sub, accion){ return '<' + (accion.indexOf('http') === 0 || accion.indexOf('/') === 0 ? 'a href="' + accion + '"' + (accion.indexOf('http') === 0 ? ' target="_blank" rel="noopener"' : '') : 'button onclick="ir(\'' + accion + '\')"') + ' class="pbtn"><div class="ic">' + icono + '</div><b>' + titulo + '</b><small>' + sub + '</small></' + (accion.indexOf('#') === 0 ? 'button' : 'a') + '>'; };
-  app.innerHTML = '<div class="home">' +
-    '<div class="top-osc"><button onclick="ir(\'#/\')">&#8592;</button></div>' +
-    '<div class="home-cab" style="margin-top:0"><div class="k">RESTAURANTE</div><div class="n" style="font-size:26px">DON FADRIQUE</div></div>' +
-    '<div class="paleta">' +
-      (puede('reservas') ? b('&#128197;', 'Reservas', 'Mesas, eventos, extras y propuestas', '/reservas') : '') +
-      (puede('tpv') ? b('&#128179;', 'TPV', 'Comandas, cobros, caja y stock', URL_TPV) : '') +
-      (puede('carta') ? b('&#128214;', 'Carta y Menús', 'Carta, menús para imprimir y personalizados', '#/carta') : '') +
-      (puede('bodas') ? b('&#128141;', 'Bodas', 'Calendario, fichas, fianzas y menús', '#/bodas') : '') +
-      (puede('comuniones') ? b('&#128330;', 'Comuniones', 'Calendario, fichas, fianzas y menús', '#/comuniones') : '') +
-      (puede('contabilidad') ? b('&#128202;', 'Contabilidad', 'TPV, bodas, comuniones y presupuestos', '#/contabilidad') : '') +
-    '</div>' +
-  '</div>';
+  app.innerHTML = '<div class="home">' + cabeceraHome('RESTAURANTE', 'DON FADRIQUE', '#/') + '<div class="cuadros">' +
+    (puede('reservas') ? cuadro('&#128197;', 'Reservas', 'Mesas, eventos y propuestas', '/reservas') : '') +
+    (puede('carta') ? cuadro('&#128214;', 'Carta y Menús', 'Carta, menús y personalizados', '#/carta') : '') +
+    '</div></div>';
+}
+function vEventos(app){
+  app.innerHTML = '<div class="home">' + cabeceraHome('EVENTOS', 'DON FADRIQUE', '#/') + '<div class="cuadros">' +
+    (puede('bodas') ? cuadro('&#128141;', 'Bodas', 'Calendario, fichas y fianzas', '#/bodas') : '') +
+    (puede('comuniones') ? cuadro('&#128330;', 'Comuniones', 'Calendario, fichas y fianzas', '#/comuniones') : '') +
+    (puede('eventos') ? cuadro('&#127881;', 'Eventos', 'Empresa, cumpleaños, bautizos…', '#/otros-eventos') : '') +
+    '</div></div>';
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -685,6 +688,7 @@ function nombreCeleb(c){
     var a = [c.nombre1, c.apellidos1].filter(Boolean).join(' '), b = [c.nombre2, c.apellidos2].filter(Boolean).join(' ');
     return [a, b].filter(Boolean).join(' y ') || 'Sin nombres';
   }
+  if (c.tipo === 'evento') return c.nombre_evento || c.empresa || [c.nombre1, c.apellidos1].filter(Boolean).join(' ') || 'Evento sin nombre';
   return c.protagonista || [c.nombre1, c.apellidos1].filter(Boolean).join(' ') || 'Sin nombre';
 }
 function badgeEstado(c){
@@ -692,10 +696,16 @@ function badgeEstado(c){
   if (c.estado === 'cancelada') return '<span class="badge b-gris">Cancelada</span>';
   return '<span class="badge b-ambar">Bloqueada · sin fianza</span>';
 }
-function rutaTipo(tipo){ return tipo === 'boda' ? '#/bodas' : '#/comuniones'; }
+function rutaTipo(tipo){ return tipo === 'boda' ? '#/bodas' : tipo === 'evento' ? '#/otros-eventos' : '#/comuniones'; }
+var TXT = {
+  boda: { uno: 'boda', plural: 'Bodas', nueva: 'Nueva boda', la: 'la boda', ico: '&#128141; ' },
+  comunion: { uno: 'comunión', plural: 'Comuniones', nueva: 'Nueva comunión', la: 'la comunión', ico: '&#128330; ' },
+  evento: { uno: 'evento', plural: 'Eventos', nueva: 'Nuevo evento', la: 'el evento', ico: '&#127881; ' }
+};
+var CATEGORIAS_EVENTO = ['Comida o cena de empresa', 'Cumpleaños', 'Bautizo', 'Aniversario', 'Jubilación', 'Reunión familiar', 'Congreso o jornada', 'Otro'];
 
 function vCelebraciones(app, tipo, sub){
-  var titulo = tipo === 'boda' ? 'Bodas' : 'Comuniones';
+  var titulo = TXT[tipo].plural;
   var pest = function(act){
     var r = rutaTipo(tipo);
     return '<div class="chips"><button class="chip' + (act === 'cal' ? ' on' : '') + '" onclick="ir(\'' + r + '\')">Calendario</button>' +
@@ -704,17 +714,17 @@ function vCelebraciones(app, tipo, sub){
   };
   var accion = '<button class="acc" onclick="ir(\'#/celebracion/nueva/' + tipo + '\')">+ Nueva</button>';
   if (sub === 'menus') {
-    app.innerHTML = '<div class="vista">' + cabecera(titulo, 'Menús', '#/restaurante', accion) + '<div class="content">' + pest('menus') + '<div id="cm-body"><div class="cargando">Cargando…</div></div></div></div>';
+    app.innerHTML = '<div class="vista">' + cabecera(titulo, 'Menús', '#/eventos', accion) + '<div class="content">' + pest('menus') + '<div id="cm-body"><div class="cargando">Cargando…</div></div></div></div>';
     plantillas(true).then(function(ps){
       var l = ps.filter(function(p){ return p.tipo === tipo; });
       var h = l.map(tarjetaMenu).join('') || '<div class="vacio">No hay menús todavía</div>';
-      h += '<button class="btn btn-s" style="margin-top:6px" onclick="nuevaPlantilla(\'' + tipo + '\')">+ Nuevo menú de ' + (tipo === 'boda' ? 'boda' : 'comunión') + '</button>';
+      h += '<button class="btn btn-s" style="margin-top:6px" onclick="nuevaPlantilla(\'' + tipo + '\')">+ Nuevo menú de ' + TXT[tipo].uno + '</button>';
       h += '<a class="btn btn-n" style="margin-top:8px" href="/presupuestos">&#127912; Dossieres y presupuestos con diseño</a>';
       $('cm-body').innerHTML = h;
     }).catch(fallo);
     return;
   }
-  app.innerHTML = '<div class="vista">' + cabecera(titulo, sub === 'lista' ? 'Listado' : 'Calendario', '#/restaurante', accion) +
+  app.innerHTML = '<div class="vista">' + cabecera(titulo, sub === 'lista' ? 'Listado' : 'Calendario', '#/eventos', accion) +
     '<div class="content">' + pest(sub === 'lista' ? 'lista' : 'cal') + '<div id="cel-body"><div class="cargando">Cargando…</div></div></div></div>';
   api('GET', '/api/portal/celebraciones?tipo=' + tipo).then(function(l){
     CELEBS = l;
@@ -760,7 +770,7 @@ function pintarCalendario(tipo){
   h += '<div id="dia-body"></div>';
   // Del mes visible
   var delMes = CELEBS.filter(function(c){ return c.fecha.slice(0, 7) === CAL[tipo]; });
-  h += '<div class="sec-tit">Este mes (' + delMes.filter(function(c){ return c.estado !== 'cancelada'; }).length + ')</div>' + (delMes.map(itemCeleb).join('') || '<div class="vacio">No hay ' + (tipo === 'boda' ? 'bodas' : 'comuniones') + ' este mes</div>');
+  h += '<div class="sec-tit">Este mes (' + delMes.filter(function(c){ return c.estado !== 'cancelada'; }).length + ')</div>' + (delMes.map(itemCeleb).join('') || '<div class="vacio">No hay ' + TXT[tipo].plural.toLowerCase() + ' este mes</div>');
   $('cel-body').innerHTML = h;
   if (DIA_SEL) pintarDia(tipo);
 }
@@ -784,8 +794,8 @@ function campo(etq, k, tipo, extra){
 }
 function vCelebracion(app, id, tipo, fecha){
   var nueva = id === 'nueva';
-  app.innerHTML = '<div class="vista">' + cabecera('Cargando…', '', '#/restaurante') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
-  var cargar = nueva ? Promise.resolve({ tipo: tipo === 'comunion' ? 'comunion' : 'boda', fecha: fecha || '', estado: 'bloqueada', pagos: [], adultos: 0, ninos: 0, fianza_pagada: false, lugar: 'Don Fadrique' })
+  app.innerHTML = '<div class="vista">' + cabecera('Cargando…', '', '#/eventos') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  var cargar = nueva ? Promise.resolve({ tipo: TXT[tipo] ? tipo : 'boda', fecha: fecha || '', estado: 'bloqueada', pagos: [], adultos: 0, ninos: 0, fianza_pagada: false, lugar: 'Don Fadrique' })
     : api('GET', '/api/portal/celebraciones/' + id);
   Promise.all([cargar, plantillas()]).then(function(r){
     CE = clon(r[0]);
@@ -795,12 +805,16 @@ function vCelebracion(app, id, tipo, fecha){
     var persona = function(n, etq){
       return '<div class="card"><h3>' + etq + '</h3>' + campo('Nombre', 'nombre' + n) + campo('Apellidos', 'apellidos' + n) + campo('DNI / NIE', 'dni' + n, '', ' autocapitalize="characters"') + '</div>';
     };
-    var h = '<div class="vista">' + cabecera(nueva ? (esBoda ? 'Nueva boda' : 'Nueva comunión') : nombreCeleb(CE), esBoda ? 'Boda' : 'Comunión', atras, '<button class="acc" onclick="guardarCeleb()">Guardar</button>') + '<div class="content">';
+    var h = '<div class="vista">' + cabecera(nueva ? TXT[CE.tipo].nueva : nombreCeleb(CE), TXT[CE.tipo].uno.charAt(0).toUpperCase() + TXT[CE.tipo].uno.slice(1), atras, '<button class="acc" onclick="guardarCeleb()">Guardar</button>') + '<div class="content">';
     if (!nueva) h += '<div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1">' + badgeEstado(CE) + '<div class="muted" style="margin-top:6px">' +
       (CE.estado === 'confirmada' ? 'Fianza pagada el ' + esc(fechaCorta(CE.fianza_fecha)) : CE.estado === 'cancelada' ? 'No ocupa la fecha en el calendario' : 'La fecha queda bloqueada en ámbar hasta que se pague la fianza') + '</div></div></div>';
     h += '<div class="card"><h3>Fecha y lugar</h3><div class="fila">' + campo('Fecha', 'fecha', 'date') + campo('Hora', 'hora', 'time') + '</div>' +
       '<div class="field"><label>Lugar</label><input list="lugares" value="' + attr(CE.lugar) + '" oninput="CE.lugar=this.value;marcar()"><datalist id="lugares">' + LUGARES.map(function(l){ return '<option value="' + attr(l) + '">'; }).join('') + '</datalist></div></div>';
     if (esBoda) h += persona(1, 'Novio / Novia 1') + persona(2, 'Novio / Novia 2');
+    else if (CE.tipo === 'evento') h += '<div class="card"><h3>Evento</h3>' + campo('Nombre del evento', 'nombre_evento') +
+      '<div class="field"><label>Tipo de evento</label><select onchange="CE.categoria=this.value;marcar()"><option value=""></option>' +
+      CATEGORIAS_EVENTO.map(function(c){ return '<option' + (CE.categoria === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>' +
+      '<div class="fila">' + campo('Empresa (si la hay)', 'empresa') + campo('CIF', 'cif', '', ' autocapitalize="characters"') + '</div></div>' + persona(1, 'Persona de contacto');
     else h += '<div class="card"><h3>Comulgante</h3>' + campo('Nombre completo del niño o niña', 'protagonista') + '</div>' + persona(1, 'Padre / Madre / Tutor 1') + persona(2, 'Padre / Madre / Tutor 2');
     h += '<div class="card"><h3>Contacto</h3><div class="fila">' + campo('Teléfono', 'tel', 'tel') + campo('Teléfono 2', 'tel2', 'tel') + '</div>' + campo('Email', 'email', 'email') + campo('Dirección', 'direccion') +
       (CE.tel ? '<div class="btns"><a class="btn btn-s btn-sm" href="tel:' + attr(CE.tel) + '">&#128222; Llamar</a><a class="btn btn-s btn-sm" target="_blank" rel="noopener" href="https://wa.me/' + attr(telWa(CE.tel)) + '">&#128172; WhatsApp</a>' + (CE.email ? '<a class="btn btn-s btn-sm" href="mailto:' + attr(CE.email) + '">&#9993; Email</a>' : '') + '</div>' : '') + '</div>';
@@ -814,13 +828,13 @@ function vCelebracion(app, id, tipo, fecha){
       '<div class="field"><label>Forma de pago</label><select onchange="CE.fianza_forma=this.value;marcar()">' + ['', 'Transferencia', 'Tarjeta', 'Efectivo', 'Bizum'].map(function(f){ return '<option' + (CE.fianza_forma === f ? ' selected' : '') + '>' + f + '</option>'; }).join('') + '</select></div></div>' +
       '<div class="sw-row" style="padding:4px 0 10px"><b style="font-size:14px">Fianza pagada</b><label class="sw"><input type="checkbox" id="ce-fianza"' + (CE.fianza_pagada ? ' checked' : '') + ' onchange="toggleFianza(this.checked)"><span class="sw-sl"></span></label></div>' +
       '<div id="ce-ffecha" style="' + (CE.fianza_pagada ? '' : 'display:none') + '">' + campo('Fecha de pago de la fianza', 'fianza_fecha', 'date') + '</div>' +
-      '<p class="muted">Al marcar la fianza como pagada, la ' + (esBoda ? 'boda' : 'comunión') + ' pasa de ámbar a verde (confirmada).</p></div>';
+      '<p class="muted">Al marcar la fianza como pagada, ' + TXT[CE.tipo].la + ' pasa de ámbar a verde (confirmada).</p></div>';
     h += '<div class="card"><h3>Otros pagos</h3><div id="ce-pagos"></div><button class="btn btn-s btn-sm" onclick="CE.pagos.push({fecha:hoyISO(),concepto:\'\',importe:0,forma:\'\'});marcar();pintarPagos()">+ Añadir pago</button></div>';
     h += '<div class="card"><h3>Notas</h3><textarea class="in" rows="3" oninput="CE.notas=this.value;marcar()">' + esc(CE.notas || '') + '</textarea></div>';
     h += '<button class="btn btn-p" onclick="guardarCeleb()">Guardar</button>';
     if (!nueva) {
       h += '<button class="btn btn-n" onclick="documentoCeleb()">&#128196; Documento con nombres y DNI</button>';
-      h += CE.estado === 'cancelada' ? '<button class="btn btn-s" onclick="cancelarCeleb(false)">Reactivar</button>' : '<button class="btn btn-s" onclick="cancelarCeleb(true)">Cancelar ' + (esBoda ? 'la boda' : 'la comunión') + ' (libera la fecha)</button>';
+      h += CE.estado === 'cancelada' ? '<button class="btn btn-s" onclick="cancelarCeleb(false)">Reactivar</button>' : '<button class="btn btn-s" onclick="cancelarCeleb(true)">Cancelar ' + TXT[CE.tipo].la + ' (libera la fecha)</button>';
       h += '<button class="btn btn-d" onclick="borrarCeleb()">Eliminar ficha</button>';
     }
     h += '<div style="height:30px"></div></div></div>';
@@ -867,7 +881,7 @@ function guardarCeleb(){
   // Aviso si ya hay otra boda o comunión ese mismo día
   api('GET', '/api/portal/celebraciones?desde=' + CE.fecha + '&hasta=' + CE.fecha).then(function(l){
     l = l.filter(function(c){ return c.id !== CE.id && c.estado !== 'cancelada'; });
-    if (CE.estado !== 'cancelada' && l.length && !confirm('Ese día ya hay: ' + l.map(function(c){ return (c.tipo === 'boda' ? 'boda de ' : 'comunión de ') + nombreCeleb(c); }).join(', ') + '. ¿Guardar igualmente?')) return;
+    if (CE.estado !== 'cancelada' && l.length && !confirm('Ese día ya hay: ' + l.map(function(c){ return TXT[c.tipo].uno + ' ' + nombreCeleb(c); }).join(', ') + '. ¿Guardar igualmente?')) return;
     var nueva = !CE.id;
     return api(nueva ? 'POST' : 'PUT', '/api/portal/celebraciones' + (nueva ? '' : '/' + CE.id), CE).then(function(c){
       SUCIO = false; toast(c.estado === 'confirmada' ? 'Guardada · confirmada' : 'Guardada · fecha bloqueada');
@@ -902,12 +916,12 @@ function documentoCeleb(){
     '@media print{.bar{display:none}body{background:#fff}.h{margin:0}}</style></head><body>' +
     '<div class="bar"><button onclick="window.print()">Imprimir / PDF</button><button onclick="window.close()">Cerrar</button></div>' +
     '<div class="h"><div class="cab"><div class="n">DON FADRIQUE</div><div class="s">NIMANSANMON S.L. · CIF B37297223 · Alba de Tormes (Salamanca) · 920 37 00 51</div></div>' +
-    '<h1>RESERVA DE FECHA · ' + (esBoda ? 'BODA' : 'PRIMERA COMUNIÓN') + '</h1>' +
+    '<h1>RESERVA DE FECHA · ' + (esBoda ? 'BODA' : c.tipo === 'evento' ? 'EVENTO' : 'PRIMERA COMUNIÓN') + '</h1>' +
     '<p>En Alba de Tormes, a ' + hoy + '.</p>' +
     '<p>De una parte, NIMANSANMON S.L., con CIF B37297223, titular de Don Fadrique.</p>' +
     '<p>De otra parte, D./D.ª ' + linea(p1) + ', con DNI ' + linea(c.dni1) + (p2 || c.dni2 ? ', y D./D.ª ' + linea(p2) + ', con DNI ' + linea(c.dni2) : '') + ', ' +
-      (esBoda ? 'en calidad de contrayentes' : 'en calidad de padres o tutores de ' + linea(c.protagonista)) + '.</p>' +
-    '<p>Ambas partes acuerdan la reserva para la celebración de ' + (esBoda ? 'su boda' : 'la Primera Comunión') + ' el día ' + linea(fechaLarga(c.fecha)) + (c.hora ? ' a las ' + esc(c.hora) : '') +
+      (esBoda ? 'en calidad de contrayentes' : c.tipo === 'evento' ? (c.empresa ? 'en representación de ' + linea(c.empresa) + (c.cif ? ', CIF ' + esc(c.cif) : '') : 'como organizador del evento') : 'en calidad de padres o tutores de ' + linea(c.protagonista)) + '.</p>' +
+    '<p>Ambas partes acuerdan la reserva para la celebración de ' + (esBoda ? 'su boda' : c.tipo === 'evento' ? 'el evento ' + linea(c.nombre_evento || c.categoria) : 'la Primera Comunión') + ' el día ' + linea(fechaLarga(c.fecha)) + (c.hora ? ' a las ' + esc(c.hora) : '') +
       ' en ' + linea(c.lugar) + ', con una previsión de ' + linea(String((Number(c.adultos) || 0))) + ' adultos' + (Number(c.ninos) ? ' y ' + esc(c.ninos) + ' niños' : '') + '.</p>' +
     (c.menu_nombre ? '<p>Menú elegido: <b>' + esc(c.menu_nombre) + '</b>' + (n2(c.precio_adulto) ? ', a ' + euros(c.precio_adulto) + ' por adulto' + (n2(c.precio_nino) ? ' y ' + euros(c.precio_nino) + ' por niño' : '') + ' (IVA 10% no incluido)' : '') + '.</p>' : '') +
     '<p>Para confirmar la reserva se entrega una fianza de ' + linea(n2(c.fianza_importe) ? euros(c.fianza_importe) : '') + (c.fianza_pagada ? ', abonada el ' + esc(fechaLarga(c.fianza_fecha).replace(/^[a-záéíóú]+, /i, '')) + (c.fianza_forma ? ' mediante ' + esc(c.fianza_forma.toLowerCase()) : '') : '') + ', que se descontará del importe final.</p>' +
@@ -928,8 +942,8 @@ function vContabilidad(app, mes){
   var ym = mes.split('-').map(Number);
   var txtMes = mesTxt(ym[0], ym[1]);
   var otro = function(d){ var f = new Date(ym[0], ym[1] - 1 + d, 1); return f.getFullYear() + '-' + String(f.getMonth() + 1).padStart(2, '0'); };
-  app.innerHTML = '<div class="vista">' + cabecera('Contabilidad', 'Restaurante Don Fadrique', '#/restaurante') +
-    '<div class="content"><div class="card"><div class="cal-nav" style="margin:0"><button onclick="ir(\'#/contabilidad/' + otro(-1) + '\')">&#8249;</button><b>' + txtMes + '</b><button onclick="ir(\'#/contabilidad/' + otro(1) + '\')">&#8250;</button></div></div>' +
+  app.innerHTML = '<div class="vista">' + cabecera('Administración y Contabilidad', 'Resumen del mes', '#/') +
+    '<div class="content">' + pestanasAdmin('resumen') + '<div class="card"><div class="cal-nav" style="margin:0"><button onclick="ir(\'#/contabilidad/' + otro(-1) + '\')">&#8249;</button><b>' + txtMes + '</b><button onclick="ir(\'#/contabilidad/' + otro(1) + '\')">&#8250;</button></div></div>' +
     '<div id="cont-body"><div class="cargando">Calculando…</div></div></div></div>';
   api('GET', '/api/portal/contabilidad?mes=' + mes).then(function(d){
     var t = d.tpv, c = d.celebraciones, h = '';
@@ -938,7 +952,13 @@ function vContabilidad(app, mes){
       '<div class="kpi"><small>TPV (IVA incl.)</small><b>' + (t ? euros(t.total) : '—') + '</b></div>' +
       '<div class="kpi"><small>Cobros bodas</small><b>' + euros(c.cobros_bodas) + '</b></div>' +
       '<div class="kpi"><small>Cobros comuniones</small><b>' + euros(c.cobros_comuniones) + '</b></div>' +
-      '<div class="kpi"><small>Tickets TPV</small><b>' + (t ? t.tickets : '—') + '</b></div></div>';
+      '<div class="kpi"><small>Cobros eventos</small><b>' + euros(c.cobros_eventos || 0) + '</b></div></div>';
+    var dc = d.documentos;
+    if (dc) h += '<div class="card"><h3>Facturas del mes (Administración)</h3><table class="tabla">' +
+      '<tr><th></th><th class="r">Hotel</th><th class="r">Restaurante</th><th class="r">Total</th></tr>' +
+      '<tr><td>Emitidas</td><td class="r">' + euros(dc.emitidas.hotel) + '</td><td class="r">' + euros(dc.emitidas.restaurante) + '</td><td class="r"><b>' + euros(dc.total_emitidas) + '</b></td></tr>' +
+      '<tr><td>Recibidas</td><td class="r">' + euros(dc.recibidas.hotel) + '</td><td class="r">' + euros(dc.recibidas.restaurante) + '</td><td class="r"><b>' + euros(dc.total_recibidas) + '</b></td></tr></table>' +
+      (dc.pendientes_pago ? '<p class="muted" style="margin-top:8px">Facturas recibidas pendientes de pago este mes: <b>' + euros(dc.pendientes_pago) + '</b></p>' : '') + '</div>';
     if (d.tpv_error) h += '<div class="card" style="border-left:4px solid var(--ambar)"><b>Ventas del TPV no disponibles</b><p class="muted" style="margin-top:4px">' + esc(d.tpv_error) + '</p></div>';
     if (t) {
       h += '<div class="card"><h3>TPV</h3><table class="tabla">' +
@@ -959,12 +979,12 @@ function vContabilidad(app, mes){
     }
     h += '<div class="card"><h3>Cobros de bodas y comuniones</h3>';
     h += c.cobros.length ? '<table class="tabla"><tr><th>Fecha</th><th>Evento</th><th class="r">Importe</th></tr>' + c.cobros.map(function(x){
-      return '<tr onclick="ir(\'#/celebracion/' + x.id + '\')" style="cursor:pointer"><td>' + esc(fechaSinAno(x.fecha)) + '</td><td>' + (x.tipo === 'boda' ? '&#128141; ' : '&#128330; ') + esc(x.quien) + '<div class="muted">' + esc(x.concepto) + (x.forma ? ' · ' + esc(x.forma) : '') + '</div></td><td class="r">' + euros(x.importe) + '</td></tr>';
+      return '<tr onclick="ir(\'#/celebracion/' + x.id + '\')" style="cursor:pointer"><td>' + esc(fechaSinAno(x.fecha)) + '</td><td>' + TXT[x.tipo].ico + esc(x.quien) + '<div class="muted">' + esc(x.concepto) + (x.forma ? ' · ' + esc(x.forma) : '') + '</div></td><td class="r">' + euros(x.importe) + '</td></tr>';
     }).join('') + '<tr><th colspan="2">Total</th><th class="r">' + euros(c.total_cobros) + '</th></tr></table>' : '<div class="muted">No hay cobros este mes</div>';
     h += '</div>';
     h += '<div class="card"><h3>Bodas y comuniones que se celebran este mes</h3>';
     h += c.del_mes.length ? '<table class="tabla"><tr><th>Evento</th><th class="r">Previsto</th><th class="r">Cobrado</th></tr>' + c.del_mes.map(function(x){
-      return '<tr onclick="ir(\'#/celebracion/' + x.id + '\')" style="cursor:pointer"><td>' + (x.tipo === 'boda' ? '&#128141; ' : '&#128330; ') + esc(x.quien) + '<div class="muted">' + esc(fechaCorta(x.fecha)) + ' · ' + x.comensales + ' invitados · ' + (x.estado === 'confirmada' ? 'confirmada' : 'bloqueada') + '</div></td><td class="r">' + euros(x.previsto) + '</td><td class="r">' + euros(x.cobrado) + '</td></tr>';
+      return '<tr onclick="ir(\'#/celebracion/' + x.id + '\')" style="cursor:pointer"><td>' + TXT[x.tipo].ico + esc(x.quien) + '<div class="muted">' + esc(fechaCorta(x.fecha)) + ' · ' + x.comensales + ' invitados · ' + (x.estado === 'confirmada' ? 'confirmada' : 'bloqueada') + '</div></td><td class="r">' + euros(x.previsto) + '</td><td class="r">' + euros(x.cobrado) + '</td></tr>';
     }).join('') + '</table><p class="muted" style="margin-top:6px">Previsto sin IVA (invitados × precio).</p>' : '<div class="muted">Ninguna este mes</div>';
     h += '</div>';
     var pr = d.presupuestos;
@@ -976,6 +996,101 @@ function vContabilidad(app, mes){
   }).catch(fallo);
 }
 
+
+
+// ════════════════════════════════════════════════════════════════════════
+//  ADMINISTRACIÓN: albaranes, facturas, presupuestos y proformas (hotel y restaurante)
+// ════════════════════════════════════════════════════════════════════════
+var TIPOS_DOC = { albaran: 'Albarán', factura: 'Factura', presupuesto: 'Presupuesto', proforma: 'Proforma' };
+var ADM = { area: '', tipo: '', q: '' };
+function pestanasAdmin(act){
+  return '<div class="chips"><button class="chip' + (act === 'docs' ? ' on' : '') + '" onclick="volverA(\'#/admin\')">Documentos</button>' +
+    '<button class="chip' + (act === 'resumen' ? ' on' : '') + '" onclick="volverA(\'#/contabilidad\')">Resumen del mes</button></div>';
+}
+function vAdmin(app){
+  app.innerHTML = '<div class="vista">' + cabecera('Administración y Contabilidad', 'Documentos de hotel y restaurante', '#/', '<button class="acc" onclick="ir(\'#/documento/nuevo\')">+ Nuevo</button>') +
+    '<div class="content">' + pestanasAdmin('docs') +
+    '<div class="chips" id="f-area"></div><div class="chips" id="f-tipo"></div>' +
+    '<input class="in" id="f-q" placeholder="Buscar proveedor, cliente, número o concepto" value="' + attr(ADM.q) + '" style="margin-bottom:12px">' +
+    '<button class="btn btn-p" style="margin-bottom:12px" onclick="ir(\'#/documento/nuevo\')">+ Añadir documento</button>' +
+    '<div id="docs-body"><div class="cargando">Cargando…</div></div></div></div>';
+  var t; $('f-q').addEventListener('input', function(){ ADM.q = this.value; clearTimeout(t); t = setTimeout(cargarDocs, 300); });
+  pintarFiltrosDocs(); cargarDocs();
+}
+function pintarFiltrosDocs(){
+  var chip = function(campo, v, txt){ return '<button class="chip' + (ADM[campo] === v ? ' on' : '') + '" onclick="ADM.' + campo + '=\'' + v + '\';pintarFiltrosDocs();cargarDocs()">' + txt + '</button>'; };
+  $('f-area').innerHTML = chip('area', '', 'Todo') + chip('area', 'hotel', 'Hotel') + chip('area', 'restaurante', 'Restaurante');
+  $('f-tipo').innerHTML = chip('tipo', '', 'Todos') + chip('tipo', 'albaran', 'Albaranes') + chip('tipo', 'factura', 'Facturas') + chip('tipo', 'presupuesto', 'Presupuestos') + chip('tipo', 'proforma', 'Proformas');
+}
+function cargarDocs(){
+  var q = []; ['area', 'tipo', 'q'].forEach(function(k){ if (ADM[k]) q.push(k + '=' + encodeURIComponent(ADM[k])); });
+  api('GET', '/api/portal/documentos' + (q.length ? '?' + q.join('&') : '')).then(function(l){
+    if (!l.length) { $('docs-body').innerHTML = '<div class="vacio">No hay documentos' + (ADM.area || ADM.tipo || ADM.q ? ' con estos filtros' : ' todavía') + '.<br>Añade albaranes, facturas, presupuestos o proformas con su foto o PDF.</div>'; return; }
+    var total = l.reduce(function(a, d){ return a + (d.total || 0); }, 0);
+    $('docs-body').innerHTML = l.map(function(d){
+      return '<div class="item" onclick="ir(\'#/documento/' + d.id + '\')"><div class="tx"><b>' + esc(d.tercero || 'Sin nombre') + '</b><small>' +
+        '<span class="badge b-oro">' + TIPOS_DOC[d.tipo] + (d.direccion === 'emitido' ? ' emitida' : '') + '</span> ' +
+        '<span class="badge b-gris">' + (d.area === 'hotel' ? 'Hotel' : 'Restaurante') + '</span> ' +
+        esc([d.numero, fechaCorta(d.fecha)].filter(Boolean).join(' · ')) + (d.tiene_archivo ? ' · &#128206;' : '') + '</small></div>' +
+        '<div class="der"><b>' + euros(d.total) + '</b><br>' + (d.tipo === 'factura' || d.tipo === 'albaran' ? (d.estado === 'pagado' ? '<span class="badge b-verde">Pagado</span>' : '<span class="badge b-ambar">Pendiente</span>') : '') + '</div></div>';
+    }).join('') + '<p class="muted" style="text-align:right;margin:6px 4px 24px">' + l.length + ' documentos · ' + euros(total) + '</p>';
+  }).catch(fallo);
+}
+var DOC = null, DOC_ARCHIVO = null;
+function vDocumento(app, id){
+  var nuevo = id === 'nuevo';
+  DOC_ARCHIVO = null;
+  app.innerHTML = '<div class="vista">' + cabecera('Documento', '', '#/admin') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  var cargar = nuevo ? Promise.resolve({ area: ADM.area || 'restaurante', tipo: ADM.tipo || 'factura', direccion: 'recibido', fecha: hoyISO(), base: '', iva_pct: 21, estado: 'pendiente' }) : api('GET', '/api/portal/documentos/' + id);
+  cargar.then(function(d){ DOC = clon(d); pintarDoc(); }).catch(fallo);
+}
+function vDocumentoRefrescar(){ var y = window.scrollY; pintarDoc(); window.scrollTo(0, y); }
+function pintarDoc(){
+    var app = $('app'), nuevo = !DOC.id;
+    var sel = function(k, ops){ return '<select onchange="DOC.' + k + '=this.value;marcar();' + (k === 'direccion' || k === 'tipo' ? 'vDocumentoRefrescar()' : '') + '">' + ops.map(function(o){ return '<option value="' + o[0] + '"' + (String(DOC[k]) === String(o[0]) ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'; };
+    var cmp = function(etq, k, extra){ return '<div class="field"><label>' + etq + '</label><input' + (extra || '') + ' value="' + attr(DOC[k]) + '" oninput="DOC.' + k + '=this.value;marcar();calcDoc()"></div>'; };
+    var emit = DOC.direccion === 'emitido';
+    var h = '<div class="vista">' + cabecera(nuevo ? 'Nuevo documento' : (TIPOS_DOC[DOC.tipo] + ' ' + (DOC.numero || '')), DOC.area === 'hotel' ? 'Hotel' : 'Restaurante', '#/admin', '<button class="acc" onclick="guardarDoc()">Guardar</button>') + '<div class="content">' +
+      '<div class="card"><div class="fila"><div class="field"><label>Área</label>' + sel('area', [['restaurante', 'Restaurante'], ['hotel', 'Hotel']]) + '</div>' +
+      '<div class="field"><label>Tipo</label>' + sel('tipo', [['albaran', 'Albarán'], ['factura', 'Factura'], ['presupuesto', 'Presupuesto'], ['proforma', 'Proforma']]) + '</div></div>' +
+      '<div class="field"><label>¿De quién es?</label>' + sel('direccion', [['recibido', 'Recibido de un proveedor (gasto)'], ['emitido', 'Emitido por nosotros a un cliente (ingreso)']]) + '</div>' +
+      '<div class="fila">' + cmp('Número', 'numero') + cmp('Fecha', 'fecha', ' type="date"') + '</div>' +
+      '<div class="fila">' + cmp(emit ? 'Cliente' : 'Proveedor', 'tercero') + cmp('NIF / CIF', 'nif', ' autocapitalize="characters"') + '</div>' +
+      cmp('Concepto', 'concepto') + '</div>' +
+      '<div class="card"><h3>Importes</h3><div class="fila">' + cmp('Base imponible (€)', 'base', ' inputmode="decimal"') +
+      '<div class="field"><label>IVA</label><select onchange="DOC.iva_pct=n2(this.value);DOC.iva=undefined;DOC.total=undefined;marcar();calcDoc()">' + [0, 4, 10, 21].map(function(v){ return '<option value="' + v + '"' + (n2(DOC.iva_pct) === v ? ' selected' : '') + '>' + v + ' %</option>'; }).join('') + '</select></div></div>' +
+      '<div id="doc-totales" class="muted"></div></div>';
+    if (DOC.tipo === 'factura' || DOC.tipo === 'albaran') h += '<div class="card"><div class="sw-row"><b>' + (emit ? 'Cobrado' : 'Pagado') + '</b><label class="sw"><input type="checkbox"' + (DOC.estado === 'pagado' ? ' checked' : '') + ' onchange="DOC.estado=this.checked?\'pagado\':\'pendiente\';if(this.checked&&!DOC.fecha_pago)DOC.fecha_pago=hoyISO();marcar();vDocumentoRefrescar()"><span class="sw-sl"></span></label></div>' +
+      (DOC.estado === 'pagado' ? '<div class="fila">' + cmp('Fecha de pago', 'fecha_pago', ' type="date"') + '<div class="field"><label>Forma de pago</label>' + sel('forma_pago', [['', ''], ['Transferencia', 'Transferencia'], ['Tarjeta', 'Tarjeta'], ['Efectivo', 'Efectivo'], ['Domiciliación', 'Domiciliación'], ['Bizum', 'Bizum']]) + '</div></div>' : '') + '</div>';
+    h += '<div class="card"><h3>Archivo (foto o PDF)</h3>' +
+      (DOC.tiene_archivo ? '<a class="btn btn-s btn-sm" href="/api/portal/documentos/' + DOC.id + '/archivo" target="_blank" rel="noopener">&#128206; Ver ' + esc(DOC.archivo_nombre || 'archivo') + '</a><p class="muted" style="margin:8px 0">Puedes sustituirlo por otro:</p>' : '') +
+      '<input type="file" id="doc-archivo" accept="image/*,application/pdf" class="in" onchange="DOC_ARCHIVO=this.files[0]||null;marcar()">' +
+      (DOC_ARCHIVO ? '<p class="muted" style="margin-top:6px">Se subirá: <b>' + esc(DOC_ARCHIVO.name) + '</b></p>' : '') +
+      '<p class="muted" style="margin-top:6px">En el móvil puedes hacer la foto del albarán o factura directamente.</p></div>' +
+      '<div class="card"><h3>Notas</h3><textarea class="in" rows="2" oninput="DOC.notas=this.value;marcar()">' + esc(DOC.notas || '') + '</textarea></div>' +
+      '<button class="btn btn-p" onclick="guardarDoc()">Guardar</button>' +
+      (nuevo ? '' : '<button class="btn btn-d" onclick="borrarDoc()">Eliminar documento</button>') + '<div style="height:30px"></div></div></div>';
+    app.innerHTML = h; calcDoc();
+}
+function calcDoc(){
+  var e = $('doc-totales'); if (!e) return;
+  var base = n2(DOC.base), iva = Math.round(base * n2(DOC.iva_pct)) / 100;
+  e.innerHTML = 'IVA: <b>' + euros(iva) + '</b> · Total: <b style="font-size:16px;color:#1a1a1a">' + euros(base + iva) + '</b>';
+}
+function guardarDoc(){
+  var nuevo = !DOC.id;
+  var d = clon(DOC); delete d.iva; delete d.total;
+  var f = DOC_ARCHIVO;
+  api(nuevo ? 'POST' : 'PUT', '/api/portal/documentos' + (nuevo ? '' : '/' + DOC.id), d).then(function(r){
+    var sube = f ? fetch('/api/portal/documentos/' + r.id + '/archivo', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Nombre': encodeURIComponent(f.name) }, body: f })
+      .then(function(x){ return x.json().then(function(j){ if (!x.ok) throw new Error(j.error || 'No se pudo subir el archivo'); }); }) : Promise.resolve();
+    return sube.then(function(){ SUCIO = false; toast('Documento guardado'); ir('#/admin'); });
+  }).catch(fallo);
+}
+function borrarDoc(){
+  if (!confirm('¿Eliminar este documento y su archivo?')) return;
+  api('DELETE', '/api/portal/documentos/' + DOC.id).then(function(){ SUCIO = false; ir('#/admin'); }).catch(fallo);
+}
 
 // ════════════════════════════════════════════════════════════════════════
 //  USUARIOS Y PERMISOS (solo administradores)

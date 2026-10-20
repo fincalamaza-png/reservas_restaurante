@@ -4,7 +4,7 @@
 // Los administradores (Manuel y Nicolás) tienen acceso a todo y gestionan los usuarios.
 'use strict';
 
-const MODULOS = ['hotel', 'reservas', 'tpv', 'carta', 'bodas', 'comuniones', 'contabilidad'];
+const MODULOS = ['hotel', 'reservas', 'tpv', 'carta', 'bodas', 'comuniones', 'eventos', 'contabilidad'];
 const ADMINS_INICIALES = ['Manuel', 'Nicolás'];
 
 function leer(db, clave, def) {
@@ -40,10 +40,10 @@ function puede(db, usuario, modulo) { const p = permisosDe(db, usuario); return 
 function moduloDeRuta(ruta, metodo) {
   if (/^\/api\/(sesion|login|logout)$/.test(ruta)) return null;
   if (/^\/api\/portal\/usuarios/.test(ruta)) return 'admin';
-  if (/^\/api\/portal\/contabilidad/.test(ruta)) return 'contabilidad';
+  if (/^\/api\/portal\/(contabilidad|documentos)/.test(ruta)) return 'contabilidad';
   if (/^\/api\/portal\/celebraciones/.test(ruta)) return 'celebraciones'; // se comprueba por tipo en la propia ruta
   // Los menús los consultan también bodas, comuniones y reservas; editarlos es de Carta y Menús
-  if (/^\/api\/portal\/plantillas/.test(ruta)) return metodo === 'GET' ? ['carta', 'bodas', 'comuniones', 'reservas'] : ['carta', 'bodas', 'comuniones'];
+  if (/^\/api\/portal\/plantillas/.test(ruta)) return metodo === 'GET' ? ['carta', 'bodas', 'comuniones', 'eventos', 'reservas'] : ['carta', 'bodas', 'comuniones', 'eventos'];
   if (/^\/api\/portal\//.test(ruta)) return 'carta';
   return 'reservas'; // el resto de la API es la app de reservas, propuestas y presupuestos
 }

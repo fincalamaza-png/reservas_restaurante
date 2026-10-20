@@ -62,6 +62,27 @@ module.exports = function montarPortal(app, db) {
     updated_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  try { db.exec("ALTER TABLE celebraciones ADD COLUMN nombre_evento TEXT"); } catch (e) {}
+  try { db.exec("ALTER TABLE celebraciones ADD COLUMN categoria TEXT"); } catch (e) {}
+  try { db.exec("ALTER TABLE celebraciones ADD COLUMN empresa TEXT"); } catch (e) {}
+  try { db.exec("ALTER TABLE celebraciones ADD COLUMN cif TEXT"); } catch (e) {}
+
+  // Administración: albaranes, facturas, presupuestos y proformas de hotel y restaurante
+  db.exec(`CREATE TABLE IF NOT EXISTS documentos_admin (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    area TEXT NOT NULL DEFAULT 'restaurante',
+    tipo TEXT NOT NULL DEFAULT 'factura',
+    direccion TEXT NOT NULL DEFAULT 'recibido',
+    numero TEXT, fecha TEXT, tercero TEXT, nif TEXT, concepto TEXT,
+    base REAL DEFAULT 0, iva_pct REAL DEFAULT 21, iva REAL DEFAULT 0, total REAL DEFAULT 0,
+    estado TEXT DEFAULT 'pendiente', fecha_pago TEXT, forma_pago TEXT,
+    archivo TEXT, archivo_nombre TEXT, archivo_tipo TEXT,
+    notas TEXT, creado_por TEXT,
+    created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+  const DOCS_DIR = path.join(path.dirname(process.env.DB_PATH || '/data/reservas.db'), 'documentos');
+  try { require('fs').mkdirSync(DOCS_DIR, { recursive: true }); } catch (e) {}
+
   // Siembra única: menú Sabor de la Memoria, formato tríptico y menús de boda/comunión
   (function sembrarPortalV1() {
     const flag = db.prepare("SELECT valor FROM config WHERE clave = 'portal_v1'").get();
@@ -222,7 +243,10 @@ module.exports = function montarPortal(app, db) {
 
   // ── Bodas y comuniones ─────────────────────────────────────────────────────
   const CAMPOS_CELEB = ['fecha', 'hora', 'lugar', 'nombre1', 'apellidos1', 'dni1', 'nombre2', 'apellidos2', 'dni2', 'protagonista',
-    'tel', 'tel2', 'email', 'direccion', 'menu_nombre', 'fianza_fecha', 'fianza_forma', 'notas'];
+    'tel', 'tel2', 'email', 'direccion', 'menu_nombre', 'fianza_fecha', 'fianza_forma', 'notas', 'nombre_evento', 'categoria', 'empresa', 'cif'];
+  const TIPOS_CELEB = ['boda', 'comunion', 'evento'];
+  const quienCeleb = c => c.tipo === 'boda' ? [c.nombre1, c.nombre2].filter(Boolean).join(' y ')
+    : c.tipo === 'evento' ? (c.nombre_evento || c.empresa || c.nombre1 || '') : (c.protagonista || c.nombre1 || '');
   const parseCeleb = r => {
     if (!r) return r;
     const o = Object.assign({}, r, { pagos: json(r.pagos, []), fianza_pagada: !!r.fianza_pagada });
@@ -250,7 +274,7 @@ module.exports = function montarPortal(app, db) {
     return o;
   }
   // Bodas y comuniones tienen permiso por separado
-  const modTipo = t => (t === 'comunion' ? 'comuniones' : 'bodas');
+  const modTipo = t => (t === 'comunion' ? 'comuniones' : t === 'evento' ? 'eventos' : 'bodas');
   const puedeTipo = (req, t) => PERMISOS.puede(db, req.usuario, modTipo(t));
   const sinPermiso = res => res.status(403).json({ error: 'No tienes permiso para esta sección' });
   app.use('/api/portal/celebraciones/:id', (req, res, next) => {
@@ -259,7 +283,7 @@ module.exports = function montarPortal(app, db) {
     next();
   });
   app.get('/api/portal/celebraciones', (req, res) => {
-    const tipos = ['boda', 'comunion'].filter(t => puedeTipo(req, t));
+    const tipos = TIPOS_CELEB.filter(t => puedeTipo(req, t));
     if (req.query.tipo && !tipos.includes(req.query.tipo)) return sinPermiso(res);
     if (!tipos.length) return sinPermiso(res);
     let sql = 'SELECT * FROM celebraciones WHERE tipo IN (' + tipos.map(() => '?').join(',') + ')';
@@ -277,7 +301,7 @@ module.exports = function montarPortal(app, db) {
   });
   app.post('/api/portal/celebraciones', (req, res) => {
     const d = req.body || {};
-    const tipo = d.tipo === 'comunion' ? 'comunion' : 'boda';
+    const tipo = TIPOS_CELEB.includes(d.tipo) ? d.tipo : 'boda';
     if (!puedeTipo(req, tipo)) return sinPermiso(res);
     if (!d.fecha) return res.status(400).json({ error: 'Falta la fecha' });
     const o = datosCeleb(d, null);
@@ -397,7 +421,7 @@ module.exports = function montarPortal(app, db) {
     const celebs = db.prepare('SELECT * FROM celebraciones').all().map(parseCeleb);
     const cobros = [];
     celebs.forEach(c => {
-      const quien = c.tipo === 'boda' ? [c.nombre1, c.nombre2].filter(Boolean).join(' y ') : (c.protagonista || c.nombre1 || '');
+      const quien = quienCeleb(c);
       if (c.fianza_pagada && c.fianza_importe && enMes(c.fianza_fecha))
         cobros.push({ fecha: c.fianza_fecha, tipo: c.tipo, quien, concepto: 'Fianza', importe: c.fianza_importe, forma: c.fianza_forma || '', id: c.id });
       c.pagos.forEach(p => { if (enMes(p.fecha) && num(p.importe)) cobros.push({ fecha: p.fecha, tipo: c.tipo, quien, concepto: p.concepto || 'Pago', importe: num(p.importe), forma: p.forma || '', id: c.id }); });
@@ -405,13 +429,14 @@ module.exports = function montarPortal(app, db) {
     cobros.sort((a, b) => a.fecha.localeCompare(b.fecha));
     const delMes = celebs.filter(c => enMes(c.fecha) && c.estado !== 'cancelada').map(c => ({
       id: c.id, tipo: c.tipo, fecha: c.fecha, estado: c.estado,
-      quien: c.tipo === 'boda' ? [c.nombre1, c.nombre2].filter(Boolean).join(' y ') : (c.protagonista || c.nombre1 || ''),
+      quien: quienCeleb(c),
       comensales: (c.adultos || 0) + (c.ninos || 0), previsto: c.importe_previsto, cobrado: c.cobrado, pendiente: c.pendiente }));
     const suma = (arr, k) => Math.round(arr.reduce((s, x) => s + (x[k] || 0), 0) * 100) / 100;
     out.celebraciones = {
       cobros, total_cobros: suma(cobros, 'importe'),
       cobros_bodas: suma(cobros.filter(c => c.tipo === 'boda'), 'importe'),
       cobros_comuniones: suma(cobros.filter(c => c.tipo === 'comunion'), 'importe'),
+      cobros_eventos: suma(cobros.filter(c => c.tipo === 'evento'), 'importe'),
       del_mes: delMes, previsto_mes: suma(delMes, 'previsto')
     };
 
@@ -421,7 +446,95 @@ module.exports = function montarPortal(app, db) {
       out.presupuestos = { lista: pres, total: suma(pres, 'total') };
     } catch (e) { out.presupuestos = { lista: [], total: 0 }; }
 
+    // 4) Documentos de administración del mes (facturas emitidas y recibidas, por área)
+    const docs = db.prepare('SELECT * FROM documentos_admin WHERE fecha >= ? AND fecha <= ?').all(desde, hasta);
+    const facturas = docs.filter(d => d.tipo === 'factura');
+    const sumaD = (f) => Math.round(facturas.filter(f).reduce((s, d) => s + (d.total || 0), 0) * 100) / 100;
+    out.documentos = {
+      emitidas: { hotel: sumaD(d => d.direccion === 'emitido' && d.area === 'hotel'), restaurante: sumaD(d => d.direccion === 'emitido' && d.area === 'restaurante') },
+      recibidas: { hotel: sumaD(d => d.direccion === 'recibido' && d.area === 'hotel'), restaurante: sumaD(d => d.direccion === 'recibido' && d.area === 'restaurante') },
+      pendientes_pago: Math.round(docs.filter(d => d.tipo === 'factura' && d.direccion === 'recibido' && d.estado !== 'pagado').reduce((s, d) => s + (d.total || 0), 0) * 100) / 100,
+      num: docs.length
+    };
+    out.documentos.total_emitidas = Math.round((out.documentos.emitidas.hotel + out.documentos.emitidas.restaurante) * 100) / 100;
+    out.documentos.total_recibidas = Math.round((out.documentos.recibidas.hotel + out.documentos.recibidas.restaurante) * 100) / 100;
+
     out.total_ingresos = Math.round(((out.tpv ? out.tpv.total : 0) + out.celebraciones.total_cobros) * 100) / 100;
     res.json(out);
+  });
+
+  // ── Administración: archivo de documentos ──────────────────────────────────
+  const TIPOS_DOC = ['albaran', 'factura', 'presupuesto', 'proforma'];
+  const parseDoc = d => d && Object.assign({}, d, { tiene_archivo: !!d.archivo });
+  function datosDoc(d, act) {
+    const o = {};
+    o.area = d.area === 'hotel' ? 'hotel' : (d.area === 'restaurante' ? 'restaurante' : (act ? act.area : 'restaurante'));
+    o.tipo = TIPOS_DOC.includes(d.tipo) ? d.tipo : (act ? act.tipo : 'factura');
+    o.direccion = d.direccion === 'emitido' ? 'emitido' : (d.direccion === 'recibido' ? 'recibido' : (act ? act.direccion : 'recibido'));
+    ['numero', 'fecha', 'tercero', 'nif', 'concepto', 'fecha_pago', 'forma_pago', 'notas'].forEach(k => { o[k] = d[k] !== undefined ? txt(d[k]) : (act ? act[k] : ''); });
+    o.base = d.base !== undefined ? num(d.base) : (act ? act.base : 0);
+    o.iva_pct = d.iva_pct !== undefined ? num(d.iva_pct) : (act ? act.iva_pct : 21);
+    o.iva = d.iva !== undefined ? num(d.iva) : Math.round(o.base * o.iva_pct) / 100;
+    o.total = d.total !== undefined && num(d.total) ? num(d.total) : Math.round((o.base + o.iva) * 100) / 100;
+    o.estado = d.estado === 'pagado' ? 'pagado' : 'pendiente';
+    if (o.estado === 'pagado' && !o.fecha_pago) o.fecha_pago = new Date().toISOString().slice(0, 10);
+    if (!o.fecha) o.fecha = new Date().toISOString().slice(0, 10);
+    return o;
+  }
+  app.get('/api/portal/documentos', (req, res) => {
+    let sql = 'SELECT * FROM documentos_admin WHERE 1=1'; const p = [];
+    ['area', 'tipo', 'direccion', 'estado'].forEach(k => { if (req.query[k]) { sql += ` AND ${k} = ?`; p.push(req.query[k]); } });
+    if (req.query.desde) { sql += ' AND fecha >= ?'; p.push(req.query.desde); }
+    if (req.query.hasta) { sql += ' AND fecha <= ?'; p.push(req.query.hasta); }
+    if (req.query.q) { sql += ' AND (tercero LIKE ? OR numero LIKE ? OR concepto LIKE ?)'; const q = '%' + req.query.q + '%'; p.push(q, q, q); }
+    sql += ' ORDER BY fecha DESC, id DESC LIMIT 500';
+    res.json(db.prepare(sql).all(...p).map(parseDoc));
+  });
+  app.get('/api/portal/documentos/:id', (req, res) => {
+    const d = db.prepare('SELECT * FROM documentos_admin WHERE id = ?').get(req.params.id);
+    if (!d) return res.status(404).json({ error: 'No encontrado' });
+    res.json(parseDoc(d));
+  });
+  app.post('/api/portal/documentos', (req, res) => {
+    const o = datosDoc(req.body || {}, null); const cols = Object.keys(o);
+    const r = db.prepare(`INSERT INTO documentos_admin (${cols.join(',')}, creado_por) VALUES (${cols.map(() => '?').join(',')}, ?)`).run(...cols.map(k => o[k]), req.usuario || '');
+    res.json(parseDoc(db.prepare('SELECT * FROM documentos_admin WHERE id = ?').get(r.lastInsertRowid)));
+  });
+  app.put('/api/portal/documentos/:id', (req, res) => {
+    const act = db.prepare('SELECT * FROM documentos_admin WHERE id = ?').get(req.params.id);
+    if (!act) return res.status(404).json({ error: 'No encontrado' });
+    const o = datosDoc(req.body || {}, act); const cols = Object.keys(o);
+    db.prepare(`UPDATE documentos_admin SET ${cols.map(k => k + '=?').join(',')}, updated_at=datetime('now') WHERE id=?`).run(...cols.map(k => o[k]), req.params.id);
+    res.json(parseDoc(db.prepare('SELECT * FROM documentos_admin WHERE id = ?').get(req.params.id)));
+  });
+  app.delete('/api/portal/documentos/:id', (req, res) => {
+    const d = db.prepare('SELECT archivo FROM documentos_admin WHERE id = ?').get(req.params.id);
+    if (d && d.archivo) { try { require('fs').unlinkSync(path.join(DOCS_DIR, d.archivo)); } catch (e) {} }
+    db.prepare('DELETE FROM documentos_admin WHERE id = ?').run(req.params.id);
+    res.json({ ok: true });
+  });
+  // Archivo adjunto (foto o PDF del documento)
+  const TIPOS_ARCHIVO = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/heic': '.heic' };
+  app.post('/api/portal/documentos/:id/archivo', require('express').raw({ type: () => true, limit: '25mb' }), (req, res) => {
+    const d = db.prepare('SELECT * FROM documentos_admin WHERE id = ?').get(req.params.id);
+    if (!d) return res.status(404).json({ error: 'No encontrado' });
+    const tipo = String(req.headers['content-type'] || '').split(';')[0];
+    if (!TIPOS_ARCHIVO[tipo]) return res.status(400).json({ error: 'Solo se admiten fotos (JPG, PNG) o PDF' });
+    if (!req.body || !req.body.length) return res.status(400).json({ error: 'Archivo vacío' });
+    const nombre = 'doc_' + d.id + '_' + crypto.randomBytes(6).toString('hex') + TIPOS_ARCHIVO[tipo];
+    require('fs').writeFileSync(path.join(DOCS_DIR, nombre), req.body);
+    if (d.archivo) { try { require('fs').unlinkSync(path.join(DOCS_DIR, d.archivo)); } catch (e) {} }
+    const original = decodeURIComponent(String(req.headers['x-nombre'] || '')).slice(0, 200) || nombre;
+    db.prepare('UPDATE documentos_admin SET archivo=?, archivo_nombre=?, archivo_tipo=? WHERE id=?').run(nombre, original, tipo, d.id);
+    res.json({ ok: true });
+  });
+  app.get('/api/portal/documentos/:id/archivo', (req, res) => {
+    const d = db.prepare('SELECT * FROM documentos_admin WHERE id = ?').get(req.params.id);
+    if (!d || !d.archivo) return res.status(404).send('Sin archivo');
+    const f = path.join(DOCS_DIR, d.archivo);
+    if (!require('fs').existsSync(f)) return res.status(404).send('Archivo no encontrado');
+    res.setHeader('Content-Type', d.archivo_tipo || 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(d.archivo_nombre || d.archivo) + '"');
+    res.sendFile(f);
   });
 };
