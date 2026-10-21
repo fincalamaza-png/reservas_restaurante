@@ -155,6 +155,7 @@ a{color:inherit}
 .zona .zl{font-size:12px;color:var(--gris)}
 .zona .za{margin-top:auto;font-size:12px;color:var(--gris);padding-top:6px}
 .zona .za.on{color:#8a5d00;font-weight:600}
+.zona.quieta{opacity:.6}
 @media(min-width:700px){.zonas{grid-template-columns:repeat(4,1fr)}}
 
 .kpi{background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
@@ -1270,9 +1271,9 @@ function bloqueRestaurante(t, vivo){
   if (!PANEL_ZONA) {
     // ── Resumen: un cuadro por zona ──
     h += '<div class="card"><h3>Restaurante por zona</h3>';
-    if (!zs.length) h += '<div class="muted">Sin ventas ni comandas abiertas en estas fechas.</div>';
+    if (!zs.length) h += '<div class="muted">No se pudieron leer las zonas del TPV.</div>';
     else h += '<div class="zonas">' + zs.map(function(z){
-      return '<button class="zona" onclick="verZona(\'' + esc(z.zona).replace(/'/g, '&#39;') + '\')"><div class="zn">' + punto(z.color) + esc(z.zona) + '</div>' +
+      return '<button class="zona' + (!z.tickets && !z.abiertas ? ' quieta' : '') + '" onclick="verZona(\'' + esc(z.zona).replace(/'/g, '&#39;') + '\')"><div class="zn">' + punto(z.color) + esc(z.zona) + '</div>' +
         '<div class="zv">' + euros(z.vendido) + '</div><div class="zl">' + z.tickets + (z.tickets === 1 ? ' ticket cobrado' : ' tickets cobrados') + '</div>' +
         '<div class="za' + (z.abiertas ? ' on' : '') + '">' + (z.abiertas ? z.abiertas + (z.abiertas === 1 ? ' abierta' : ' abiertas') + ' · ' + euros(z.abierto) : 'Nada abierto') + '</div></button>';
     }).join('') + '</div>';
