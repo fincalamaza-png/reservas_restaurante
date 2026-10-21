@@ -6,6 +6,8 @@
 <title>Don Fadrique · Gestión</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/fonts/jost.css">
+<link rel="stylesheet" href="/marca/marca-df.css">
+<script src="/marca/marca-df.js"></script>
 <link rel="apple-touch-icon" href="/icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
 <meta name="theme-color" content="#f7f4ee">
@@ -70,11 +72,12 @@ a{color:inherit}
 .cargando{text-align:center;color:var(--gris);padding:40px 10px}
 
 /* ── Portada y paletas: blanco roto con botones cuadrados ── */
-.home{background:#f7f4ee;color:var(--tinta);min-height:100vh;display:flex;flex-direction:column;padding:calc(22px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom))}
+.home{background:#f7f4ee;color:var(--tinta);min-height:calc(100vh - 72px);display:flex;flex-direction:column;padding:calc(22px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom))}
 .home-cab{text-align:center;margin:22px 0 30px}
 .home-cab .k{font-size:10px;letter-spacing:6px;color:var(--oro);font-weight:500;padding-left:6px}
 .home-cab .n{font-size:28px;letter-spacing:9px;font-weight:300;margin:8px 0 6px;padding-left:9px}
-.home-cab .l{font-size:11px;color:#9a9086;letter-spacing:2px}
+.home-cab .df-logo{--t:28px}
+.home-cab .l{font-size:11px;color:#9a9086;letter-spacing:2px;margin-top:14px}
 .home-cab .lin{width:34px;height:1px;background:#cbbd9e;margin:16px auto 0}
 .cuadros{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:560px;width:100%;margin:0 auto}
 .cuadro{aspect-ratio:1/1;background:#fff;border:1px solid #e6dfd3;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px;text-align:center;color:var(--tinta);text-decoration:none;cursor:pointer;box-shadow:0 1px 3px rgba(60,45,20,.05);transition:transform .12s,border-color .12s,box-shadow .12s;font-family:inherit}
@@ -163,7 +166,12 @@ a{color:inherit}
 #pin{display:none;position:fixed;inset:0;z-index:99999;background:#f7f4ee;color:var(--tinta);flex-direction:column;align-items:center;justify-content:center;padding:24px}
 #pin .n{font-size:30px;font-weight:300;letter-spacing:10px;padding-left:10px;text-align:center}
 #pin .k{font-size:11px;letter-spacing:7px;padding-left:7px;color:var(--oro);font-weight:500;margin-top:10px}
-#pin .lin{width:34px;height:1px;background:#cbbd9e;margin:20px auto 26px}
+#pin .pin-premios{margin-top:34px;--h:32px}
+#df-pie{padding:18px 0 calc(22px + env(safe-area-inset-bottom));opacity:.9}
+#df-pie:empty{display:none}
+.top .df-logo{--t:11px;flex:none}
+@media(max-width:699px){.top .df-logo{display:none}}
+@media(max-height:700px){#pin .pin-premios{display:none}}
 #pin .txt{font-size:13px;color:#9a9086;letter-spacing:1px;margin-bottom:16px}
 #pin-puntos{display:flex;gap:14px;margin-bottom:10px}
 #pin-error{height:20px;font-size:13px;color:var(--rojo);margin-bottom:12px}
@@ -181,15 +189,15 @@ a{color:inherit}
 </head>
 <body>
 <div id="pin">
-  <div class="n">DON FADRIQUE</div>
-  <div class="k">GESTIÓN</div>
-  <div class="lin"></div>
+  <div data-df-logo="Gestión" style="--t:30px;margin-bottom:26px"></div>
   <div class="txt">Introduce tu PIN</div>
   <div id="pin-puntos"></div>
   <div id="pin-error"></div>
   <div id="pin-teclado"></div>
+  <div data-df-premios class="pin-premios"></div>
 </div>
 <div id="app"></div>
+<div id="df-pie" data-df-premios style="--h:30px"></div>
 <div class="toast" id="toast"></div>
 <script src="/menu-render.js"></script>
 <script>
@@ -296,7 +304,7 @@ window.addEventListener('beforeunload', function(e){ if (SUCIO) { e.preventDefau
 
 function cabecera(titulo, sub, atras, accion){
   return '<div class="top">' + (atras ? '<button class="back" onclick="volverA(\'' + atras + '\')">&#8592;</button>' : '') +
-    '<div class="t"><b>' + esc(titulo) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' + (accion || '') + '</div>';
+    '<div class="t"><b>' + esc(titulo) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' + (accion || '') + DFMarca.logo('', 'fila') + '</div>';
 }
 function volverA(h){
   if (SUCIO && !confirm('Hay cambios sin guardar. ¿Salir sin guardar?')) return;
@@ -354,7 +362,7 @@ function cuadro(icono, titulo, sub, accion){
 }
 function cabeceraHome(k, n, atras){
   return (atras ? '<button class="volver" onclick="ir(\'' + atras + '\')">&#8592;</button>' : '') +
-    '<div class="home-cab"' + (atras ? ' style="margin-top:0"' : '') + '><div class="k">' + k + '</div><div class="n">' + n + '</div>' + (atras ? '' : '<div class="l">Alba de Tormes · Salamanca</div>') + '<div class="lin"></div></div>';
+    '<div class="home-cab"' + (atras ? ' style="margin-top:0"' : '') + '>' + DFMarca.logo(k) + (atras ? '' : '<div class="l">Alba de Tormes · Salamanca</div>') + '</div>';
 }
 var EVENTOS = ['bodas', 'comuniones', 'eventos'];
 function vHome(app){

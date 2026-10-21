@@ -160,13 +160,14 @@
     .btn-listado:active { background: #333; }
   </style>
 <link rel="stylesheet" href="/tema-df.css">
+<link rel="stylesheet" href="/marca/marca-df.css">
+<script src="/marca/marca-df.js"></script>
 </head>
 <body class="df-personal">
 
 <div id="pin-screen">
   <div class="brand">
-    <div class="brand-name">Don Fadrique</div>
-    <div class="brand-sub">Consulta de reservas</div>
+    <div data-df-logo="Consulta de reservas" style="--t:26px"></div>
   </div>
   <div class="pin-box">
     <div class="pin-prompt">PIN de acceso</div>
@@ -190,12 +191,13 @@
     </div>
     <div class="pin-err" id="pin-err"></div>
   </div>
+  <div data-df-premios style="--h:30px;margin-top:22px"></div>
 </div>
 
 <div id="app">
   <div class="app-header">
     <div>
-      <div class="h-name">DON FADRIQUE</div>
+      <div data-df-logo="Reservas" class="fila izq" style="--t:13px"></div>
       <div class="h-date" id="h-date"></div>
     </div>
     <button class="btn-salir" onclick="logout()">Salir</button>

@@ -1,0 +1,18 @@
+/* ── Marca Don Fadrique: logotipo y distintivos (Michelin, Sol Repsol, Tierra de Sabor) ──
+   Igual en todas las apps: Jost, blanco roto, blanco, dorado #b8965a y negro. */
+.df-logo{display:inline-flex;flex-direction:column;align-items:center;font-family:'Jost',system-ui,sans-serif;line-height:1;color:#1a1a1a;--t:28px}
+.df-logo .df-n{font-size:var(--t);font-weight:300;letter-spacing:.34em;margin-right:-.34em;white-space:nowrap}
+.df-logo .df-s{font-size:max(8.5px,calc(var(--t)*.37));font-weight:500;letter-spacing:.42em;margin-right:-.42em;color:#b8965a;text-transform:uppercase;margin-top:calc(var(--t)*.38);white-space:nowrap}
+.df-logo .df-l{width:calc(var(--t)*1.2);height:1px;background:#cbbd9e;margin-top:calc(var(--t)*.55)}
+.df-logo.inv{color:#f7f4ee}
+.df-logo.inv .df-l{background:rgba(184,150,90,.55)}
+/* En una barra: nombre y sección en una línea */
+.df-logo.fila{flex-direction:row;align-items:center;gap:calc(var(--t)*.9)}
+.df-logo.fila .df-s{margin-top:0;font-size:max(8.5px,calc(var(--t)*.66));letter-spacing:.3em;margin-right:-.3em}
+.df-logo.fila .df-l{display:none}
+.df-logo.izq{align-items:flex-start}
+.df-premios{display:flex;align-items:center;justify-content:center;gap:calc(var(--h,34px)*.5);--h:34px}
+.df-premios img{height:var(--h);width:auto;display:block}
+.df-premios img.r{height:calc(var(--h)*.95)}
+/* Sobre fondo oscuro, los distintivos van en una pastilla blanca */
+.df-premios.pastilla{background:#fff;border-radius:999px;padding:calc(var(--h)*.16) calc(var(--h)*.5)}
