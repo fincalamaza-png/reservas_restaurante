@@ -749,7 +749,8 @@ module.exports = function montarPortal(app, db) {
       cobrado.Efectivo += tpvD.efectivo; cobrado.Tarjeta += tpvD.tarjeta; cobrado['Empresa / a cuenta'] += tpvD.empresa; cobrado['Sin indicar'] += tpvD.otros;
       out.tpv = { total: r2(tpvD.total), tickets: tpvD.tickets, ticket_medio: tpvD.tickets ? r2(tpvD.total / tpvD.tickets) : 0, efectivo: r2(tpvD.efectivo), tarjeta: r2(tpvD.tarjeta),
         espacios: Object.keys(tpvD.espacios).map(k => ({ espacio: k, total: r2(tpvD.espacios[k].total), tickets: tpvD.espacios[k].tickets })).sort((a, b) => b.total - a.total),
-        dias: tpvD.dias, ultima_venta: tpvD.ultima_venta, comandas_abiertas: tpvD.comandas_abiertas, en_mesas: tpvD.en_mesas, cierres: tpvD.cierres };
+        dias: tpvD.dias, ultima_venta: tpvD.ultima_venta, comandas_abiertas: tpvD.comandas_abiertas, en_mesas: tpvD.en_mesas, cierres: tpvD.cierres,
+        zonas: tpvD.zonas || [], camareros: tpvD.camareros || [], abiertas: tpvD.abiertas || [], ventas: tpvD.ventas || [] };
     }
     // 2) Hotel: facturas emitidas en esas fechas
     try {
