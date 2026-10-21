@@ -978,6 +978,41 @@ module.exports = function montarPortal(app, db) {
       res.json({ mes, dias: resumen, total_minutos: totalMin });
     } catch (e) { res.status(502).json({ error: 'No se pudo leer el TPV: ' + e.message }); }
   });
+  // Horas fichadas por día de toda la plantilla (vista «Por día» y «Por mes» de Personal)
+  app.get('/api/portal/personal/horas', async (req, res) => {
+    const ok = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
+    const hoy = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date());
+    const desde = ok(req.query.desde) ? req.query.desde : hoy, hasta = ok(req.query.hasta) ? req.query.hasta : desde;
+    if (hasta < desde) return res.status(400).json({ error: 'Fechas al revés' });
+    const dia = (iso, d) => { const t = new Date(iso + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + d); return t.toISOString().slice(0, 10); };
+    try {
+      const [usuarios, fich] = await Promise.all([jsonTPV('/api/auth/usuarios/todos'), jsonTPV(`/api/personal/fichajes-rango?desde=${dia(desde, -1)}&hasta=${dia(hasta, 1)}`)]);
+      const fichas = {}; db.prepare('SELECT * FROM trabajadores').all().forEach(f => { if (f.tpv_usuario_id) fichas[f.tpv_usuario_id] = f; });
+      // Ahora en hora de Madrid, para saber quién está dentro
+      const ahoraP = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()).replace(',', '');
+      const aMin = (fecha, hora) => Date.UTC(+fecha.slice(0, 4), +fecha.slice(5, 7) - 1, +fecha.slice(8, 10), +hora.slice(0, 2), +hora.slice(3, 5)) / 60000;
+      const ahoraMin = aMin(ahoraP.slice(0, 10), ahoraP.slice(11, 16));
+      const porUsuario = {}; fich.forEach(f => { (porUsuario[f.usuario_id] = porUsuario[f.usuario_id] || []).push(f); });
+      const lista = usuarios.filter(u => u.rol !== 'propietario').map(u => {
+        const l = porUsuario[u.id] || [], f = fichas[u.id] || {};
+        const dias = {}; let ent = null;
+        const d = k => dias[k] = dias[k] || { fichajes: [], minutos: 0, sin_salida: false };
+        l.forEach(x => {
+          if (x.tipo === 'entrada') { if (ent) d(ent.fecha).sin_salida = true; ent = x; }
+          else if (ent) { const m = aMin(x.fecha, x.hora) - aMin(ent.fecha, ent.hora); if (m >= 0 && m < 24 * 60) d(ent.fecha).minutos += m; ent = null; }
+        });
+        let dentro = false, desdeHora = null;
+        if (ent) { const m = ahoraMin - aMin(ent.fecha, ent.hora); if (m >= 0 && m < 18 * 60) { dentro = true; desdeHora = ent.hora; d(ent.fecha).en_curso = m; } else d(ent.fecha).sin_salida = true; }
+        l.filter(x => x.fecha >= desde && x.fecha <= hasta).forEach(x => d(x.fecha).fichajes.push({ id: x.id, tipo: x.tipo, hora: x.hora, metodo: x.metodo }));
+        Object.keys(dias).forEach(k => { if (k < desde || k > hasta) delete dias[k]; });
+        const total = Object.values(dias).reduce((s, x) => s + x.minutos, 0);
+        return { tpv_usuario_id: u.id, nombre: f.nombre || u.nombre, apellidos: f.apellidos || u.apellidos || '', puesto: f.puesto || '', area: f.area || '', horas_semana: f.horas_semana || null,
+          activo: !!u.activo && !f.fecha_baja, dias, total_minutos: total, dias_trabajados: Object.values(dias).filter(x => x.minutos > 0 || x.fichajes.length).length, dentro, dentro_desde: desdeHora };
+      }).filter(t => t.activo || t.dias_trabajados);
+      lista.sort((a, b) => (b.dentro - a.dentro) || (b.total_minutos - a.total_minutos) || String(a.nombre).localeCompare(String(b.nombre)));
+      res.json({ desde, hasta, hoy, trabajadores: lista });
+    } catch (e) { res.status(502).json({ error: 'No se pudo leer el TPV: ' + e.message }); }
+  });
   app.post('/api/portal/personal/:tpvId/fichajes', async (req, res) => {
     const d = req.body || {};
     try { res.json(await jsonTPV('/api/personal/fichajes', 'POST', { usuario_id: int(req.params.tpvId), tipo: d.tipo, fecha: txt(d.fecha), hora: txt(d.hora) })); }

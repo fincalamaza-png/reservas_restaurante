@@ -515,7 +515,7 @@ app.get('/api/sesion', (req, res) => {
   const u = usuarioSesion(req);
   if (!u) return res.status(401).json({ error: 'Sin sesión' });
   const p = PERMISOS.permisosDe(db, u);
-  res.json({ usuario: u, admin: p.admin, modulos: p.modulos });
+  res.json({ usuario: u, admin: p.admin, modulos: p.modulos, ver_fichajes: PERMISOS.verFichajes(db, u) });
 });
 
 // Archivos del servidor que nunca deben descargarse

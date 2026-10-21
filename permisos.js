@@ -34,12 +34,20 @@ function permisosDe(db, usuario) {
   if (p.admin) return { admin: true, modulos: MODULOS.slice() };
   return { admin: false, modulos: (p.modulos || []).filter(m => MODULOS.includes(m)) };
 }
+// Quién puede ver los fichajes y las horas trabajadas (por defecto, solo Manuel)
+function verFichajes(db, usuario) {
+  let l = ['Manuel'];
+  try { const r = db.prepare("SELECT valor FROM config WHERE clave = 'ver_fichajes'").get(); if (r && r.valor) l = JSON.parse(r.valor); } catch (e) {}
+  return Array.isArray(l) && l.includes(usuario);
+}
 function puede(db, usuario, modulo) { const p = permisosDe(db, usuario); return p.admin || p.modulos.includes(modulo); }
 
 // Qué módulo hace falta para cada ruta de la API (null = basta con tener sesión)
 function moduloDeRuta(ruta, metodo) {
   if (/^\/api\/(sesion|login|logout)$/.test(ruta)) return null;
   if (/^\/api\/portal\/usuarios/.test(ruta)) return 'admin';
+  // Fichajes y horas de los trabajadores: solo Manuel (lista en config «ver_fichajes»)
+  if (/^\/api\/portal\/personal\/(horas|fichajes\/|[^/]+\/fichajes)/.test(ruta)) return 'fichajes';
   if (/^\/api\/portal\/personal/.test(ruta)) return 'admin'; // Personal: solo Manuel y Nicolás
   // Anotar pagos y gastos fijos: solo quien tenga el permiso «pagos» (Manuel, Nicolás y Ángela)
   if (/^\/api\/portal\/(pagos|gastos)/.test(ruta) && metodo !== 'GET') return 'pagos';
@@ -58,6 +66,7 @@ function middleware(db) {
     const ruta = req.originalUrl.split('?')[0];
     const m = moduloDeRuta(ruta, req.method);
     if (!m || m === 'celebraciones') return next();
+    if (m === 'fichajes') return verFichajes(db, req.usuario) ? next() : res.status(403).json({ error: 'Los fichajes solo los puede ver Manuel' });
     const p = permisosDe(db, req.usuario);
     req.permisos = p;
     if (p.admin) return next();
@@ -123,4 +132,4 @@ function montar(app, db) {
   });
 }
 
-module.exports = { MODULOS, iniciar, permisosDe, puede, middleware, montar };
+module.exports = { MODULOS, iniciar, permisosDe, puede, verFichajes, middleware, montar };

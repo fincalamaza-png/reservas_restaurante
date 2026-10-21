@@ -332,7 +332,7 @@ function render(){
   if (PANEL_T) { clearInterval(PANEL_T); PANEL_T = null; }
   if (!h) return vHome(app);
   var nec = { restaurante: ['reservas', 'carta'], carta: 'carta', menus: 'carta', menu: ['carta', 'bodas', 'comuniones', 'eventos'], personalizados: 'carta', personalizado: 'carta',
-    bodas: 'bodas', comuniones: 'comuniones', 'otros-eventos': 'eventos', eventos: EVENTOS, celebracion: EVENTOS, contabilidad: 'contabilidad', admin: 'contabilidad', documentos: 'contabilidad', facturacion: 'contabilidad', gastos: 'contabilidad', gasto: 'contabilidad', panel: 'contabilidad', pagos: 'contabilidad', pago: 'contabilidad', personal: 'admin', trabajador: 'admin', documento: 'contabilidad', usuarios: 'admin' }[p[0]];
+    bodas: 'bodas', comuniones: 'comuniones', 'otros-eventos': 'eventos', eventos: EVENTOS, celebracion: EVENTOS, contabilidad: 'contabilidad', admin: 'contabilidad', documentos: 'contabilidad', facturacion: 'contabilidad', gastos: 'contabilidad', gasto: 'contabilidad', panel: 'contabilidad', pagos: 'contabilidad', pago: 'contabilidad', personal: 'admin', trabajador: 'admin', horas: 'admin', documento: 'contabilidad', usuarios: 'admin' }[p[0]];
   if (nec && !puede(nec)) { toast('No tienes acceso a esa sección'); location.hash = ''; return; }
   switch (p[0]) {
     case 'usuarios': return vUsuarios(app);
@@ -355,6 +355,7 @@ function render(){
     case 'gastos': return vGastos(app, p[1]);
     case 'gasto': return vGasto(app, p[1]);
     case 'personal': return vPersonal(app);
+    case 'horas': if (!ST.ver_fichajes) { toast('Los fichajes solo los puede ver Manuel'); location.hash = '#/personal'; return; } return vHoras(app, p[1], p[2]);
     case 'trabajador': return vTrabajador(app, p[1], p[2]);
     case 'documento': return vDocumento(app, p[1], p[2]);
     case 'celebracion': return vCelebracion(app, p[1], p[2], p[3]);
@@ -1431,6 +1432,7 @@ function vPersonal(app){
   api('GET', '/api/portal/personal').then(function(d){
     PERSONAL = d.trabajadores;
     var h = d.error ? '<div class="card" style="border-left:4px solid var(--ambar)"><p class="muted">' + esc(d.error) + '</p></div>' : '';
+    h += pestanasPersonal('lista');
     h += '<button class="btn btn-p" style="margin-bottom:12px" onclick="ir(\'#/trabajador/nuevo\')">+ Dar de alta un trabajador</button>';
     var act = PERSONAL.filter(function(t){ return t.activo; }), baja = PERSONAL.filter(function(t){ return !t.activo; });
     var item = function(t){
@@ -1443,6 +1445,81 @@ function vPersonal(app){
     h += '<p class="muted" style="margin:10px 4px 24px">Cada trabajador ficha con su clave en la app <b>Fichaje</b> (gestion.palaciocondealdana.com/fichaje.html), que se instala como un icono en el móvil o la tablet. Sus fichajes aparecen aquí, en su ficha.</p>';
     $('per-body').innerHTML = h;
   }).catch(fallo);
+}
+function pestanasPersonal(on){
+  if (!ST.ver_fichajes) return '';
+  var b = function(k, t, r){ return '<button class="chip' + (on === k ? ' on' : '') + '" onclick="ir(\'' + r + '\')">' + t + '</button>'; };
+  return '<div class="chips">' + b('lista', 'Trabajadores', '#/personal') + b('dia', 'Horas por día', '#/horas/dia') + b('mes', 'Horas por mes', '#/horas/mes') + '</div>';
+}
+function diaOtro(iso, n){ var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function hCorta(min){ min = Math.round(min || 0); return Math.floor(min / 60) + ':' + String(min % 60).padStart(2, '0') + ' h'; }
+var HORAS = null;
+// Horas fichadas por toda la plantilla: un día (con entradas y salidas) o un mes (total por trabajador). Solo Manuel.
+function vHoras(app, modo, valor){
+  modo = modo === 'mes' ? 'mes' : 'dia';
+  var hoy = hoyISO(), desde, hasta, titulo, nav;
+  if (modo === 'dia') {
+    desde = hasta = /^\d{4}-\d{2}-\d{2}$/.test(valor || '') ? valor : hoy;
+    titulo = (desde === hoy ? 'Hoy · ' : '') + new Date(desde + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    nav = '<div class="card"><div class="cal-nav" style="margin:0"><button onclick="ir(\'#/horas/dia/' + diaOtro(desde, -1) + '\')">&#8249;</button><b style="text-align:center">' + esc(titulo) + '</b><button onclick="ir(\'#/horas/dia/' + diaOtro(desde, 1) + '\')">&#8250;</button></div>' +
+      '<div class="fila" style="margin-top:10px;align-items:center"><input class="in" type="date" value="' + desde + '" onchange="if(this.value)ir(\'#/horas/dia/\'+this.value)">' + (desde !== hoy ? '<button class="btn btn-s btn-sm" style="flex:0 0 auto" onclick="ir(\'#/horas/dia\')">Hoy</button>' : '') + '</div></div>';
+  } else {
+    var mes = /^\d{4}-\d{2}$/.test(valor || '') ? valor : mesActual(), ym = mes.split('-').map(Number);
+    desde = mes + '-01'; hasta = mes + '-' + String(new Date(ym[0], ym[1], 0).getDate()).padStart(2, '0');
+    nav = navMes(mes, '#/horas/mes/');
+  }
+  app.innerHTML = '<div class="vista">' + cabecera('Horas fichadas', modo === 'dia' ? 'Todos los trabajadores, día a día' : 'Total del mes por trabajador', '#/personal') +
+    '<div class="content">' + pestanasPersonal(modo) + nav + '<div id="horas-body"><div class="cargando">Cargando…</div></div></div></div>';
+  api('GET', '/api/portal/personal/horas?desde=' + desde + '&hasta=' + hasta).then(function(d){
+    HORAS = d; if (!$('horas-body')) return;
+    $('horas-body').innerHTML = modo === 'dia' ? pintarHorasDia(d, desde) : pintarHorasMes(d, desde.slice(0, 7));
+  }).catch(function(e){ if ($('horas-body')) $('horas-body').innerHTML = '<div class="vacio">' + esc(e.message) + '</div>'; });
+}
+function nombreT(t){ return [t.nombre, t.apellidos].filter(Boolean).join(' '); }
+function pintarHorasDia(d, fecha){
+  var esHoy = fecha === d.hoy;
+  var con = d.trabajadores.filter(function(t){ return t.dias[fecha] || (esHoy && t.dentro); }), sin = d.trabajadores.filter(function(t){ return t.activo && con.indexOf(t) < 0; });
+  var total = 0, dentro = 0;
+  con.forEach(function(t){ var x = t.dias[fecha] || {}; total += (x.minutos || 0) + (esHoy && t.dentro ? (x.en_curso || 0) : 0); if (esHoy && t.dentro) dentro++; });
+  var h = '<div class="kpis"><div class="kpi"><small>Han fichado</small><b>' + con.length + '</b></div><div class="kpi"><small>Horas en total</small><b>' + hCorta(total) + '</b></div>' +
+    (esHoy ? '<div class="kpi" style="grid-column:1/-1"><small>Trabajando ahora</small><b style="color:#1d6640">' + dentro + (dentro === 1 ? ' persona' : ' personas') + '</b></div>' : '') + '</div>';
+  if (!con.length) h += '<div class="vacio">Nadie ha fichado este día.</div>';
+  h += con.map(function(t){
+    var x = t.dias[fecha] || { fichajes: [], minutos: 0 }, enCurso = esHoy && t.dentro ? (x.en_curso || 0) : 0;
+    var fich = (x.fichajes || []).map(function(f){ return '<span class="badge ' + (f.tipo === 'entrada' ? 'b-verde' : 'b-oro') + '" style="margin:1px">' + (f.tipo === 'entrada' ? '&#8594; ' : '&#8592; ') + esc(f.hora) + (f.metodo === 'manual' ? ' *' : '') + '</span>'; }).join(' ');
+    var estado = enCurso ? ' <span class="badge b-verde">Trabajando desde las ' + esc(t.dentro_desde) + '</span>' : (x.sin_salida ? ' <span class="badge b-ambar">Sin salida</span>' : '');
+    return '<div class="item" onclick="ir(\'#/trabajador/tpv' + t.tpv_usuario_id + '/' + fecha.slice(0, 7) + '\')"><div class="tx"><b>' + esc(nombreT(t)) + '</b><small>' + esc([t.puesto, t.area].filter(Boolean).join(' · ')) + '</small>' +
+      '<small style="margin-top:4px">' + (fich || '<span class="muted">Entró el día anterior</span>') + estado + '</small></div><div class="der"><b>' + hCorta(x.minutos + enCurso) + '</b>' + (enCurso ? '<div class="muted" style="font-size:11px">en curso</div>' : '') + '</div></div>';
+  }).join('');
+  if (sin.length) h += '<div class="sec-tit">Sin fichar este día (' + sin.length + ')</div><div class="card"><div class="muted">' + sin.map(function(t){ return esc(nombreT(t)); }).join(' · ') + '</div></div>';
+  h += '<p class="muted" style="margin:10px 4px 24px">&#8594; entrada · &#8592; salida · * añadido a mano. Las horas de un turno que pasa de medianoche cuentan en el día en que se entró. Pulsa un trabajador para ver su mes y corregir fichajes.</p>';
+  return h;
+}
+function pintarHorasMes(d, mes){
+  var ts = d.trabajadores.slice().sort(function(a, b){ return b.total_minutos - a.total_minutos || nombreT(a).localeCompare(nombreT(b)); });
+  var total = ts.reduce(function(s, t){ return s + t.total_minutos; }, 0);
+  var h = '<div class="kpis"><div class="kpi"><small>Horas de la plantilla</small><b>' + hCorta(total) + '</b></div><div class="kpi"><small>Trabajadores</small><b>' + ts.filter(function(t){ return t.total_minutos; }).length + '</b></div></div>';
+  h += '<div class="card"><table class="tabla"><tr><th>Trabajador</th><th class="r">Días</th><th class="r">Horas</th><th class="r">Media/día</th></tr>' + ts.map(function(t){
+    var dias = Object.keys(t.dias).filter(function(k){ return t.dias[k].minutos > 0; }).length, sinSal = Object.keys(t.dias).filter(function(k){ return t.dias[k].sin_salida; }).length;
+    return '<tr onclick="ir(\'#/trabajador/tpv' + t.tpv_usuario_id + '/' + mes + '\')" style="cursor:pointer"><td><b>' + esc(nombreT(t)) + '</b>' + (t.puesto ? '<div class="muted" style="font-size:11px">' + esc(t.puesto) + '</div>' : '') +
+      (sinSal ? '<div><span class="badge b-ambar">' + sinSal + (sinSal === 1 ? ' día sin salida' : ' días sin salida') + '</span></div>' : '') + '</td><td class="r">' + dias + '</td><td class="r"><b>' + hCorta(t.total_minutos) + '</b></td><td class="r">' + (dias ? hCorta(t.total_minutos / dias) : '—') + '</td></tr>';
+  }).join('') + '<tr><th>Total</th><th></th><th class="r">' + hCorta(total) + '</th><th></th></tr></table></div>';
+  h += '<button class="btn btn-s" onclick="descargarHoras(\'' + mes + '\')">Descargar para Excel (día a día)</button>';
+  h += '<p class="muted" style="margin:10px 4px 24px">Pulsa un trabajador para ver sus fichajes de cada día. El archivo descargado tiene una línea por trabajador y día, con entradas, salidas y horas: sirve para las nóminas o para una inspección.</p>';
+  return h;
+}
+function descargarHoras(mes){
+  if (!HORAS) return;
+  var filas = [['Trabajador', 'Puesto', 'Fecha', 'Entradas', 'Salidas', 'Horas', 'Minutos', 'Observaciones']];
+  HORAS.trabajadores.forEach(function(t){
+    Object.keys(t.dias).sort().forEach(function(k){
+      var x = t.dias[k], ent = x.fichajes.filter(function(f){ return f.tipo === 'entrada'; }).map(function(f){ return f.hora + (f.metodo === 'manual' ? '*' : ''); }).join(' '),
+        sal = x.fichajes.filter(function(f){ return f.tipo === 'salida'; }).map(function(f){ return f.hora + (f.metodo === 'manual' ? '*' : ''); }).join(' ');
+      filas.push([nombreT(t), t.puesto || '', k.split('-').reverse().join('/'), ent, sal, (Math.round(x.minutos / 6) / 10).toString().replace('.', ','), x.minutos, x.sin_salida ? 'Sin salida' : '']);
+    });
+  });
+  var csv = '﻿' + filas.map(function(f){ return f.map(function(c){ c = String(c == null ? '' : c); return /[;"\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(';'); }).join('\r\n');
+  var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'fichajes_' + mes + '.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 var TR = null;
 function vTrabajador(app, clave, mes){
@@ -1463,7 +1540,7 @@ function pintarTrabajador(mes){
   var t = TR, nuevo = !t.tpv_usuario_id;
   var cmp = function(etq, k, extra){ return '<div class="field"><label>' + etq + '</label><input' + (extra || '') + ' value="' + attr(t[k] == null ? '' : t[k]) + '" oninput="TR.' + k + '=this.value;marcar()"></div>'; };
   var h = '<div class="vista">' + cabecera(nuevo ? 'Alta de trabajador' : [t.nombre, t.apellidos].filter(Boolean).join(' '), nuevo ? 'Personal' : (t.puesto || 'Ficha del trabajador'), '#/personal', '<button class="acc" onclick="guardarTrabajador()">Guardar</button>') + '<div class="content">';
-  if (!nuevo) h += '<div id="fich-body"><div class="cargando">Cargando fichajes…</div></div>';
+  if (!nuevo && ST.ver_fichajes) h += '<div id="fich-body"><div class="cargando">Cargando fichajes…</div></div>';
   h += '<div class="card"><h3>Datos personales</h3><div class="fila">' + cmp('Nombre', 'nombre') + cmp('Apellidos', 'apellidos') + '</div>' +
     '<div class="fila">' + cmp('DNI / NIE', 'dni', ' autocapitalize="characters"') + cmp('Nº Seguridad Social', 'nss') + '</div>' +
     '<div class="fila">' + cmp('Fecha de nacimiento', 'fecha_nacimiento', ' type="date"') + cmp('Teléfono', 'telefono', ' type="tel"') + '</div>' +
@@ -1479,7 +1556,7 @@ function pintarTrabajador(mes){
     '<p class="muted">Con esta clave ficha entrada y salida en la app Fichaje. Si pones fecha de baja, la clave deja de funcionar.</p></div>';
   h += '<button class="btn btn-p" onclick="guardarTrabajador()">Guardar</button><div style="height:30px"></div></div></div>';
   $('app').innerHTML = h;
-  if (!nuevo) cargarFichajes(mes);
+  if (!nuevo && ST.ver_fichajes) cargarFichajes(mes);
 }
 function guardarTrabajador(){
   api('POST', '/api/portal/personal', TR).then(function(r){
@@ -1574,7 +1651,7 @@ function borrarUsuario(n){
 function cargarSesion(){
   return fetch('/api/sesion', { credentials: 'same-origin' }).then(function(r){
     if (!r.ok) { mostrarPin(); return; }
-    return r.json().then(function(d){ ST.usuario = d.usuario; ST.admin = !!d.admin; ST.modulos = d.modulos || []; render(); });
+    return r.json().then(function(d){ ST.usuario = d.usuario; ST.admin = !!d.admin; ST.modulos = d.modulos || []; ST.ver_fichajes = !!d.ver_fichajes; render(); });
   }).catch(function(){ mostrarPin(); });
 }
 cargarSesion();
