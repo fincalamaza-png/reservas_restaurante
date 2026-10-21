@@ -337,6 +337,13 @@ module.exports = function montarPortal(app, db) {
   }
   const errTPV = (res, e) => res.status(502).json({ error: 'No se pudo conectar con el TPV (' + (e.name === 'AbortError' ? 'tiempo agotado' : e.message) + ')' });
 
+  // Albarán firmado de un cargo a habitación (se ve tal cual lo genera el TPV)
+  app.get('/api/portal/panel/albaran/:id', async (req, res) => {
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).send('Albarán no válido');
+    try { const r = await tpv('/api/habitacion/albaranes/' + req.params.id + '/ver' + (req.query.imprimir === '1' ? '?imprimir=1' : '')); res.type('html').send(await r.text()); }
+    catch (e) { res.status(502).send('No se pudo abrir el albarán en el TPV'); }
+  });
+
   app.get('/api/portal/tpv/carta', async (req, res) => {
     try {
       const d = await (await tpv('/api/productos')).json();
@@ -750,7 +757,8 @@ module.exports = function montarPortal(app, db) {
       out.tpv = { total: r2(tpvD.total), tickets: tpvD.tickets, ticket_medio: tpvD.tickets ? r2(tpvD.total / tpvD.tickets) : 0, efectivo: r2(tpvD.efectivo), tarjeta: r2(tpvD.tarjeta),
         espacios: Object.keys(tpvD.espacios).map(k => ({ espacio: k, total: r2(tpvD.espacios[k].total), tickets: tpvD.espacios[k].tickets })).sort((a, b) => b.total - a.total),
         dias: tpvD.dias, ultima_venta: tpvD.ultima_venta, comandas_abiertas: tpvD.comandas_abiertas, en_mesas: tpvD.en_mesas, cierres: tpvD.cierres,
-        zonas: tpvD.zonas || [], camareros: tpvD.camareros || [], abiertas: tpvD.abiertas || [], ventas: tpvD.ventas || [] };
+        zonas: tpvD.zonas || [], camareros: tpvD.camareros || [], abiertas: tpvD.abiertas || [], ventas: tpvD.ventas || [],
+        habitacion: tpvD.habitacion || [], habitacion_total: tpvD.habitacion_total || 0 };
     }
     // 2) Hotel: facturas emitidas en esas fechas
     try {

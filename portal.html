@@ -1212,7 +1212,7 @@ function pintarPanel(d, vivo){
   if (t) h += bloqueRestaurante(t, vivo);
   // Facturado y cobrado
   h += '<div class="card"><h3>Facturado</h3><table class="tabla">' + Object.keys(d.facturado).map(function(k){ return '<tr><td>' + esc(k) + '</td><td class="r">' + euros(d.facturado[k]) + '</td></tr>'; }).join('') +
-    '<tr><th>Total</th><th class="r">' + euros(d.total_facturado) + '</th></tr></table></div>';
+    '<tr><th>Total</th><th class="r">' + euros(d.total_facturado) + '</th></tr></table>' + (t && t.habitacion_total ? '<p class="muted" style="margin-top:6px">&#128719; ' + euros(t.habitacion_total) + ' del restaurante se han cargado a habitaciones: no se suman aquí porque se facturan en el hotel al hacer el check-out.</p>' : '') + '</div>';
   h += '<div class="card"><h3>Cobrado según forma de pago</h3><table class="tabla">' + Object.keys(d.cobrado).filter(function(k){ return d.cobrado[k]; }).map(function(k){ return '<tr><td>' + esc(k) + '</td><td class="r">' + euros(d.cobrado[k]) + '</td></tr>'; }).join('') +
     '<tr><th>Total</th><th class="r">' + euros(d.total_cobrado) + '</th></tr></table>' + (d.cobrado['Sin indicar'] ? '<p class="muted" style="margin-top:6px">«Sin indicar»: facturas del hotel (su app no guarda la forma de pago) y cobros sin forma anotada.</p>' : '') + '</div>';
   // Gastos por área
@@ -1275,13 +1275,14 @@ function bloqueRestaurante(t, vivo){
     else h += '<div class="zonas">' + zs.map(function(z){
       return '<button class="zona' + (!z.tickets && !z.abiertas ? ' quieta' : '') + '" onclick="verZona(\'' + esc(z.zona).replace(/'/g, '&#39;') + '\')"><div class="zn">' + punto(z.color) + esc(z.zona) + '</div>' +
         '<div class="zv">' + euros(z.vendido) + '</div><div class="zl">' + z.tickets + (z.tickets === 1 ? ' ticket cobrado' : ' tickets cobrados') + '</div>' +
+        (z.habitacion_n ? '<div class="zl">&#128719; ' + euros(z.habitacion) + ' a habitaciones</div>' : '') +
         '<div class="za' + (z.abiertas ? ' on' : '') + '">' + (z.abiertas ? z.abiertas + (z.abiertas === 1 ? ' abierta' : ' abiertas') + ' · ' + euros(z.abierto) : 'Nada abierto') + '</div></button>';
     }).join('') + '</div>';
-    h += '<div class="muted" style="margin-top:8px">Total: ' + euros(t.total) + ' cobrado en ' + t.tickets + ' tickets · ' + ab.length + (ab.length === 1 ? ' abierta' : ' abiertas') + ' por ' + euros(totAb) + (t.ultima_venta ? ' · última venta ' + horaTPV(t.ultima_venta) : '') + '.<br>Pulsa una zona para ver quién la atiende, sus mesas abiertas y sus tickets.</div></div>';
+    h += '<div class="muted" style="margin-top:8px">Total: ' + euros(t.total) + ' cobrado en ' + t.tickets + ' tickets · ' + ab.length + (ab.length === 1 ? ' abierta' : ' abiertas') + ' por ' + euros(totAb) + (t.ultima_venta ? ' · última venta ' + horaTPV(t.ultima_venta) : '') + '.' + (t.habitacion_total ? '<br>&#128719; Cargado a habitaciones: <b>' + euros(t.habitacion_total) + '</b> en ' + t.habitacion.length + (t.habitacion.length === 1 ? ' albarán' : ' albaranes') + ' (se factura en el hotel).' : '') + '<br>Pulsa una zona para ver quién la atiende, sus mesas abiertas y sus tickets.</div></div>';
     // Por camarero (resumen corto)
     var cs = t.camareros || [];
     if (cs.length) h += '<div class="card"><h3>Por camarero</h3><table class="tabla"><tr><th>Camarero</th><th class="r">Tickets</th><th class="r">Vendido</th><th class="r">Abierto</th></tr>' +
-      cs.map(function(c){ return '<tr><td>' + esc(c.camarero) + '</td><td class="r">' + c.tickets + '</td><td class="r"><b>' + euros(c.vendido) + '</b></td><td class="r">' + (c.abiertas ? euros(c.abierto) + '<div class="muted" style="font-size:11px">' + c.abiertas + (c.abiertas === 1 ? ' abierta' : ' abiertas') + '</div>' : '<span class="muted">—</span>') + '</td></tr>'; }).join('') + '</table></div>';
+      cs.map(function(c){ return '<tr><td>' + esc(c.camarero) + (c.habitacion ? '<div class="muted" style="font-size:11px">+ ' + euros(c.habitacion) + ' a habitaciones</div>' : '') + '</td><td class="r">' + c.tickets + '</td><td class="r"><b>' + euros(c.vendido) + '</b></td><td class="r">' + (c.abiertas ? euros(c.abierto) + '<div class="muted" style="font-size:11px">' + c.abiertas + (c.abiertas === 1 ? ' abierta' : ' abiertas') + '</div>' : '<span class="muted">—</span>') + '</td></tr>'; }).join('') + '</table></div>';
     return h;
   }
   // ── Detalle de una zona ──
@@ -1289,7 +1290,8 @@ function bloqueRestaurante(t, vivo){
   var abZ = ab.filter(function(c){ return c.zona === PANEL_ZONA; }), vZ = vs.filter(function(v){ return v.zona === PANEL_ZONA; });
   h += '<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><button class="btn btn-s btn-sm" style="flex:0 0 auto;margin:0" onclick="verZona(null)">&#8592; Todas las zonas</button><h3 style="margin:0">' + punto(z.color) + esc(z.zona) + '</h3></div>' +
     '<div class="kpis" style="margin:0"><div class="kpi"><small>Cobrado</small><b>' + euros(z.vendido) + '</b></div><div class="kpi"><small>Tickets</small><b>' + z.tickets + '</b></div>' +
-    '<div class="kpi"><small>Abiertas</small><b>' + z.abiertas + '</b></div><div class="kpi"><small>Abierto sin cobrar</small><b>' + euros(z.abierto) + '</b></div></div></div>';
+    '<div class="kpi"><small>Abiertas</small><b>' + z.abiertas + '</b></div><div class="kpi"><small>Abierto sin cobrar</small><b>' + euros(z.abierto) + '</b></div></div>' +
+    (z.habitacion_n ? '<p class="muted" style="margin-top:8px">&#128719; Además, ' + euros(z.habitacion) + ' cargados a habitaciones (' + z.habitacion_n + (z.habitacion_n === 1 ? ' albarán' : ' albaranes') + ').</p>' : '') + '</div>';
   // Camareros de esta zona
   var porCam = {};
   vZ.forEach(function(v){ var c = porCam[v.camarero] = porCam[v.camarero] || { v: 0, n: 0, a: 0, ai: 0 }; c.v += v.total; c.n++; });
@@ -1298,6 +1300,12 @@ function bloqueRestaurante(t, vivo){
   if (nc.length) h += '<div class="card"><h3>Camareros en ' + esc(z.zona) + '</h3><table class="tabla"><tr><th>Camarero</th><th class="r">Tickets</th><th class="r">Vendido</th><th class="r">Abierto</th></tr>' +
     nc.sort(function(a, b){ return (porCam[b].v + porCam[b].ai) - (porCam[a].v + porCam[a].ai); }).map(function(k){ var c = porCam[k]; return '<tr><td>' + esc(k) + '</td><td class="r">' + c.n + '</td><td class="r"><b>' + euros(c.v) + '</b></td><td class="r">' + (c.a ? euros(c.ai) + '<div class="muted" style="font-size:11px">' + c.a + (c.a === 1 ? ' abierta' : ' abiertas') + '</div>' : '<span class="muted">—</span>') + '</td></tr>'; }).join('') + '</table></div>';
   h += '<div class="card"><h3>Abiertas ahora · ' + abZ.length + ' · ' + euros(z.abierto) + '</h3>' + (abZ.length ? abZ.map(function(c){ return itemAbierta(c, false); }).join('') : '<div class="muted">No hay nada abierto en esta zona.</div>') + '</div>';
+  var hZ = (t.habitacion || []).filter(function(a){ return (a.zona || 'Sin zona') === PANEL_ZONA; });
+  if (hZ.length) h += '<div class="card"><h3>Cargos a habitación · ' + hZ.length + ' · ' + euros(z.habitacion) + '</h3>' + hZ.map(function(a){
+    return '<a class="item" href="/api/portal/panel/albaran/' + a.id + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit"><div class="tx"><b>Hab. ' + esc(a.habitacion) + ' · ' + esc(a.huesped || '') + '</b><small>' +
+      esc([(varios ? fechaSinAno(a.fecha) + ' ' : '') + horaTPV(a.created_at), a.mesa, a.camarero, a.numero].filter(Boolean).join(' · ')) + '<br>' +
+      (a.estado === 'enviado' ? '<span class="badge b-verde">En la cuenta del hotel</span>' : '<span class="badge b-ambar">Pendiente de pasar al hotel</span>') + ' <span class="badge b-oro">&#9997; Ver albarán firmado</span></small></div><div class="der"><b>' + euros(a.total) + '</b></div></a>';
+  }).join('') + '</div>';
   var muestra = PANEL_TODAS ? vZ : vZ.slice(0, 20);
   h += '<div class="card"><h3>Tickets y facturas · ' + z.tickets + '</h3>' + (vZ.length ? muestra.map(function(v){ return itemVenta(v, varios, false); }).join('') : '<div class="muted">Sin ventas en estas fechas.</div>') +
     (!PANEL_TODAS && vZ.length > 20 ? '<button class="btn btn-s" onclick="verTodasVentas()">Ver los ' + vZ.length + '</button>' : '') +
