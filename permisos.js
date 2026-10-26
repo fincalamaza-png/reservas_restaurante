@@ -19,9 +19,10 @@ function iniciar(db) {
   const pines = leer(db, 'pin_admin', {});
   const perm = leer(db, 'permisos_usuarios', null);
   if (!perm) {
-    // Primera vez: todos los usuarios que ya existían (Manuel y Nicolás) quedan como administradores
+    // Primera vez: Manuel y Nicolás quedan como administradores; el resto de usuarios
+    // que ya existían siguen entrando solo a Reservas (lo que tenían), hasta que se les dé más.
     const p = {};
-    Object.keys(pines).forEach(n => { p[n] = { admin: true, modulos: MODULOS.slice() }; });
+    Object.keys(pines).forEach(n => { p[n] = ADMINS_INICIALES.includes(n) ? { admin: true, modulos: MODULOS.slice() } : { admin: false, modulos: ['reservas'] }; });
     escribir(db, 'permisos_usuarios', p);
   }
 }
