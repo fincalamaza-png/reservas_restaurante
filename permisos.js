@@ -55,8 +55,11 @@ function moduloDeRuta(ruta, metodo) {
   if (/^\/api\/portal\/(contabilidad|documentos|gastos|facturacion|pagos|panel)/.test(ruta)) return 'contabilidad';
   if (/^\/api\/portal\/celebraciones/.test(ruta)) return 'celebraciones'; // se comprueba por tipo en la propia ruta
   if (/^\/api\/portal\/eventos\/textos/.test(ruta)) return metodo === 'GET' ? ['bodas', 'comuniones', 'eventos'] : 'admin';
+  if (/^\/api\/portal\/eventos\/correo/.test(ruta)) return metodo === 'GET' ? ['bodas', 'comuniones', 'eventos'] : 'admin';
   if (/^\/api\/portal\/eventos\//.test(ruta)) return 'celebraciones'; // carpeta del evento: se comprueba por tipo
   // Los menús los consultan también bodas, comuniones y reservas; editarlos es de Carta y Menús
+  // Menús personalizados: también desde la carpeta de cada boda / comunión (su menú propio)
+  if (/^\/api\/portal\/personalizados/.test(ruta)) return ['carta', 'bodas', 'comuniones', 'eventos'];
   if (/^\/api\/portal\/plantillas/.test(ruta)) return metodo === 'GET' ? ['carta', 'bodas', 'comuniones', 'eventos', 'reservas'] : ['carta', 'bodas', 'comuniones', 'eventos'];
   if (/^\/api\/portal\//.test(ruta)) return 'carta';
   return 'reservas'; // el resto de la API es la app de reservas, propuestas y presupuestos

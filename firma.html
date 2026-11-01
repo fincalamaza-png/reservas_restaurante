@@ -49,6 +49,9 @@ label.c input{width:22px;height:22px;flex:none;margin-top:1px;accent-color:#1a1a
 <div class="pie" data-df-premios style="--h:30px"></div>
 <script>
 var TOKEN = location.pathname.split('/').filter(Boolean)[1] || '', D = null, FIRMA = null;
+// Si se firma desde la app de Don Fadrique, botón para volver a la carpeta del evento
+var VOLVER = (function(){ var v = new URLSearchParams(location.search).get('volver') || ''; return /^\/(?!\/)/.test(v) ? v : ''; })();
+function btnVolver(){ return VOLVER ? '<a class="btn s" style="text-decoration:none;display:block;text-align:center;margin-top:10px" href="' + esc(VOLVER) + '">&#8592; Volver a la app</a>' : ''; }
 function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function eur(n){ var v = (Math.round((Number(n) || 0) * 100) / 100).toFixed(2).split('.'); return v[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + v[1] + ' €'; }
 function fLarga(iso){ return iso ? new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''; }
@@ -78,16 +81,16 @@ function pintar(){
   h += '<a class="pdf" href="/firma/' + encodeURIComponent(TOKEN) + '/pdf" target="_blank">Ver el documento completo en PDF</a>';
   if (D.estado === 'firmado') {
     h += '<div class="ok"><div class="i">&#10003;</div><div style="font-size:18px;margin:6px 0">Documento firmado</div><div style="color:#9a9086;font-size:14px">por ' + esc(D.firmado_nombre) + (D.firmado_dni ? ' · DNI ' + esc(D.firmado_dni) : '') + '<br>' + esc(new Date(String(D.firmado_at).replace(' ', 'T') + 'Z').toLocaleString('es-ES')) + '</div>' +
-      '<div class="btns"><a class="btn" style="text-decoration:none" href="/firma/' + encodeURIComponent(TOKEN) + '/pdf" target="_blank">Descargar copia firmada</a></div></div>';
+      '<div class="btns"><a class="btn" style="text-decoration:none" href="/firma/' + encodeURIComponent(TOKEN) + '/pdf" target="_blank">Descargar copia firmada</a></div>' + btnVolver() + '</div>';
   } else if (D.sustituido) {
     h += '<div class="ok" style="color:#a3283a">Hay una versión más reciente de este documento. Pide a Don Fadrique el enlace nuevo.</div>';
   } else {
     var nom = cl.persona1 || cl.nombre || '';
     h += '<div class="firmar"><span class="et">Firma</span>' +
       '<input class="in" id="f-nombre" placeholder="Nombre y apellidos" value="' + esc(nom) + '"><input class="in" id="f-dni" placeholder="DNI / NIE" value="' + esc(cl.dni1 || '') + '" autocapitalize="characters">' +
-      '<label class="c"><input type="checkbox" id="f-ok" onchange="comprobar()"> He leído el documento y estoy conforme con su contenido y condiciones.</label>' +
+      '<label class="c" id="l-ok"><input type="checkbox" id="f-ok" onchange="comprobar()"> He leído el documento y estoy conforme con su contenido y condiciones.</label>' +
       '<div class="zona"><canvas id="cv"></canvas><div class="lin">Firme aquí con el dedo</div></div>' +
-      '<div class="btns"><button class="btn s" onclick="borrar()">Borrar</button><button class="btn" id="b-firmar" onclick="firmar()" disabled>Firmar</button></div><div class="err" id="err"></div></div>';
+      '<div class="btns"><button class="btn s" onclick="borrar()">Borrar</button><button class="btn" id="b-firmar" onclick="firmar()" disabled>Firmar</button></div><div class="err" id="err"></div>' + btnVolver() + '</div>';
   }
   document.getElementById('hoja').innerHTML = h;
   if (window.DFMarca) DFMarca.pintar();
@@ -101,10 +104,16 @@ function iniciar(){
   function p(e){ var b = cv.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; }
   cv.addEventListener('pointerdown', function(e){ e.preventDefault(); cv.setPointerCapture(e.pointerId); var q = p(e); FIRMA.d = true; FIRMA.x = q.x; FIRMA.y = q.y; ctx.beginPath(); ctx.arc(q.x, q.y, 1.2, 0, 6.3); ctx.fill(); });
   cv.addEventListener('pointermove', function(e){ if (!FIRMA.d) return; e.preventDefault(); var q = p(e); ctx.beginPath(); ctx.moveTo(FIRMA.x, FIRMA.y); ctx.lineTo(q.x, q.y); ctx.stroke(); FIRMA.x = q.x; FIRMA.y = q.y; FIRMA.n++; });
-  function fin(){ if (!FIRMA.d) return; FIRMA.d = false; var l = cv.parentNode.querySelector('.lin'); if (FIRMA.n > 8 && l) l.style.visibility = 'hidden'; comprobar(); }
-  cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin); cv.addEventListener('pointerleave', fin);
+  function fin(){ if (!FIRMA.d) return; FIRMA.d = false; var l = cv.parentNode.querySelector('.lin'); if (FIRMA.n > 3 && l) l.style.visibility = 'hidden'; comprobar(); }
+  if (window.PointerEvent) { cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin); cv.addEventListener('pointerleave', fin); return; }
+  // Sin Pointer Events: eventos táctiles y de ratón de toda la vida
+  function t(e){ var q = e.touches ? e.touches[0] : e; return p(q); }
+  function ini(e){ e.preventDefault(); var q = t(e); FIRMA.d = true; FIRMA.x = q.x; FIRMA.y = q.y; ctx.beginPath(); ctx.arc(q.x, q.y, 1.2, 0, 6.3); ctx.fill(); }
+  function mov(e){ if (!FIRMA.d) return; e.preventDefault(); var q = t(e); ctx.beginPath(); ctx.moveTo(FIRMA.x, FIRMA.y); ctx.lineTo(q.x, q.y); ctx.stroke(); FIRMA.x = q.x; FIRMA.y = q.y; FIRMA.n++; }
+  cv.addEventListener('touchstart', ini, { passive: false }); cv.addEventListener('touchmove', mov, { passive: false }); cv.addEventListener('touchend', fin);
+  cv.addEventListener('mousedown', ini); cv.addEventListener('mousemove', mov); window.addEventListener('mouseup', fin);
 }
-function comprobar(){ var b = document.getElementById('b-firmar'); if (b) b.disabled = !(FIRMA && FIRMA.n > 8 && document.getElementById('f-ok').checked); }
+function comprobar(){ var b = document.getElementById('b-firmar'); if (b) b.disabled = !(FIRMA && FIRMA.n > 3); if (document.getElementById('f-ok').checked) document.getElementById('l-ok').style.color = ''; }
 function borrar(){ if (!FIRMA) return; FIRMA.ctx.clearRect(0, 0, FIRMA.cv.width, FIRMA.cv.height); FIRMA.n = 0; var l = document.querySelector('.zona .lin'); if (l) l.style.visibility = ''; comprobar(); }
 function png(){
   var cv = FIRMA.cv, o = document.createElement('canvas'); o.width = cv.width; o.height = cv.height;
@@ -115,6 +124,7 @@ function png(){
 function firmar(){
   var b = document.getElementById('b-firmar'), err = document.getElementById('err');
   var nombre = document.getElementById('f-nombre').value.trim(); if (!nombre) { err.textContent = 'Escribe tu nombre'; return; }
+  if (!document.getElementById('f-ok').checked) { err.textContent = 'Marca la casilla «He leído el documento y estoy conforme»'; var l = document.getElementById('l-ok'); l.style.color = '#a3283a'; l.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   b.disabled = true; b.textContent = 'Firmando…'; err.textContent = '';
   fetch('/api/publico/firma/' + encodeURIComponent(TOKEN), { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nombre: nombre, dni: document.getElementById('f-dni').value.trim(), acepto: document.getElementById('f-ok').checked, firma: png() }) })

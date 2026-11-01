@@ -58,6 +58,10 @@ module.exports = function montarEventos(app, db, h) {
     firma TEXT, firmado_nombre TEXT, firmado_dni TEXT, firmado_at TEXT, firmado_ip TEXT, firmado_ua TEXT, huella TEXT,
     pdf TEXT, sustituido INTEGER DEFAULT 0, creado_por TEXT,
     created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))`);
+  try { db.exec("ALTER TABLE evento_docs ADD COLUMN envios TEXT DEFAULT '[]'"); } catch (e) {}
+  try { db.exec('ALTER TABLE evento_docs ADD COLUMN qr TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE celebraciones ADD COLUMN hab_novios TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE celebraciones ADD COLUMN hab_reserva_id INTEGER'); } catch (e) {}
   try { db.exec('CREATE INDEX IF NOT EXISTS ix_evnotas ON evento_notas(celebracion_id)'); db.exec('CREATE INDEX IF NOT EXISTS ix_evdocs ON evento_docs(celebracion_id)'); db.exec('CREATE INDEX IF NOT EXISTS ix_evarch ON evento_archivos(celebracion_id)'); } catch (e) {}
 
   const json = (s, d) => { try { return JSON.parse(s || '') || d; } catch (e) { return d; } };
@@ -78,7 +82,7 @@ module.exports = function montarEventos(app, db, h) {
     if (!puedeTipo(req, c.tipo)) { res.status(403).json({ error: 'No tienes permiso para esta sección' }); return null; }
     return c;
   };
-  const docDe = id => { const d = db.prepare('SELECT * FROM evento_docs WHERE id = ?').get(id); if (d) d.datos = json(d.datos, {}); return d; };
+  const docDe = id => { const d = db.prepare('SELECT * FROM evento_docs WHERE id = ?').get(id); if (d) { d.datos = json(d.datos, {}); d.envios = json(d.envios, []); } return d; };
   const sinFirma = d => { const o = Object.assign({}, d); o.tiene_firma = !!o.firma; delete o.firma; return o; };
 
   // ── Importes ──
@@ -100,6 +104,24 @@ module.exports = function montarEventos(app, db, h) {
     return { tipo: c.tipo, nombre: nombreCeleb(c), fecha: c.fecha, hora: c.hora || '', lugar: c.lugar || '', adultos: c.adultos || 0, ninos: c.ninos || 0, menu: c.menu_nombre || '', protagonista: c.protagonista || '' };
   }
   // Líneas propuestas para un presupuesto nuevo: menú + lo marcado en la hoja interna
+  // Menú de la celebración en texto (el propio de la boda, o el del menú elegido)
+  function menuDe(c) {
+    const f = c.ficha || {};
+    let m = null;
+    if (f.menu_pers_id) m = db.prepare('SELECT titulo AS nombre, secciones FROM menus_personalizados WHERE id = ?').get(f.menu_pers_id);
+    if (!m && c.plantilla_id) m = db.prepare('SELECT nombre, secciones FROM plantillas_menu WHERE id = ?').get(c.plantilla_id);
+    if (!m) return null;
+    const lineas = [];
+    json(m.secciones, []).forEach(x => {
+      const lim = a => (a || []).map(t => String(t || '').trim()).filter(Boolean);
+      if (x.tipo === 'lista') { const it = lim(x.items); if (it.length) lineas.push({ t: x.titulo, v: it.join(' · ') }); }
+      else if (x.tipo === 'eleccion') { const o = lim(x.opciones); if (o.length) lineas.push({ t: x.titulo, v: o.join(x.elegir ? ' o ' : ' · ') + (x.elegir && o.length > 1 ? ' (a elegir)' : '') }); }
+      else if (x.tipo === 'sino') { if (x.valor) lineas.push({ t: x.titulo, v: '' }); }
+      else if (x.tipo === 'barra_libre' || x.tipo === 'recena') { if (x.valor) lineas.push({ t: x.titulo, v: [x.horas, x.texto].filter(Boolean).join(' · ') }); }
+      else if (String(x.texto || '').trim()) lineas.push({ t: x.titulo, v: String(x.texto).trim() });
+    });
+    return lineas.length ? { nombre: m.nombre, lineas } : null;
+  }
   function lineasPropuestas(c) {
     const f = c.ficha || {}, l = [];
     if (c.adultos) l.push({ concepto: (/^men[uú]/i.test(c.menu_nombre || '') ? c.menu_nombre : 'Menú ' + (c.menu_nombre || '')).trim() + ' · adultos', cantidad: c.adultos, precio: c.precio_adulto || 0, iva: 10 });
@@ -134,7 +156,7 @@ module.exports = function montarEventos(app, db, h) {
   function crearDoc(c, tipo, autor) {
     const t = textos();
     let datos;
-    if (tipo === 'presupuesto') datos = { cliente: clienteDe(c), evento: eventoDe(c), lineas: lineasPropuestas(c), condiciones: t.presupuesto };
+    if (tipo === 'presupuesto') datos = { cliente: clienteDe(c), evento: eventoDe(c), lineas: lineasPropuestas(c), menu: menuDe(c), condiciones: t.presupuesto };
     else if (tipo === 'fianza') datos = { cliente: clienteDe(c), evento: eventoDe(c), importe_fianza: c.fianza_importe || 0, forma_pago: c.fianza_forma || 'Transferencia', condiciones: t.fianza,
       presupuesto: (db.prepare("SELECT numero, total FROM evento_docs WHERE celebracion_id = ? AND tipo = 'presupuesto' AND estado = 'firmado' AND sustituido = 0 ORDER BY id DESC LIMIT 1").get(c.id) || null) };
     else {
@@ -150,7 +172,7 @@ module.exports = function montarEventos(app, db, h) {
   // ── PDF ──
   const PREMIOS = ['michelin.png', 'repsol.png', 'tierra.png'].map(f => path.join(__dirname, 'marca', 'premios', f)).filter(f => fs.existsSync(f));
   function pdfDoc(d, c) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       const doc = new PDFDocument({ size: 'A4', bufferPages: true, margins: { top: 46, bottom: 60, left: 52, right: 52 }, info: { Title: (TITULO[d.tipo] + ' ' + (d.numero || '')).trim(), Author: 'NIMANSANMON S.L. · Don Fadrique' } });
       const bufs = []; doc.on('data', b => bufs.push(b)); doc.on('end', () => resolve(Buffer.concat(bufs))); doc.on('error', reject);
       const W = doc.page.width, L = 52, R = W - 52, ORO = '#b8965a', GRIS = '#8a8278', TINTA = '#1a1a1a';
@@ -227,6 +249,31 @@ module.exports = function montarEventos(app, db, h) {
         doc.font('Helvetica').fontSize(10.5).fillColor(TINTA).text(texto, L, y, { width: R - L, align: 'justify', lineGap: 2 });
         y = doc.y + 14;
       }
+      // Menú (presupuesto)
+      if (d.tipo === 'presupuesto' && datos.menu && datos.menu.lineas && datos.menu.lineas.length) {
+        nuevaPagina(70);
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(ORO).text('MENÚ' + (datos.menu.nombre ? ' · ' + String(datos.menu.nombre).toUpperCase() : ''), L, y, { characterSpacing: 1.2 }); y += 13;
+        datos.menu.lineas.forEach(m => {
+          const txt = m.v ? m.v : '';
+          const h = doc.font('Helvetica').fontSize(9).heightOfString(txt || ' ', { width: R - L - 120 });
+          nuevaPagina(h + 6);
+          doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#4a4540').text(m.t || '', L, y, { width: 112 });
+          if (txt) doc.font('Helvetica').fontSize(9).fillColor(TINTA).text(txt, L + 120, y, { width: R - L - 120 });
+          y += Math.max(h, 11) + 4;
+        });
+        y += 8;
+      }
+      // Verifactu (factura emitida): código QR de la AEAT y huella encadenada
+      if (d.tipo === 'factura' && d.estado === 'emitida' && d.qr) {
+        nuevaPagina(110);
+        try {
+          const png = await require('qrcode').toBuffer(d.qr, { margin: 1, width: 240, errorCorrectionLevel: 'M' });
+          doc.image(png, L, y, { width: 78 });
+        } catch (e) {}
+        doc.font('Helvetica-Bold').fontSize(8).fillColor(TINTA).text('Factura verificable en la sede electrónica de la AEAT', L + 92, y + 6, { width: R - L - 92 });
+        doc.font('Helvetica').fontSize(7.2).fillColor(GRIS).text('Escanee el código QR para comprobarla. Registro de facturación conforme al Real Decreto 1007/2023 (sistema VERI*FACTU).\nHuella: ' + (d.huella || ''), L + 92, y + 20, { width: R - L - 92, lineGap: 1 });
+        y += 92;
+      }
       // Condiciones
       if (datos.condiciones) {
         nuevaPagina(60);
@@ -284,14 +331,25 @@ module.exports = function montarEventos(app, db, h) {
   }
 
   // ── Email ──
-  async function enviarEmail(d, asunto, html, pdf) {
-    const c = cfg();
-    if (!c.email_smtp || !c.email_pass) throw new Error('No hay correo configurado en la app (email de envío)');
+  // Correo de envío de eventos: el propio (reservas@donfadrique.com) si está configurado; si no, el general de la app
+  function correoCfg() {
+    const c = cfg(), e = json(c.eventos_correo, {});
+    if (e.user && e.pass) return { desde: e.desde || e.user, nombre: e.nombre || 'Don Fadrique', host: e.host || 'smtp.gmail.com', port: Number(e.port) || 587, user: e.user, pass: e.pass, propio: true };
+    if (c.email_smtp && c.email_pass) return { desde: c.email_smtp, nombre: 'Don Fadrique', host: 'smtp.gmail.com', port: 587, user: c.email_smtp, pass: c.email_pass, propio: false };
+    return null;
+  }
+  function transporte(k) { return nodemailer.createTransport({ host: k.host, port: k.port, secure: k.port === 465, auth: { user: k.user, pass: k.pass } }); }
+  async function enviarEmail(d, asunto, html, pdf, que) {
+    const k = correoCfg();
+    if (!k) throw new Error('Falta configurar el correo de envío (reservas@donfadrique.com) en Eventos › Correo');
     const cl = celeb(d.celebracion_id), para = [cl.email].filter(Boolean);
     if (!para.length) throw new Error('Esta ficha no tiene email de los clientes');
-    const t = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 587, secure: false, auth: { user: c.email_smtp, pass: c.email_pass } });
-    await t.sendMail({ from: `"Don Fadrique" <${c.email_smtp}>`, to: para.join(', '), bcc: c.email_smtp, subject: asunto, html,
+    await transporte(k).sendMail({ from: `"${k.nombre}" <${k.desde}>`, replyTo: k.desde, to: para.join(', '), bcc: k.desde, subject: asunto, html,
       attachments: pdf ? [{ filename: (TITULO[d.tipo] + ' ' + (d.numero || '')).trim().replace(/\s+/g, '_') + '.pdf', content: pdf, contentType: 'application/pdf' }] : [] });
+    // Constancia: cuándo, a quién y desde qué dirección
+    const env = json((db.prepare('SELECT envios FROM evento_docs WHERE id = ?').get(d.id) || {}).envios, []);
+    env.push({ at: new Date().toISOString(), para: para.join(', '), desde: k.desde, que: que || 'pdf', asunto });
+    db.prepare('UPDATE evento_docs SET envios = ? WHERE id = ?').run(JSON.stringify(env), d.id);
     return para;
   }
   const marcoEmail = (titulo, cuerpo) => `<!DOCTYPE html><html><body style="margin:0;padding:24px;background:#f7f4ee;font-family:Jost,'Helvetica Neue',Arial,sans-serif;color:#1a1a1a">
@@ -314,7 +372,7 @@ module.exports = function montarEventos(app, db, h) {
     const c = conPermiso(req, res, req.params.cid); if (!c) return;
     const notas = db.prepare('SELECT * FROM evento_notas WHERE celebracion_id = ? ORDER BY fecha DESC, id DESC').all(c.id);
     const archivos = db.prepare('SELECT * FROM evento_archivos WHERE celebracion_id = ? ORDER BY id DESC').all(c.id);
-    const docs = db.prepare('SELECT * FROM evento_docs WHERE celebracion_id = ? ORDER BY tipo, id DESC').all(c.id).map(d => { d.datos = json(d.datos, {}); return sinFirma(d); });
+    const docs = db.prepare('SELECT * FROM evento_docs WHERE celebracion_id = ? ORDER BY tipo, id DESC').all(c.id).map(d => { d.datos = json(d.datos, {}); d.envios = json(d.envios, []); return sinFirma(d); });
     res.json({ ficha: c.ficha, notas, archivos, docs, textos: textos() });
   });
   app.put('/api/portal/eventos/:cid/ficha', (req, res) => {
@@ -438,8 +496,8 @@ module.exports = function montarEventos(app, db, h) {
         const cl = celeb(d2.celebracion_id);
         out.email = await enviarEmail(d2, TITULO[d2.tipo] + ' ' + d2.numero + ' · Don Fadrique', marcoEmail(TITULO[d2.tipo], `<p>Hola${cl.nombre1 ? ' ' + esc(cl.nombre1) : ''},</p><p>Te enviamos ${d2.tipo === 'fianza' ? 'el documento de <b>reserva de fecha y fianza</b>' : 'el <b>presupuesto ' + esc(d2.numero) + '</b>'} para ${esc(nombreCeleb(cl))} el ${esc(fechaLarga(cl.fecha))}.</p>
 <p>Puedes revisarlo y <b>firmarlo con el dedo desde el móvil</b> en este enlace:</p><p style="text-align:center;margin:22px 0"><a href="${url}" style="background:#1a1a1a;color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;display:inline-block">Revisar y firmar</a></p>
-<p style="font-size:12px;color:#8a8278">Te adjuntamos también el documento en PDF. Para cualquier duda, responde a este correo o llámanos.</p>`), pdf);
-        nota(d2.celebracion_id, 'sistema', TITULO[d2.tipo] + ' ' + d2.numero + ' enviado para firmar a ' + out.email.join(', '), req.usuario);
+<p style="font-size:12px;color:#8a8278">Te adjuntamos también el documento en PDF. Para cualquier duda, responde a este correo o llámanos.</p>`), pdf, 'enlace para firmar');
+        nota(d2.celebracion_id, 'sistema', TITULO[d2.tipo] + ' ' + d2.numero + ' enviado para firmar a ' + out.email.join(', ') + ' desde ' + (correoCfg() || {}).desde, req.usuario);
       } catch (e) { out.aviso = 'No se pudo enviar el email: ' + e.message; }
     }
     res.json(out);
@@ -468,8 +526,17 @@ module.exports = function montarEventos(app, db, h) {
     const datos = Object.assign({}, d.datos, { cliente: Object.assign({}, d.datos.cliente), a_cuenta: ac });
     guardarDatos(d.id, datos);
     const numero = siguienteNumero('factura'), hoy = new Date().toISOString().slice(0, 10);
-    const huella = crypto.createHash('sha256').update(JSON.stringify([numero, hoy, datos])).digest('hex');
-    db.prepare("UPDATE evento_docs SET numero = ?, estado = 'emitida', fecha_emision = ?, huella = ? WHERE id = ?").run(numero, hoy, huella, d.id);
+    // Registro de facturación (RD 1007/2023): huella SHA-256 encadenada con la factura anterior de la serie y QR de la AEAT
+    const t = totales(datos), fechaEs = hoy.split('-').reverse().join('-');
+    const ant = db.prepare("SELECT huella FROM evento_docs WHERE tipo = 'factura' AND estado = 'emitida' AND huella IS NOT NULL ORDER BY fecha_emision DESC, id DESC LIMIT 1").get();
+    const genReg = new Date().toISOString().replace(/\.\d+Z$/, '+00:00');
+    const cadena = 'IDEmisorFactura=B37297223&NumSerieFactura=' + numero + '&FechaExpedicionFactura=' + fechaEs + '&TipoFactura=F1&CuotaTotal=' + t.iva.toFixed(2) +
+      '&ImporteTotal=' + t.total.toFixed(2) + '&Huella=' + (ant ? ant.huella : '') + '&FechaHoraHusoGenRegistro=' + genReg;
+    const huella = crypto.createHash('sha256').update(cadena, 'utf8').digest('hex').toUpperCase();
+    const qr = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B37297223&numserie=' + encodeURIComponent(numero) + '&fecha=' + fechaEs + '&importe=' + t.total.toFixed(2);
+    datos.registro = { cadena, anterior: ant ? ant.huella : null, generado: genReg };
+    guardarDatos(d.id, datos);
+    db.prepare("UPDATE evento_docs SET numero = ?, estado = 'emitida', fecha_emision = ?, huella = ?, qr = ? WHERE id = ?").run(numero, hoy, huella, qr, d.id);
     await congelarPdf(docDe(d.id));
     nota(c.id, 'sistema', 'Factura ' + numero + ' emitida por ' + eur(docDe(d.id).total), req.usuario);
     res.json(sinFirma(docDe(d.id)));
@@ -479,10 +546,123 @@ module.exports = function montarEventos(app, db, h) {
     if (!conPermiso(req, res, d.celebracion_id)) return;
     try {
       const pdf = await pdfDe(d), cl = celeb(d.celebracion_id);
-      const para = await enviarEmail(d, TITULO[d.tipo] + ' ' + (d.numero || '') + ' · Don Fadrique', marcoEmail(TITULO[d.tipo], `<p>Hola${cl.nombre1 ? ' ' + esc(cl.nombre1) : ''},</p><p>Te adjuntamos ${d.tipo === 'factura' ? 'la <b>factura ' + esc(d.numero) + '</b>' : d.tipo === 'fianza' ? 'el documento de <b>reserva de fecha y fianza</b>' + (d.firma ? ' firmado' : '') : 'el <b>presupuesto ' + esc(d.numero) + '</b>' + (d.firma ? ' firmado' : '')} de ${esc(nombreCeleb(cl))} (${esc(fechaLarga(cl.fecha))}).</p><p>Un saludo,<br>Don Fadrique</p>`), pdf);
-      nota(d.celebracion_id, 'sistema', TITULO[d.tipo] + ' ' + (d.numero || '') + ' enviado por email a ' + para.join(', '), req.usuario);
+      const para = await enviarEmail(d, TITULO[d.tipo] + ' ' + (d.numero || '') + ' · Don Fadrique', marcoEmail(TITULO[d.tipo], `<p>Hola${cl.nombre1 ? ' ' + esc(cl.nombre1) : ''},</p><p>Te adjuntamos ${d.tipo === 'factura' ? 'la <b>factura ' + esc(d.numero) + '</b>' : d.tipo === 'fianza' ? 'el documento de <b>reserva de fecha y fianza</b>' + (d.firma ? ' firmado' : '') : 'el <b>presupuesto ' + esc(d.numero) + '</b>' + (d.firma ? ' firmado' : '')} de ${esc(nombreCeleb(cl))} (${esc(fechaLarga(cl.fecha))}).</p><p>Un saludo,<br>Don Fadrique</p>`), pdf, d.firma ? 'copia firmada' : d.tipo === 'factura' ? 'factura' : 'pdf');
+      nota(d.celebracion_id, 'sistema', TITULO[d.tipo] + ' ' + (d.numero || '') + ' enviado por email a ' + para.join(', ') + ' desde ' + (correoCfg() || {}).desde, req.usuario);
       res.json({ ok: true, para });
     } catch (e) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Volver a tomar nombres, fecha, invitados y menú de la ficha (solo en borrador)
+  app.post('/api/portal/eventos/docs/:id/refrescar', (req, res) => {
+    const d = docDe(req.params.id); if (!d) return res.status(404).json({ error: 'No existe' });
+    const c = conPermiso(req, res, d.celebracion_id); if (!c) return;
+    if (!['borrador', 'enviado'].includes(d.estado)) return res.status(400).json({ error: 'Este documento ya no se puede cambiar' });
+    const datos = Object.assign({}, d.datos, { cliente: clienteDe(c), evento: eventoDe(c) });
+    if (d.tipo === 'presupuesto') datos.menu = menuDe(c);
+    if (d.tipo === 'fianza' && !Number(datos.importe_fianza) && c.fianza_importe) datos.importe_fianza = c.fianza_importe;
+    guardarDatos(d.id, datos);
+    if (d.estado === 'enviado') db.prepare("UPDATE evento_docs SET estado = 'borrador' WHERE id = ?").run(d.id);
+    res.json(sinFirma(docDe(d.id)));
+  });
+
+  // Estado de cada carpeta para la lista de bodas / comuniones / eventos
+  app.get('/api/portal/eventos/estado', (req, res) => {
+    const out = {};
+    db.prepare('SELECT * FROM celebraciones').all().forEach(c => {
+      if (!puedeTipo(req, c.tipo)) return;
+      const docs = db.prepare('SELECT tipo, estado, sustituido FROM evento_docs WHERE celebracion_id = ?').all(c.id);
+      const est = t => docs.some(x => x.tipo === t && (x.estado === 'firmado' || x.estado === 'emitida')) ? 2 : docs.some(x => x.tipo === t) ? 1 : 0;
+      const f = json(c.ficha, {});
+      out[c.id] = { fianza: est('fianza') === 2 && c.fianza_pagada ? 2 : (est('fianza') || c.fianza_pagada) ? 1 : 0, presupuesto: est('presupuesto'), factura: est('factura'),
+        menu: (f.menu_pers_id || c.plantilla_id) && (f.banquete || {}).lugar ? 2 : (f.menu_pers_id || c.plantilla_id || Object.keys(f).length) ? 1 : 0,
+        hab: c.hab_novios || null, notas: db.prepare("SELECT COUNT(*) n FROM evento_notas WHERE celebracion_id = ? AND tipo != 'sistema'").get(c.id).n };
+    });
+    res.json(out);
+  });
+
+  // Correo de envío de los eventos (solo administradores)
+  app.get('/api/portal/eventos/correo', (req, res) => {
+    const e = json(cfg().eventos_correo, {}), k = correoCfg();
+    res.json({ desde: e.desde || 'reservas@donfadrique.com', nombre: e.nombre || 'Don Fadrique', host: e.host || '', port: e.port || 587, user: e.user || '', tiene_pass: !!e.pass, activo: k ? k.desde : null, propio: !!(k && k.propio) });
+  });
+  app.put('/api/portal/eventos/correo', (req, res) => {
+    const b = req.body || {}, e = json(cfg().eventos_correo, {});
+    ['desde', 'nombre', 'host', 'user'].forEach(k => { if (typeof b[k] === 'string') e[k] = b[k].trim().slice(0, 200); });
+    if (b.port) e.port = parseInt(b.port, 10) || 587;
+    if (typeof b.pass === 'string' && b.pass.trim()) e.pass = b.pass.trim();
+    db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('eventos_correo', ?)").run(JSON.stringify(e));
+    res.json({ ok: true });
+  });
+  app.post('/api/portal/eventos/correo/prueba', async (req, res) => {
+    const k = correoCfg(); if (!k) return res.status(400).json({ error: 'Falta configurar el correo' });
+    try {
+      await transporte(k).sendMail({ from: `"${k.nombre}" <${k.desde}>`, to: (req.body || {}).para || k.desde, subject: 'Prueba de correo · Don Fadrique', html: marcoEmail('Prueba', '<p>El correo de envío de eventos funciona correctamente.</p>') });
+      res.json({ ok: true, desde: k.desde });
+    } catch (e) { res.status(400).json({ error: 'No se pudo enviar: ' + e.message }); }
+  });
+
+  // ── Habitación de los novios en el hotel (115, 109 o 110), la noche de la boda, importe 0 ──
+  const HOTEL_URL = (process.env.HOTEL_URL || 'https://hotel.palaciocondealdana.com').replace(/\/$/, '');
+  const HABS_NOVIOS = ['115', '109', '110'];
+  async function hotel(ruta, opts) {
+    const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const r = await fetch(HOTEL_URL + ruta, Object.assign({ signal: ctrl.signal, headers: { 'Content-Type': 'application/json' } }, opts || {}));
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || d.ok === false) { const e = new Error((d && (d.msg || d.error)) || ('El hotel respondió ' + r.status)); e.status = r.status; throw e; }
+      return d;
+    } catch (e) { if (e.name === 'AbortError') throw new Error('El hotel no responde'); throw e; }
+    finally { clearTimeout(t); }
+  }
+  // En el hotel las habitaciones se llaman «H115», «H109»…: se busca la que corresponde al número
+  let HABS_HOTEL = null;
+  async function idHotel(num) {
+    if (!HABS_HOTEL) { try { HABS_HOTEL = (await hotel('/api/habitaciones')).map(h => String(h.id)); } catch (e) { HABS_HOTEL = null; } }
+    return (HABS_HOTEL || []).find(id => id === num || id.replace(/\D/g, '') === num) || ('H' + num);
+  }
+  const diaSig = f => { const d = new Date(f + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
+  function reservaNovios(c, hab, estado) {
+    return { habitacion_id: hab, /* id del hotel */ nombre: [c.nombre1, c.nombre2].filter(Boolean).join(' y ') || nombreCeleb(c), apellidos: [c.apellidos1, c.apellidos2].filter(Boolean).join(' / '),
+      dni: c.dni1 || '', telefono: c.tel || '', email: c.email || '', fecha_entrada: c.fecha, fecha_salida: diaSig(c.fecha), pax: 2, tratamiento: 'alojamiento',
+      precio_noche: 0, precio_total: 0, estado: estado || 'confirmada', sin_email: true, invitacion: true,
+      obs: 'Habitación de los novios (invitación por la boda en Don Fadrique' + (c.lugar ? ', ' + c.lugar : '') + '). Importe 0 €.' + (c.nombre2 ? ' ' + [c.nombre1, c.apellidos1].filter(Boolean).join(' ') + ' y ' + [c.nombre2, c.apellidos2].filter(Boolean).join(' ') + (c.dni2 ? ' (DNI ' + c.dni2 + ')' : '') + '.' : '') };
+  }
+  app.get('/api/portal/eventos/:cid/habitacion', async (req, res) => {
+    const c = conPermiso(req, res, req.params.cid); if (!c) return;
+    // Qué habitaciones de novios están libres esa noche
+    const libres = {};
+    await Promise.all(HABS_NOVIOS.map(async h => {
+      try { const r = await hotel('/api/reservas/check', { method: 'POST', body: JSON.stringify({ habitacion_id: await idHotel(h), fecha_entrada: c.fecha, fecha_salida: diaSig(c.fecha), id: c.hab_novios === h ? c.hab_reserva_id : null }) }); libres[h] = true; }
+      catch (e) { libres[h] = /ocupada/i.test(e.message) ? false : null; }
+    }));
+    res.json({ habitacion: c.hab_novios || null, reserva_id: c.hab_reserva_id || null, opciones: HABS_NOVIOS, libres, noche: c.fecha, salida: diaSig(c.fecha) });
+  });
+  app.post('/api/portal/eventos/:cid/habitacion', async (req, res) => {
+    const c = conPermiso(req, res, req.params.cid); if (!c) return;
+    const hab = String((req.body || {}).habitacion || c.hab_novios || '');
+    if (!HABS_NOVIOS.includes(hab)) return res.status(400).json({ error: 'Elige la 115, la 109 o la 110' });
+    if (!c.fecha) return res.status(400).json({ error: 'La boda no tiene fecha' });
+    try {
+      let r;
+      if (c.hab_reserva_id) {
+        try { r = await hotel('/api/reservas/' + c.hab_reserva_id, { method: 'PUT', body: JSON.stringify(reservaNovios(c, await idHotel(hab))) }); }
+        catch (e) { if (e.status === 404) r = null; else throw e; }
+      }
+      if (!r || !r.id) r = await hotel('/api/reservas', { method: 'POST', body: JSON.stringify(reservaNovios(c, await idHotel(hab))) });
+      db.prepare('UPDATE celebraciones SET hab_novios = ?, hab_reserva_id = ? WHERE id = ?').run(hab, r.id, c.id);
+      nota(c.id, 'sistema', 'Habitación ' + hab + ' de los novios reservada en el hotel para la noche del ' + c.fecha + ' (importe 0 €)', req.usuario);
+      res.json({ ok: true, habitacion: hab, reserva_id: r.id });
+    } catch (e) { res.status(e.status === 409 ? 409 : 502).json({ error: e.status === 409 ? 'La habitación ' + hab + ' ya está ocupada esa noche en el hotel. Elige otra.' : 'No se pudo reservar en el hotel: ' + e.message }); }
+  });
+  app.delete('/api/portal/eventos/:cid/habitacion', async (req, res) => {
+    const c = conPermiso(req, res, req.params.cid); if (!c) return;
+    if (c.hab_reserva_id) {
+      try { await hotel('/api/reservas/' + c.hab_reserva_id, { method: 'PUT', body: JSON.stringify(reservaNovios(c, await idHotel(c.hab_novios), 'cancelada')) }); }
+      catch (e) { if (e.status !== 404) return res.status(502).json({ error: 'No se pudo anular en el hotel: ' + e.message }); }
+    }
+    db.prepare('UPDATE celebraciones SET hab_novios = NULL, hab_reserva_id = NULL WHERE id = ?').run(c.id);
+    nota(c.id, 'sistema', 'Habitación de los novios anulada en el hotel', req.usuario);
+    res.json({ ok: true });
   });
 
   // ══ FIRMA PÚBLICA (enlace que se abre en el móvil del cliente o en el nuestro) ══
@@ -516,7 +696,7 @@ module.exports = function montarEventos(app, db, h) {
     // Copia por email a los clientes
     let enviado = null;
     if (pdf && c.email) {
-      try { enviado = await enviarEmail(firmado, TITULO[d.tipo] + ' ' + (d.numero || '') + ' firmado · Don Fadrique', marcoEmail(TITULO[d.tipo] + ' firmado', `<p>Hola ${esc(firmado.firmado_nombre)},</p><p>Gracias por firmar ${d.tipo === 'fianza' ? 'el documento de <b>reserva de fecha y fianza</b>' : 'el <b>presupuesto ' + esc(d.numero) + '</b>'}. Te adjuntamos la copia firmada en PDF.</p><p>Un saludo,<br>Don Fadrique</p>`), pdf);
+      try { enviado = await enviarEmail(firmado, TITULO[d.tipo] + ' ' + (d.numero || '') + ' firmado · Don Fadrique', marcoEmail(TITULO[d.tipo] + ' firmado', `<p>Hola ${esc(firmado.firmado_nombre)},</p><p>Gracias por firmar ${d.tipo === 'fianza' ? 'el documento de <b>reserva de fecha y fianza</b>' : 'el <b>presupuesto ' + esc(d.numero) + '</b>'}. Te adjuntamos la copia firmada en PDF.</p><p>Un saludo,<br>Don Fadrique</p>`), pdf, 'copia firmada (automático)');
         nota(c.id, 'sistema', 'Copia firmada enviada por email a ' + enviado.join(', '), 'automático'); } catch (e) { console.error('[eventos] email firma:', e.message); }
     }
     res.json({ ok: true, enviado });

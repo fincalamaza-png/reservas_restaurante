@@ -11,6 +11,7 @@
     "better-sqlite3": "^9.4.3",
     "nodemailer": "^6.9.9",
     "cors": "^2.8.5",
-    "pdfkit": "^0.15.0"
+    "pdfkit": "^0.15.0",
+    "qrcode": "^1.5.4"
   }
 }

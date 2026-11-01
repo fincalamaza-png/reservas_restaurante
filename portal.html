@@ -123,6 +123,31 @@ a{color:inherit}
 .arch a b{display:block;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .arch small{color:var(--gris);font-size:12px}
 details.card summary{list-style:none}
+.carp-banda{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:10px 14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-left:5px solid #d6cfc4}
+.carp-banda.v{border-left-color:var(--verde)}.carp-banda.a{border-left-color:var(--ambar)}
+.carp-banda b{display:block;font-size:15px;font-weight:500}.carp-banda small{display:block;font-size:12.5px;color:var(--gris)}
+.carps{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px}
+@media(min-width:640px){.carps{grid-template-columns:repeat(3,1fr)}}
+.carp{display:flex;flex-direction:column;align-items:flex-start;gap:4px;background:#fff;border:1.5px solid #ebe5dc;border-radius:14px;padding:12px;text-align:left;cursor:pointer;font-family:inherit;color:var(--tinta);min-height:118px}
+.carp b{font-size:14px;font-weight:500;line-height:1.25}.carp small{font-size:11.5px;color:var(--gris);line-height:1.3}
+.carp.v{border-color:#bfe2cd;background:#f6fbf8}.carp.a{border-color:#f1dca8;background:#fffbf1}
+.carp:active{transform:scale(.98)}
+.mes-carp{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--oro-osc);margin:16px 2px 8px}
+.lista-carp{display:flex;flex-direction:column;gap:8px}
+.fila-carp{display:flex;align-items:center;gap:12px;background:#fff;border:none;border-radius:12px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer;text-align:left;font-family:inherit;color:var(--tinta);width:100%}
+.fila-carp .tx{flex:1;min-width:0}.fila-carp b{display:block;font-size:14.5px;font-weight:500}.fila-carp small{display:block;font-size:12px;color:var(--gris);margin-top:1px}
+.fila-carp.canc{opacity:.55}
+.pts{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.pt-e{font-size:10.5px;padding:2px 7px;border-radius:10px;background:#efebe5;color:#8a8278}
+.pt-e.v{background:var(--verde-bg);color:#1d6640}.pt-e.a{background:var(--ambar-bg);color:#8a5d00}
+.hab-ok{background:var(--verde-bg);color:#1d6640;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+.habs{display:flex;gap:8px}
+.hab{flex:1;background:#fff;border:1.5px solid #d6cfc4;border-radius:12px;padding:12px 6px;cursor:pointer;font-family:inherit;color:var(--tinta)}
+.hab b{display:block;font-size:22px;font-weight:500}.hab small{font-size:11px;color:var(--gris)}
+.hab.on{border-color:var(--verde);background:var(--verde-bg)}.hab.ocup{opacity:.45;cursor:not-allowed}
+.env{padding:7px 0;border-bottom:1px solid #f0ede8;font-size:13.5px}.env:last-child{border-bottom:none}.env small{color:var(--gris)}
+.ov{position:fixed;inset:0;background:rgba(20,15,10,.45);z-index:900;display:flex;align-items:flex-start;justify-content:center;padding:30px 14px;overflow:auto}
+.ov-c{background:#fff;border-radius:14px;padding:18px;max-width:460px;width:100%}
 /* Listas */
 .item{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer}
 .item .tx{flex:1;min-width:0}
@@ -361,7 +386,7 @@ function render(){
   SUCIO = false;
   if (PANEL_T) { clearInterval(PANEL_T); PANEL_T = null; }
   if (!h) return vHome(app);
-  var nec = { restaurante: ['reservas', 'carta'], carta: 'carta', menus: 'carta', menu: ['carta', 'bodas', 'comuniones', 'eventos'], personalizados: 'carta', personalizado: 'carta',
+  var nec = { restaurante: ['reservas', 'carta'], carta: 'carta', menus: 'carta', menu: ['carta', 'bodas', 'comuniones', 'eventos'], personalizados: 'carta', personalizado: ['carta', 'bodas', 'comuniones', 'eventos'],
     bodas: 'bodas', comuniones: 'comuniones', 'otros-eventos': 'eventos', eventos: EVENTOS, celebracion: EVENTOS, contabilidad: 'contabilidad', admin: 'contabilidad', documentos: 'contabilidad', facturacion: 'contabilidad', gastos: 'contabilidad', gasto: 'contabilidad', panel: 'contabilidad', pagos: 'contabilidad', pago: 'contabilidad', personal: 'admin', trabajador: 'admin', horas: 'admin', documento: 'contabilidad', usuarios: 'admin' }[p[0]];
   if (nec && !puede(nec)) { toast('No tienes acceso a esa sección'); location.hash = ''; return; }
   switch (p[0]) {
@@ -680,13 +705,15 @@ function vPersonalizados(app){
 }
 function vEditorPersonalizado(app, id){
   var nuevo = id === 'nuevo';
+  // Abierto desde la carpeta de una boda / comunión: la flecha vuelve a su «Menú y montaje»
+  var mEv = location.hash.match(/\/evento\/(\d+)/), atrasP = mEv ? '#/celebracion/' + mEv[1] + '/menu' : '#/personalizados';
   var cargar = nuevo ? Promise.resolve({ titulo: 'Menú personalizado', secciones: seccionesPersonalizado(), precio_persona: 0, nota: 'IVA 10% no incluido', formato: 'a4' })
     : api('GET', '/api/portal/personalizados/' + id);
-  app.innerHTML = '<div class="vista">' + cabecera('Menú personalizado', '', '#/personalizados') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  app.innerHTML = '<div class="vista">' + cabecera('Menú personalizado', '', atrasP) + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
   Promise.all([cargar, plantillas()]).then(function(r){
     ED = clon(r[0]);
     var ps = r[1];
-    app.innerHTML = '<div class="vista">' + cabecera(nuevo ? 'Nuevo menú personalizado' : ED.titulo, 'Menú personalizado', '#/personalizados', '<button class="acc" onclick="guardarPers()">Guardar</button>') +
+    app.innerHTML = '<div class="vista">' + cabecera(nuevo ? 'Nuevo menú personalizado' : ED.titulo, mEv ? 'Menú de la celebración' : 'Menú personalizado', atrasP, '<button class="acc" onclick="guardarPers()">Guardar</button>') +
       '<div class="content">' +
       '<div class="card">' +
         '<div class="field"><label>Título del menú</label><input value="' + attr(ED.titulo) + '" oninput="ED.titulo=this.value;marcar()"></div>' +
@@ -773,7 +800,7 @@ function vCelebraciones(app, tipo, sub){
   var titulo = TXT[tipo].plural;
   var pest = function(act){
     var r = rutaTipo(tipo);
-    return '<div class="chips"><button class="chip' + (act === 'cal' ? ' on' : '') + '" onclick="ir(\'' + r + '\')">Calendario</button>' +
+    return '<div class="chips"><button class="chip' + (act === 'carp' ? ' on' : '') + '" onclick="ir(\'' + r + '\')">&#128193; Carpetas</button><button class="chip' + (act === 'cal' ? ' on' : '') + '" onclick="ir(\'' + r + '/calendario\')">Calendario</button>' +
       '<button class="chip' + (act === 'lista' ? ' on' : '') + '" onclick="ir(\'' + r + '/lista\')">Listado</button>' +
       '<button class="chip' + (act === 'menus' ? ' on' : '') + '" onclick="ir(\'' + r + '/menus\')">Menús</button></div>';
   };
@@ -789,11 +816,12 @@ function vCelebraciones(app, tipo, sub){
     }).catch(fallo);
     return;
   }
-  app.innerHTML = '<div class="vista">' + cabecera(titulo, sub === 'lista' ? 'Listado' : 'Calendario', '#/eventos', accion) +
-    '<div class="content">' + pest(sub === 'lista' ? 'lista' : 'cal') + '<div id="cel-body"><div class="cargando">Cargando…</div></div></div></div>';
+  var vista = sub === 'lista' ? 'lista' : sub === 'calendario' ? 'cal' : 'carp';
+  app.innerHTML = '<div class="vista">' + cabecera(titulo, { lista: 'Listado', cal: 'Calendario', carp: 'Carpetas por mes' }[vista], '#/eventos', accion) +
+    '<div class="content">' + pest(vista) + '<div id="cel-body"><div class="cargando">Cargando…</div></div></div></div>';
   api('GET', '/api/portal/celebraciones?tipo=' + tipo).then(function(l){
     CELEBS = l;
-    if (sub === 'lista') pintarListaCeleb(tipo); else pintarCalendario(tipo);
+    if (vista === 'lista') pintarListaCeleb(tipo); else if (vista === 'cal') pintarCalendario(tipo); else pintarCarpetasCeleb(tipo);
   }).catch(fallo);
 }
 function itemCeleb(c){
@@ -860,19 +888,19 @@ function campo(etq, k, tipo, extra){
 function vCelebracion(app, id, tipo, fecha){
   var nueva = id === 'nueva';
   // Fichas ya creadas: se abren como carpeta (Resumen, Hoja interna, Historial, documentos…); «datos» es este formulario
-  if (!nueva && tipo !== 'datos') return vCarpeta(app, id, tipo || 'resumen');
+  if (!nueva && tipo !== 'datos') return vCarpeta(app, id, tipo || '');
   app.innerHTML = '<div class="vista">' + cabecera('Cargando…', '', '#/eventos') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
   var cargar = nueva ? Promise.resolve({ tipo: TXT[tipo] ? tipo : 'boda', fecha: fecha || '', estado: 'bloqueada', pagos: [], adultos: 0, ninos: 0, fianza_pagada: false, lugar: 'Don Fadrique' })
     : api('GET', '/api/portal/celebraciones/' + id);
   Promise.all([cargar, plantillas()]).then(function(r){
-    CE = clon(r[0]);
+    CE = clon(r[0]); CE._estado0 = CE.estado; CE._fecha0 = CE.fecha;
     var ps = r[1], esBoda = CE.tipo === 'boda';
     var atras = rutaTipo(CE.tipo);
     var menus = ps.filter(function(p){ return p.tipo === CE.tipo; }).concat(ps.filter(function(p){ return p.tipo !== CE.tipo; }));
     var persona = function(n, etq){
       return '<div class="card"><h3>' + etq + '</h3>' + campo('Nombre', 'nombre' + n) + campo('Apellidos', 'apellidos' + n) + campo('DNI / NIE', 'dni' + n, '', ' autocapitalize="characters"') + '</div>';
     };
-    var h = '<div class="vista">' + cabecera(nueva ? TXT[CE.tipo].nueva : nombreCeleb(CE), TXT[CE.tipo].uno.charAt(0).toUpperCase() + TXT[CE.tipo].uno.slice(1), atras, '<button class="acc" onclick="guardarCeleb()">Guardar</button>') + (nueva ? '' : tabsCarpeta(id, 'datos')) + '<div class="content">';
+    var h = '<div class="vista">' + cabecera(nueva ? TXT[CE.tipo].nueva : nombreCeleb(CE), TXT[CE.tipo].uno.charAt(0).toUpperCase() + TXT[CE.tipo].uno.slice(1), nueva ? atras : '#/celebracion/' + id, '<button class="acc" onclick="guardarCeleb()">Guardar</button>') + '<div class="content">';
     if (!nueva) h += '<div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1">' + badgeEstado(CE) + '<div class="muted" style="margin-top:6px">' +
       (CE.estado === 'confirmada' ? 'Fianza pagada el ' + esc(fechaCorta(CE.fianza_fecha)) : CE.estado === 'cancelada' ? 'No ocupa la fecha en el calendario' : 'La fecha queda bloqueada en ámbar hasta que se pague la fianza') + '</div></div></div>';
     h += '<div class="card"><h3>Fecha y lugar</h3><div class="fila">' + campo('Fecha', 'fecha', 'date') + campo('Hora', 'hora', 'time') + '</div>' +
@@ -900,7 +928,7 @@ function vCelebracion(app, id, tipo, fecha){
     h += '<div class="card"><h3>Notas</h3><textarea class="in" rows="3" oninput="CE.notas=this.value;marcar()">' + esc(CE.notas || '') + '</textarea></div>';
     h += '<button class="btn btn-p" onclick="guardarCeleb()">Guardar</button>';
     if (!nueva) {
-      h += '<button class="btn btn-n" onclick="documentoCeleb()">&#128196; Documento con nombres y DNI</button>';
+      h += '<button class="btn btn-n" onclick="ir(\'#/celebracion/' + id + '/fianza\')">&#128272; Documento de reserva y fianza (se firma con el dedo)</button>';
       h += CE.estado === 'cancelada' ? '<button class="btn btn-s" onclick="cancelarCeleb(false)">Reactivar</button>' : '<button class="btn btn-s" onclick="cancelarCeleb(true)">Cancelar ' + TXT[CE.tipo].la + ' (libera la fecha)</button>';
       h += '<button class="btn btn-d" onclick="borrarCeleb()">Eliminar ficha</button>';
     }
@@ -949,18 +977,21 @@ function guardarCeleb(){
   api('GET', '/api/portal/celebraciones?desde=' + CE.fecha + '&hasta=' + CE.fecha).then(function(l){
     l = l.filter(function(c){ return c.id !== CE.id && c.estado !== 'cancelada'; });
     if (CE.estado !== 'cancelada' && l.length && !confirm('Ese día ya hay: ' + l.map(function(c){ return TXT[c.tipo].uno + ' ' + nombreCeleb(c); }).join(', ') + '. ¿Guardar igualmente?')) return;
-    var nueva = !CE.id;
+    var nueva = !CE.id, antes = { estado: CE._estado0, fecha: CE._fecha0 };
     return api(nueva ? 'POST' : 'PUT', '/api/portal/celebraciones' + (nueva ? '' : '/' + CE.id), CE).then(function(c){
       SUCIO = false; toast(c.estado === 'confirmada' ? 'Guardada · confirmada' : 'Guardada · fecha bloqueada');
       CAL[c.tipo] = c.fecha.slice(0, 7); DIA_SEL = c.fecha;
-      if (nueva) ir('#/celebracion/' + c.id); else vCelebracion($('app'), c.id, 'datos');
+      // Habitación de los novios: se mueve sola si cambia la fecha; al confirmar la boda, a elegirla
+      if (c.hab_reserva_id && antes.fecha && antes.fecha !== c.fecha) api('POST', '/api/portal/eventos/' + c.id + '/habitacion', {}).then(function(){ toast('Habitación de los novios movida en el hotel al ' + fechaCorta(c.fecha)); }).catch(fallo);
+      if (c.tipo === 'boda' && c.estado === 'confirmada' && antes.estado !== 'confirmada' && !c.hab_novios) { toast('Boda confirmada: elige la habitación de los novios'); return ir('#/celebracion/' + c.id + '/habitacion'); }
+      ir('#/celebracion/' + c.id);
     });
   }).catch(fallo);
 }
 function cancelarCeleb(si){
   if (si && !confirm('¿Cancelar? La fecha quedará libre en el calendario.')) return;
   CE.estado = si ? 'cancelada' : 'bloqueada';
-  api('PUT', '/api/portal/celebraciones/' + CE.id, CE).then(function(c){ SUCIO = false; toast(si ? 'Cancelada' : 'Reactivada'); vCelebracion($('app'), c.id, 'datos'); }).catch(fallo);
+  api('PUT', '/api/portal/celebraciones/' + CE.id, CE).then(function(c){ SUCIO = false; toast(si ? 'Cancelada' : 'Reactivada'); if (si && c.hab_reserva_id && confirm('¿Anular también la habitación de los novios en el hotel?')) api('DELETE', '/api/portal/eventos/' + c.id + '/habitacion').then(function(){ toast('Habitación anulada en el hotel'); }).catch(fallo); vCelebracion($('app'), c.id, 'datos'); }).catch(fallo);
 }
 function borrarCeleb(){
   if (!confirm('¿Eliminar la ficha por completo? No se puede deshacer.')) return;
@@ -968,80 +999,133 @@ function borrarCeleb(){
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  CARPETA DEL EVENTO: resumen, hoja interna, historial, presupuesto, fianza, factura y archivos
+//  CARPETA DEL EVENTO: una carpeta por boda / comunión / evento con sus subcarpetas
+//  (Fianza, Menú y montaje, Presupuesto, Factura, Habitación de los novios, Reuniones, Datos, Archivos).
+//  Cada subcarpeta va en verde cuando está hecha, en ámbar a medias y en gris sin empezar.
 // ════════════════════════════════════════════════════════════════════════
 var CAR = null, FI = null, DOCED = null;
-var TABS_CARPETA = [['resumen', 'Resumen'], ['datos', 'Datos'], ['hoja', 'Hoja interna'], ['historial', 'Historial'], ['presupuesto', 'Presupuesto'], ['fianza', 'Reserva y fianza'], ['factura', 'Factura'], ['archivos', 'Archivos']];
-function tabsCarpeta(id, tab){
-  return '<div class="tabs-c">' + TABS_CARPETA.map(function(t){ return '<button class="' + (t[0] === tab ? 'on' : '') + '" onclick="volverA(\'#/celebracion/' + id + '/' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
-}
 function cap1(t){ t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); }
-function fechaHoraSql(s){ if (!s) return ''; var d = new Date(String(s).replace(' ', 'T') + 'Z'); return d.toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function fechaHoraSql(s){ if (!s) return ''; var d = new Date(String(s).replace(' ', 'T') + (/Z|[+-]\d\d:?\d\d$/.test(s) ? '' : 'Z')); return d.toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function fechaSql(s){ if (!s) return ''; return new Date(String(s).replace(' ', 'T') + 'Z').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }); }
 function tamTxt(n){ n = Number(n) || 0; return n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+function svgCarpeta(col){
+  var c = { v: ['#2e8b57', '#4fae78'], a: ['#d9981a', '#f0b73f'], g: ['#b9b1a5', '#d6cfc4'] }[col] || ['#b9b1a5', '#d6cfc4'];
+  return '<svg viewBox="0 0 64 50" width="54" height="42" aria-hidden="true"><path d="M4 8a4 4 0 0 1 4-4h16l6 6h26a4 4 0 0 1 4 4v4H4z" fill="' + c[0] + '"/><rect x="4" y="14" width="56" height="32" rx="4" fill="' + c[1] + '"/>' +
+    (col === 'v' ? '<path d="M24 30l6 6 11-12" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' : col === 'a' ? '<circle cx="24" cy="30" r="2.6" fill="#fff"/><circle cx="32" cy="30" r="2.6" fill="#fff"/><circle cx="40" cy="30" r="2.6" fill="#fff"/>' : '') + '</svg>';
+}
 
 function vCarpeta(app, id, tab){
   if (!CAR || String(CAR.id) !== String(id)) app.innerHTML = '<div class="vista">' + cabecera('Cargando…', '', '#/eventos') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
   Promise.all([api('GET', '/api/portal/celebraciones/' + id), api('GET', '/api/portal/eventos/' + id + '/carpeta')]).then(function(r){
-    CAR = { id: id, tab: tab, c: r[0], d: r[1] };
-    var c = CAR.c, y = window.scrollY;
-    var vistas = { resumen: carResumen, hoja: carHoja, historial: carHistorial, presupuesto: function(){ return carDoc('presupuesto'); }, fianza: function(){ return carDoc('fianza'); }, factura: function(){ return carDoc('factura'); }, archivos: carArchivos };
-    var f = vistas[tab] || carResumen;
-    app.innerHTML = '<div class="vista">' + cabecera(nombreCeleb(c), cap1(TXT[c.tipo].uno) + ' · ' + fechaCorta(c.fecha), rutaTipo(c.tipo)) + tabsCarpeta(id, tab) + '<div class="content">' + f() + '<div style="height:30px"></div></div></div>';
-    if (tab === 'presupuesto' || tab === 'factura' || tab === 'fianza') totDoc();
-    var on = app.querySelector('.tabs-c .on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' });
+    var mismo = CAR && String(CAR.id) === String(id) && CAR.tab === tab;
+    CAR = { id: id, tab: tab, c: r[0], d: r[1], soloHablado: CAR && CAR.soloHablado };
+    var c = CAR.c, y = mismo ? window.scrollY : 0;
+    var s = SECCIONES().filter(function(x){ return x[0] === tab; })[0];
+    var vistas = { menu: carMenu, historial: carHistorial, presupuesto: function(){ return carDoc('presupuesto'); }, fianza: function(){ return carDoc('fianza'); }, factura: function(){ return carDoc('factura'); }, archivos: carArchivos, habitacion: carHabitacion };
+    var h;
+    if (s && vistas[tab]) {
+      var e = estadoSecc(tab);
+      h = '<div class="vista">' + cabecera(s[1], nombreCeleb(c) + ' · ' + fechaCorta(c.fecha), '#/celebracion/' + id) + '<div class="content">' +
+        '<div class="carp-banda ' + e[0] + '">' + svgCarpeta(e[0]) + '<div><b>' + s[1] + '</b><small>' + e[1] + '</small></div></div>' + vistas[tab]() + '<div style="height:30px"></div></div></div>';
+    } else {
+      h = '<div class="vista">' + cabecera(nombreCeleb(c), cap1(TXT[c.tipo].uno) + ' · ' + fechaCorta(c.fecha), rutaTipo(c.tipo) + '/carpetas') + '<div class="content">' + carRaiz() + '<div style="height:30px"></div></div></div>';
+    }
+    app.innerHTML = h;
+    if (tab === 'presupuesto' || tab === 'factura') totDoc();
+    if (tab === 'habitacion') cargarHabitacion();
+    if (tab === 'menu') cargarMenuEvento();
     window.scrollTo(0, y);
   }).catch(fallo);
 }
 function recargarCarpeta(){ SUCIO = false; vCarpeta($('app'), CAR.id, CAR.tab); }
-// Al volver de firmar en otra pestaña, se actualiza solo
-window.addEventListener('focus', function(){ if (CAR && CAR.esperando && !SUCIO && /^#\/celebracion\//.test(location.hash)) { CAR.esperando = false; recargarCarpeta(); } });
+function irSecc(k){ ir('#/celebracion/' + CAR.id + '/' + k); }
 
+function SECCIONES(){
+  var boda = CAR && CAR.c.tipo === 'boda';
+  return [['fianza', 'Fianza y reserva'], ['menu', 'Menú y montaje'], ['presupuesto', 'Presupuesto'], ['factura', 'Factura']]
+    .concat(boda ? [['habitacion', 'Habitación de los novios']] : [])
+    .concat([['historial', 'Reuniones e historial'], ['datos', boda ? 'Datos de los novios' : 'Datos y contacto'], ['archivos', 'Archivos']]);
+}
 function docsDe(tipo){ return CAR.d.docs.filter(function(d){ return d.tipo === tipo; }).sort(function(a, b){ return b.id - a.id; }); }
 function docActual(tipo){ return docsDe(tipo).filter(function(d){ return !d.sustituido; })[0] || null; }
 function docFirmado(tipo){ return docsDe(tipo).filter(function(d){ return d.estado === 'firmado'; })[0] || null; }
 var EST_DOC = { borrador: ['Borrador', 'b-gris'], enviado: ['Pendiente de firma', 'b-ambar'], firmado: ['Firmado', 'b-verde'], emitida: ['Emitida', 'b-verde'] };
 function badgeDoc(d){ var e = EST_DOC[d.estado] || ['', 'b-gris']; return '<span class="badge ' + e[1] + '">' + e[0] + '</span>'; }
 function cobradoCeleb(c){ return (c.fianza_pagada ? n2(c.fianza_importe) : 0) + (c.pagos || []).reduce(function(a, p){ return a + n2(p.importe); }, 0); }
+function menuElegido(){ var f = CAR.d.ficha || {}; return !!(f.menu_pers_id || CAR.c.plantilla_id); }
 
-// ── Resumen: todo de un vistazo ──
-function filaVis(estado, titulo, detalle, tab, der){
-  var o = estado === 2 ? '<div class="o si">&#10003;</div>' : estado === 1 ? '<div class="o med">&#8230;</div>' : '<div class="o">&#9675;</div>';
-  return '<div class="vis" onclick="ir(\'#/celebracion/' + CAR.id + '/' + tab + '\')">' + o + '<div class="tx"><b>' + titulo + '</b><small>' + detalle + '</small></div>' + (der ? '<div class="der">' + der + '</div>' : '') + '<span class="muted">&#8250;</span></div>';
-}
-function carResumen(){
+// Color y texto de cada subcarpeta: v = hecha (verde), a = a medias (ámbar), g = sin empezar (gris)
+function estadoSecc(k){
   var c = CAR.c, d = CAR.d, f = d.ficha || {};
-  var pres = docActual('presupuesto'), presF = docFirmado('presupuesto'), fz = docActual('fianza'), fzF = docFirmado('fianza'), fac = docActual('factura');
+  if (k === 'fianza') {
+    var fz = docActual('fianza'), fzF = docFirmado('fianza');
+    if (fzF && c.fianza_pagada) return ['v', 'Firmada y pagada (' + euros(c.fianza_importe) + ')'];
+    if (fzF) return ['a', 'Firmada el ' + fechaSql(fzF.firmado_at) + ' · falta marcar el pago'];
+    if (c.fianza_pagada) return ['a', 'Pagada · falta que firmen el documento'];
+    if (fz) return ['a', fz.estado === 'enviado' ? 'Pendiente de firma' : 'Documento en borrador'];
+    return ['g', 'Sin hacer'];
+  }
+  if (k === 'menu') {
+    var b = f.banquete || {};
+    if (menuElegido() && b.lugar) return ['v', (c.menu_nombre || 'Menú elegido') + ' · banquete en ' + b.lugar];
+    if (menuElegido()) return ['a', (c.menu_nombre || 'Menú elegido') + ' · falta definir el montaje'];
+    if (Object.keys(f).filter(function(x){ return x !== 'menu_pers_id'; }).length) return ['a', 'Montaje empezado · falta el menú'];
+    return ['g', 'Sin menú ni montaje'];
+  }
+  if (k === 'presupuesto') {
+    var pr = docActual('presupuesto'), prF = docFirmado('presupuesto');
+    if (prF && (!pr || pr.id === prF.id)) return ['v', 'Firmado el ' + fechaSql(prF.firmado_at) + ' · ' + euros(prF.total)];
+    if (pr) {
+      var env = (pr.envios || []).slice(-1)[0];
+      return ['a', (pr.estado === 'enviado' ? 'Pendiente de firma' : 'Borrador') + (env ? ' · enviado ' + fechaHoraSql(env.at) : '') + ' · ' + euros(pr.total)];
+    }
+    return ['g', 'Sin hacer'];
+  }
+  if (k === 'factura') {
+    var fa = docActual('factura');
+    if (fa && fa.estado === 'emitida') return ['v', fa.numero + ' · ' + euros(fa.total)];
+    if (fa) return ['a', 'Borrador · ' + euros(fa.total)];
+    return ['g', 'Se crea al firmar el presupuesto'];
+  }
+  if (k === 'habitacion') {
+    if (c.hab_novios) return ['v', 'Habitación ' + c.hab_novios + ' reservada · noche del ' + fechaCorta(c.fecha)];
+    if (c.estado === 'confirmada') return ['a', 'Falta reservarla (115, 109 o 110)'];
+    return ['g', 'Se reserva al confirmar la boda'];
+  }
+  if (k === 'historial') {
+    var n = d.notas.filter(function(x){ return x.tipo !== 'sistema'; }), u = n[0];
+    return [n.length ? 'v' : 'g', n.length ? n.length + ' anotación' + (n.length === 1 ? '' : 'es') + ' · última ' + fechaCorta(u.fecha) : 'Sin reuniones anotadas'];
+  }
+  if (k === 'datos') {
+    var completo = c.nombre1 && c.dni1 && c.tel && (c.tipo !== 'boda' || (c.nombre2 && c.dni2));
+    return [completo ? 'v' : 'a', completo ? (c.email ? c.email : 'Falta el email') : 'Faltan nombres, DNI o teléfono'];
+  }
+  if (k === 'archivos') { var na = d.archivos.length; return [na ? 'v' : 'g', na + ' archivo' + (na === 1 ? '' : 's') + ' · ' + d.docs.length + ' documento' + (d.docs.length === 1 ? '' : 's')]; }
+  return ['g', ''];
+}
+
+function carRaiz(){
+  var c = CAR.c, d = CAR.d;
+  var fac = docActual('factura'), presF = docFirmado('presupuesto'), pres = docActual('presupuesto');
+  var total = fac ? fac.total : presF ? presF.total : pres ? pres.total : 0, cob = cobradoCeleb(c);
   var h = '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div>' + badgeEstado(c) +
     '<div style="font-size:17px;margin-top:8px">' + esc(cap1(fechaLarga(c.fecha))) + (c.hora ? ' · ' + esc(c.hora) + ' h' : '') + '</div>' +
-    '<div class="muted" style="margin-top:3px">' + esc(c.lugar || '') + ((c.adultos || c.ninos) ? ' · ' + (c.adultos || 0) + ' adultos' + (n2(c.ninos) ? ' y ' + c.ninos + ' niños' : '') : '') + (c.menu_nombre ? ' · ' + esc(c.menu_nombre) : '') + '</div></div>' +
-    '<button class="btn btn-s btn-sm" onclick="ir(\'#/celebracion/' + CAR.id + '/datos\')">Editar datos</button></div>' +
-    (c.tel || c.email ? '<div class="btns" style="margin-top:10px">' + (c.tel ? '<a class="btn btn-s btn-sm" href="tel:' + attr(c.tel) + '">&#128222; ' + esc(c.tel) + '</a><a class="btn btn-s btn-sm" target="_blank" rel="noopener" href="https://wa.me/' + attr(telWa(c.tel)) + '">&#128172; WhatsApp</a>' : '') + (c.email ? '<a class="btn btn-s btn-sm" href="mailto:' + attr(c.email) + '">&#9993; Email</a>' : '') + '</div>' : '') + '</div>';
-  // Estado de los papeles y del dinero
-  var total = fac ? fac.total : presF ? presF.total : pres ? pres.total : 0, cob = cobradoCeleb(c);
-  h += '<div class="card"><h3>De un vistazo</h3>';
-  h += filaVis(presF ? 2 : pres ? 1 : 0, 'Presupuesto', presF ? 'Firmado por ' + esc(presF.firmado_nombre) + ' el ' + esc(fechaSql(presF.firmado_at)) + (pres && pres.id !== presF.id ? ' · hay una versión nueva en ' + (EST_DOC[pres.estado] || [''])[0].toLowerCase() : '') :
-    pres ? (pres.estado === 'enviado' ? 'Enviado, pendiente de firma' : 'En borrador') : 'Sin hacer', 'presupuesto', (presF || pres) ? euros((presF || pres).total) : '');
-  h += filaVis(fzF ? 2 : fz ? 1 : 0, 'Reserva de fecha', fzF ? 'Firmada por ' + esc(fzF.firmado_nombre) + ' el ' + esc(fechaSql(fzF.firmado_at)) : fz ? (fz.estado === 'enviado' ? 'Enviada, pendiente de firma' : 'En borrador') : 'Sin hacer', 'fianza');
-  h += filaVis(c.fianza_pagada ? 2 : 0, 'Fianza', c.fianza_pagada ? 'Pagada el ' + esc(fechaCorta(c.fianza_fecha)) + (c.fianza_forma ? ' · ' + esc(c.fianza_forma) : '') : n2(c.fianza_importe) ? 'Sin pagar todavía' : 'Sin importe anotado', 'fianza', n2(c.fianza_importe) ? euros(c.fianza_importe) : '');
-  h += filaVis(fac && fac.estado === 'emitida' ? 2 : fac ? 1 : 0, 'Factura', fac ? (fac.estado === 'emitida' ? esc(fac.numero) + ' · ' + esc(fechaCorta(fac.fecha_emision)) : 'Borrador (se rellena con el presupuesto firmado)') : 'Sin hacer', 'factura', fac ? euros(fac.total) : '');
-  h += filaVis(total && cob >= total - 0.01 ? 2 : cob ? 1 : 0, 'Cobrado', euros(cob) + (total ? ' de ' + euros(total) + ' · pendiente ' + euros(Math.max(0, total - cob)) : ''), 'datos');
-  h += '</div>';
-  // Hoja interna resumida
-  var hr = resumenHoja(f);
-  h += '<div class="card"><h3>Hoja interna</h3>' + (hr || '<div class="muted" style="margin-bottom:8px">Todavía no se ha rellenado: espacios, ceremonia, cóctel, banquete, barra libre, DJ…</div>') +
-    '<button class="btn btn-s btn-sm" style="margin-top:6px" onclick="ir(\'#/celebracion/' + CAR.id + '/hoja\')">' + (hr ? 'Ver / editar' : 'Rellenar') + '</button></div>';
-  // Historial
+    '<div class="muted" style="margin-top:3px">' + esc(c.lugar || '') + ((c.adultos || c.ninos) ? ' · ' + (c.adultos || 0) + ' adultos' + (n2(c.ninos) ? ' y ' + c.ninos + ' niños' : '') : '') + '</div>' +
+    (total ? '<div class="muted" style="margin-top:3px">Cobrado ' + euros(cob) + ' de ' + euros(total) + ' · pendiente <b>' + euros(Math.max(0, total - cob)) + '</b></div>' : '') + '</div></div>' +
+    (c.tel || c.email ? '<div class="btns" style="margin-top:10px">' + (c.tel ? '<a class="btn btn-s btn-sm" href="tel:' + attr(c.tel) + '">&#128222; Llamar</a><a class="btn btn-s btn-sm" target="_blank" rel="noopener" href="https://wa.me/' + attr(telWa(c.tel)) + '">&#128172; WhatsApp</a>' : '') + (c.email ? '<a class="btn btn-s btn-sm" href="mailto:' + attr(c.email) + '">&#9993; Email</a>' : '') + '</div>' : '') + '</div>';
+  h += '<div class="carps">' + SECCIONES().map(function(s){
+    var e = estadoSecc(s[0]);
+    return '<button class="carp ' + e[0] + '" onclick="irSecc(\'' + s[0] + '\')">' + svgCarpeta(e[0]) + '<b>' + s[1] + '</b><small>' + esc(e[1]) + '</small></button>';
+  }).join('') + '</div>';
+  // Lo último hablado
   var ns = d.notas.filter(function(n){ return n.tipo !== 'sistema'; });
-  h += '<div class="card"><h3>Lo hablado con ' + (c.tipo === 'boda' ? 'los novios' : 'los clientes') + '</h3>' +
-    (ns.length ? ns.slice(0, 4).map(pintarNota).join('') + (ns.length > 4 ? '<div class="muted">y ' + (ns.length - 4) + ' anotaciones más…</div>' : '') : '<div class="muted" style="margin-bottom:8px">Aún no hay reuniones anotadas</div>') +
-    '<div class="btns" style="margin-top:8px"><button class="btn btn-p btn-sm" onclick="ir(\'#/celebracion/' + CAR.id + '/historial\')">+ Anotar reunión o llamada</button>' + (d.notas.length ? '<button class="btn btn-s btn-sm" onclick="ir(\'#/celebracion/' + CAR.id + '/historial\')">Ver historial completo</button>' : '') + '</div></div>';
-  h += '<div class="card"><h3>Archivos</h3><div class="muted" style="margin-bottom:8px">' + d.archivos.length + ' archivo' + (d.archivos.length === 1 ? '' : 's') + ' · ' + d.docs.length + ' documento' + (d.docs.length === 1 ? '' : 's') + ' de la app</div>' +
-    '<button class="btn btn-s btn-sm" onclick="ir(\'#/celebracion/' + CAR.id + '/archivos\')">Abrir la carpeta</button></div>';
+  h += '<div class="card"><h3>Lo último hablado con ' + (c.tipo === 'boda' ? 'los novios' : 'los clientes') + '</h3>' +
+    (ns.length ? ns.slice(0, 3).map(pintarNota).join('') : '<div class="muted" style="margin-bottom:8px">Aún no hay reuniones anotadas</div>') +
+    '<button class="btn btn-p btn-sm" style="margin-top:6px" onclick="irSecc(\'historial\')">+ Anotar reunión o llamada</button></div>';
   return h;
 }
 
-// ── Hoja interna ──
+// ── Menú y montaje ──
 var HOJA = [
   { k: 'general', t: 'Espacios y horario', c: [['espacios', 'Espacios que se usan', 'area', 'Ej.: ceremonia en el jardín, cóctel en el patio, banquete en el salón…'], ['horario', 'Horario general', 'area', 'Llegada de invitados, ceremonia, cóctel, banquete, baile, fin…']] },
   { k: 'ceremonia', t: 'Ceremonia', si: '¿Hay ceremonia aquí?', c: [['tipo', 'Tipo', 'sel', ['', 'Civil', 'Religiosa', 'Simbólica']], ['lugar', 'Dónde', 'lugar'], ['hora', 'Hora', 'time'], ['oficiante', 'Quién la oficia', 'text'], ['montaje', 'Montaje', 'area', 'Sillas, altar o mesa, pasillo, flores, megafonía, música…']] },
@@ -1057,36 +1141,64 @@ function textoCampo(sec, campo){
   if (campo[2] === 'sel' && Array.isArray(campo[3][0])) { var o = campo[3].filter(function(x){ return x[0] === v; })[0]; v = o ? o[1] : v; }
   return v;
 }
-function resumenHoja(f){
-  FI = clon(f || {});
-  return HOJA.map(function(s){
-    var d = FI[s.k] || {};
-    if (s.si && !d.si) return d.si === false ? '<div class="hr"><b>' + s.t + ':</b> no</div>' : '';
-    var partes = s.c.filter(function(x){ return x[2] !== 'area'; }).map(function(x){ var v = textoCampo(s, x); return v ? (x[2] === 'time' ? v + ' h' : x[0] === 'horas' ? v + ' h de barra' : v) : ''; }).filter(Boolean);
-    var largos = s.c.filter(function(x){ return x[2] === 'area' && textoCampo(s, x); }).map(function(x){ return textoCampo(s, x); });
-    if (!partes.length && !largos.length && !d.si) return '';
-    return '<div class="hr"><b>' + s.t + (s.si ? ': sí' : '') + '</b>' + (partes.length ? (s.si ? ' · ' : ': ') + esc(partes.join(' · ')) : '') + (largos.length ? '<div class="muted">' + esc(largos.join(' — ')).slice(0, 260) + '</div>' : '') + '</div>';
-  }).join('');
-}
-function carHoja(){
+function carMenu(){
   FI = clon(CAR.d.ficha || {});
-  var h = '<p class="muted" style="margin:0 2px 10px">Para el equipo: no se enseña a los clientes. Lo que marques aquí (ceremonia, cóctel, barra libre, DJ nuestro) se propone como líneas al hacer el presupuesto.</p>';
+  var c = CAR.c;
+  var h = '<div class="card"><h3>Menú</h3><div id="menu-ev"><div class="muted">Cargando…</div></div></div>';
+  h += '<div class="card"><h3>Invitados y precio</h3><div class="fila"><div class="field"><label>Adultos</label><input inputmode="numeric" id="mi-ad" value="' + attr(c.adultos || '') + '" oninput="marcar()"></div><div class="field"><label>Niños</label><input inputmode="numeric" id="mi-ni" value="' + attr(c.ninos || '') + '" oninput="marcar()"></div></div>' +
+    '<div class="fila"><div class="field"><label>Precio adulto (€, sin IVA)</label><input inputmode="decimal" id="mi-pa" value="' + attr(c.precio_adulto || '') + '" oninput="marcar()"></div><div class="field"><label>Precio niño (€, sin IVA)</label><input inputmode="decimal" id="mi-pn" value="' + attr(c.precio_nino || '') + '" oninput="marcar()"></div></div></div>';
+  h += '<div class="sec-tit">Montaje: espacios y horarios</div><p class="muted" style="margin:0 2px 10px">Para el equipo. Lo que marques (ceremonia, cóctel, barra libre, DJ nuestro) se propone como líneas al hacer el presupuesto.</p>';
   h += HOJA.map(function(s){
     var d = FI[s.k] || {};
-    var cuerpo = s.c.map(function(x){ return campoHoja(s.k, x); }).join('');
-    // Los campos cortos van de dos en dos
     return '<div class="card"><h3>' + s.t + '</h3>' + (s.si ? '<div class="chips">' + [[true, 'Sí'], [false, 'No']].map(function(o){ return '<button class="chip' + (d.si === o[0] ? ' on' : '') + '" onclick="siHoja(\'' + s.k + '\',' + o[0] + ',this)">' + o[1] + '</button>'; }).join('') + '<span class="muted" style="align-self:center">' + s.si + '</span></div>' : '') +
-      '<div id="hs-' + s.k + '" style="' + (s.si && !d.si ? 'display:none' : '') + '">' + cuerpo + '</div></div>';
+      '<div id="hs-' + s.k + '" style="' + (s.si && !d.si ? 'display:none' : '') + '">' + s.c.map(function(x){ return campoHoja(s.k, x); }).join('') + '</div></div>';
   }).join('');
-  h += '<div class="btns"><button class="btn btn-p" onclick="guardarHoja()">Guardar hoja interna</button><button class="btn btn-s" onclick="imprimirHoja()">&#128424; Imprimir para el equipo</button></div>';
+  h += '<div class="btns"><button class="btn btn-p" onclick="guardarMenuMontaje()">Guardar menú y montaje</button><button class="btn btn-s" onclick="imprimirHoja()">&#128424; Hoja para el equipo</button></div>';
   return h;
+}
+// El menú de la celebración es un «menú personalizado» propio (se puede cambiar plato a plato sin tocar el menú de la casa)
+function cargarMenuEvento(){
+  var f = CAR.d.ficha || {}, c = CAR.c, cont = $('menu-ev');
+  plantillas().then(function(ps){
+    var menus = ps.filter(function(p){ return p.tipo === c.tipo; }).concat(ps.filter(function(p){ return p.tipo !== c.tipo; }));
+    var elegir = '<div class="field" style="margin-top:10px"><label>' + (f.menu_pers_id ? 'Cambiar por otro menú de la casa' : 'Partir de un menú de la casa') + '</label><select id="mi-base"><option value="">Elegir…</option>' +
+      menus.map(function(p){ return '<option value="' + p.id + '">' + esc(p.nombre) + (Number(p.precio_persona) ? ' · ' + euros(p.precio_persona) : '') + '</option>'; }).join('') + '</select></div>' +
+      '<button class="btn btn-s btn-sm" onclick="crearMenuEvento()">' + (f.menu_pers_id ? 'Sustituir los platos' : 'Crear el menú de ' + TXT[c.tipo].la) + '</button>';
+    if (!f.menu_pers_id) { cont.innerHTML = (c.menu_nombre ? '<div style="margin-bottom:6px">Menú elegido: <b>' + esc(c.menu_nombre) + '</b> (el de la casa, sin cambios)</div>' : '<div class="muted">Todavía no tiene menú.</div>') + elegir; return; }
+    return api('GET', '/api/portal/personalizados/' + f.menu_pers_id).then(function(m){
+      cont.innerHTML = '<div style="font-size:15px;margin-bottom:6px"><b>' + esc(m.titulo) + '</b>' + (Number(m.precio_persona) ? ' · ' + euros(m.precio_persona) + ' / persona' : '') + '</div>' + resumenSecciones(m.secciones) +
+        '<div class="btns" style="margin-top:10px"><button class="btn btn-p btn-sm" onclick="ir(\'#/personalizado/' + m.id + '/evento/' + CAR.id + '\')">&#9998; Cambiar platos</button><a class="btn btn-s btn-sm" href="/menu.html?personalizado=' + m.id + '">&#128424; Ver e imprimir</a></div>' + elegir;
+    });
+  }).catch(function(e){ cont.innerHTML = '<div class="muted">' + esc(e.message) + '</div>'; });
+}
+function resumenSecciones(secs){
+  var l = [];
+  (secs || []).forEach(function(x){
+    var lim = function(a){ return (a || []).map(function(t){ return String(t || '').trim(); }).filter(Boolean); };
+    var v = x.tipo === 'lista' ? lim(x.items).join(' · ') : x.tipo === 'eleccion' ? lim(x.opciones).join(x.elegir ? ' o ' : ' · ') : x.tipo === 'sino' || x.tipo === 'barra_libre' || x.tipo === 'recena' ? (x.valor ? [x.horas, x.texto].filter(Boolean).join(' · ') || 'Sí' : '') : String(x.texto || '').trim();
+    if (v) l.push('<div class="hr"><b>' + esc(x.titulo) + ':</b> ' + esc(v) + '</div>');
+  });
+  return l.join('') || '<div class="muted">Sin platos todavía</div>';
+}
+function crearMenuEvento(){
+  var pid = $('mi-base').value; if (!pid) return toast('Elige un menú de la casa');
+  var p = (ST.plantillas || []).filter(function(x){ return String(x.id) === String(pid); })[0]; if (!p) return;
+  var c = CAR.c, f = clon(CAR.d.ficha || {});
+  if (f.menu_pers_id && !confirm('¿Sustituir los platos del menú de ' + TXT[c.tipo].la + ' por los de «' + p.nombre + '»?')) return;
+  var m = { titulo: p.nombre + ' · ' + nombreCeleb(c), cliente: nombreCeleb(c), telefono: c.tel || '', email: c.email || '', fecha: c.fecha, pax: (c.adultos || 0) + (c.ninos || 0) || null,
+    secciones: clon(p.secciones), precio_persona: p.precio_persona || c.precio_adulto || 0, nota: p.nota || 'IVA 10% no incluido', formato: p.formato || 'a4' };
+  (f.menu_pers_id ? api('PUT', '/api/portal/personalizados/' + f.menu_pers_id, m) : api('POST', '/api/portal/personalizados', m)).then(function(r){
+    f.menu_pers_id = r.id;
+    var cc = clon(c); cc.plantilla_id = p.id; cc.menu_nombre = p.nombre; if (!n2(cc.precio_adulto) && Number(p.precio_persona)) cc.precio_adulto = p.precio_persona;
+    return Promise.all([api('PUT', '/api/portal/eventos/' + c.id + '/ficha', { ficha: f }), api('PUT', '/api/portal/celebraciones/' + c.id, cc)]);
+  }).then(function(){ toast('Menú creado: ya puedes cambiar los platos'); recargarCarpeta(); }).catch(fallo);
 }
 function campoHoja(sec, x){
   var v = valHoja(sec, x[0]); v = v == null ? '' : v;
   var on = ' oninput="setHoja(\'' + sec + '\',\'' + x[0] + '\',this.value)"';
   var inp;
   if (x[2] === 'area') inp = '<textarea rows="3"' + (x[3] ? ' placeholder="' + attr(x[3]) + '"' : '') + on + '>' + esc(v) + '</textarea>';
-  else if (x[2] === 'sel') inp = '<select onchange="setHoja(\'' + sec + '\',\'' + x[0] + '\',this.value)">' + x[3].map(function(o){ var k = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return '<option value="' + attr(k) + '"' + (v === k ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>';
+  else if (x[2] === 'sel') inp = '<select onchange="setHoja(\'' + sec + '\',\'' + x[0] + '\',this.value)">' + x[3].map(function(o){ var k = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return '<option value="' + attr(k) + '"' + (String(v).toLowerCase() === String(k).toLowerCase() ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>';
   else if (x[2] === 'lugar') inp = '<input list="lugares-h" value="' + attr(v) + '"' + on + '><datalist id="lugares-h">' + LUGARES.concat(['Jardín', 'Patio', 'Salón', 'Terraza', 'Bodega', 'Cristalera', 'Iglesia']).map(function(l){ return '<option value="' + attr(l) + '">'; }).join('') + '</datalist>';
   else inp = '<input' + (x[2] === 'time' ? ' type="time"' : '') + ' value="' + attr(v) + '"' + (x[3] ? ' placeholder="' + attr(x[3]) + '"' : '') + on + '>';
   return '<div class="field"><label>' + x[1] + '</label>' + inp + '</div>';
@@ -1097,8 +1209,11 @@ function siHoja(sec, v, b){
   b.parentNode.querySelectorAll('.chip').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on');
   $('hs-' + sec).style.display = v ? '' : 'none';
 }
-function guardarHoja(){
-  api('PUT', '/api/portal/eventos/' + CAR.id + '/ficha', { ficha: FI }).then(function(){ SUCIO = false; toast('Hoja interna guardada'); CAR.d.ficha = clon(FI); }).catch(fallo);
+function guardarMenuMontaje(){
+  var cc = clon(CAR.c);
+  cc.adultos = parseInt($('mi-ad').value) || 0; cc.ninos = parseInt($('mi-ni').value) || 0; cc.precio_adulto = n2($('mi-pa').value); cc.precio_nino = n2($('mi-pn').value);
+  Promise.all([api('PUT', '/api/portal/eventos/' + CAR.id + '/ficha', { ficha: FI }), api('PUT', '/api/portal/celebraciones/' + CAR.id, cc)])
+    .then(function(){ SUCIO = false; toast('Menú y montaje guardados'); recargarCarpeta(); }).catch(fallo);
 }
 function imprimirHoja(){
   var c = CAR.c;
@@ -1109,7 +1224,7 @@ function imprimirHoja(){
     return '<h2>' + s.t + (s.si ? ': sí' : '') + '</h2>' + (filas ? '<table>' + filas + '</table>' : '<p class="v">—</p>');
   }).join('');
   var w = window.open('', '_blank'); if (!w) return toast('Permite las ventanas emergentes');
-  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Hoja interna · ' + esc(nombreCeleb(c)) + '</title><link rel="stylesheet" href="' + location.origin + '/fonts/jost.css"><style>' +
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hoja interna · ' + esc(nombreCeleb(c)) + '</title><link rel="stylesheet" href="' + location.origin + '/fonts/jost.css"><style>' +
     '@page{size:A4;margin:14mm}body{font-family:Jost,Helvetica Neue,Arial,sans-serif;color:#1a1a1a;font-size:10.5pt;max-width:190mm;margin:0 auto;padding:10px}' +
     '.cab{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #b8965a;padding-bottom:6px;margin-bottom:10px}.cab b{letter-spacing:.3em;font-weight:400;font-size:15pt}.cab span{font-size:9pt;color:#8a8278;text-align:right}' +
     'h1{font-size:14pt;font-weight:500;margin:4px 0 2px}.sub{color:#555;margin-bottom:8px}h2{font-size:8.5pt;letter-spacing:.16em;text-transform:uppercase;color:#8b6a2e;margin:14px 0 4px;border-bottom:1px solid #eee;padding-bottom:2px}' +
@@ -1117,23 +1232,23 @@ function imprimirHoja(){
     '.bar{text-align:center;margin-bottom:12px}.bar button{background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px}@media print{.bar{display:none}}</style></head><body>' +
     '<div class="bar"><button onclick="window.print()">Imprimir</button></div>' +
     '<div class="cab"><b>DON FADRIQUE</b><span>HOJA INTERNA · USO DEL EQUIPO<br>' + new Date().toLocaleDateString('es-ES') + '</span></div>' +
-    '<h1>' + esc(cap1(TXT[c.tipo].uno)) + ' · ' + esc(nombreCeleb(c)) + '</h1><div class="sub">' + esc(cap1(fechaLarga(c.fecha))) + (c.hora ? ' · ' + esc(c.hora) + ' h' : '') + ' · ' + esc(c.lugar || '') + ' · ' + (c.adultos || 0) + ' adultos' + (n2(c.ninos) ? ', ' + c.ninos + ' niños' : '') + (c.menu_nombre ? ' · ' + esc(c.menu_nombre) : '') + (c.tel ? ' · Tel. ' + esc(c.tel) : '') + '</div>' +
+    '<h1>' + esc(cap1(TXT[c.tipo].uno)) + ' · ' + esc(nombreCeleb(c)) + '</h1><div class="sub">' + esc(cap1(fechaLarga(c.fecha))) + (c.hora ? ' · ' + esc(c.hora) + ' h' : '') + ' · ' + esc(c.lugar || '') + ' · ' + (c.adultos || 0) + ' adultos' + (n2(c.ninos) ? ', ' + c.ninos + ' niños' : '') + (c.menu_nombre ? ' · ' + esc(c.menu_nombre) : '') + (c.hab_novios ? ' · Hab. novios ' + esc(c.hab_novios) : '') + (c.tel ? ' · Tel. ' + esc(c.tel) : '') + '</div>' +
     cuerpo + '</body></html>');
   w.document.close();
 }
 
-// ── Historial de reuniones y llamadas ──
+// ── Reuniones e historial ──
 var TIPOS_NOTA = { reunion: ['&#129309;', 'Reunión'], llamada: ['&#128222;', 'Llamada'], visita: ['&#128694;', 'Visita'], email: ['&#9993;', 'Email / WhatsApp'], nota: ['&#128221;', 'Nota'], sistema: ['&#9881;', 'Automático'] };
 var NOTA_TIPO = 'reunion';
 function pintarNota(n){
   var t = TIPOS_NOTA[n.tipo] || TIPOS_NOTA.nota;
-  if (n.tipo === 'sistema') return '<div class="nota sis">' + t[0] + ' ' + esc(n.texto) + ' <span>· ' + esc(fechaCorta(n.fecha)) + (n.autor ? ' · ' + esc(n.autor) : '') + '</span></div>';
+  if (n.tipo === 'sistema') return '<div class="nota sis">' + t[0] + ' ' + esc(n.texto) + ' <span>· ' + esc(fechaHoraSql(n.created_at)) + (n.autor ? ' · ' + esc(n.autor) : '') + '</span></div>';
   return '<div class="nota" id="nota-' + n.id + '"><div class="cab">' + t[0] + ' <b>' + t[1] + '</b> · ' + esc(fechaCorta(n.fecha)) + (n.autor ? ' · ' + esc(n.autor) : '') +
     (CAR.tab === 'historial' ? ' <button class="lnk" onclick="editarNota(' + n.id + ')">editar</button>' : '') + '</div><div class="tx">' + esc(n.texto) + '</div></div>';
 }
 function carHistorial(){
   var h = '<div class="card"><h3>Anotar</h3><div class="chips">' + ['reunion', 'llamada', 'visita', 'email', 'nota'].map(function(k){ return '<button class="chip' + (NOTA_TIPO === k ? ' on' : '') + '" onclick="NOTA_TIPO=\'' + k + '\';this.parentNode.querySelectorAll(\'.chip\').forEach(function(x){x.classList.remove(\'on\')});this.classList.add(\'on\')">' + TIPOS_NOTA[k][0] + ' ' + TIPOS_NOTA[k][1] + '</button>'; }).join('') + '</div>' +
-    '<div class="field"><label>Fecha</label><input type="date" id="n-fecha" value="' + hoyISO() + '"></div>' +
+    '<div class="field"><label>Fecha de la reunión</label><input type="date" id="n-fecha" value="' + hoyISO() + '"></div>' +
     '<div class="field"><label>Qué se habló, qué se decidió, qué queda pendiente</label><textarea id="n-texto" rows="5" oninput="marcar()"></textarea></div>' +
     '<button class="btn btn-p" onclick="guardarNota()">Guardar en el historial</button></div>';
   var solo = CAR.soloHablado;
@@ -1159,17 +1274,43 @@ function editarNota(id){
 function guardarEdNota(id){ api('PUT', '/api/portal/eventos/notas/' + id, { fecha: $('en-f-' + id).value, tipo: $('en-t-' + id).value, texto: $('en-x-' + id).value }).then(function(){ toast('Guardado'); recargarCarpeta(); }).catch(fallo); }
 function borrarNota(id){ if (!confirm('¿Borrar esta anotación del historial?')) return; api('DELETE', '/api/portal/eventos/notas/' + id).then(recargarCarpeta).catch(fallo); }
 
-// ── Presupuesto, reserva con fianza y factura ──
+// ── Habitación de los novios en el hotel ──
+function carHabitacion(){
+  var c = CAR.c;
+  return '<div class="card"><p style="margin-bottom:10px">La noche de la boda (' + esc(fechaCorta(c.fecha)) + ' → ' + esc(fechaCorta(diaSiguiente(c.fecha))) + ') los novios se alojan en el hotel. Se reserva en la app del hotel a su nombre, con importe 0 €.</p>' +
+    '<div id="hab-cuerpo"><div class="muted">Consultando el hotel…</div></div></div>' +
+    (c.estado !== 'confirmada' ? '<p class="muted" style="margin:0 4px">Normalmente se reserva al confirmar la boda (cuando pagan la fianza), pero puedes hacerlo ya.</p>' : '');
+}
+function diaSiguiente(f){ if (!f) return ''; var d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function cargarHabitacion(){
+  api('GET', '/api/portal/eventos/' + CAR.id + '/habitacion').then(function(r){
+    var h = '';
+    if (r.habitacion) h += '<div class="hab-ok">&#10003; Habitación <b>' + esc(r.habitacion) + '</b> reservada en el hotel' + (r.reserva_id ? ' (reserva nº ' + r.reserva_id + ')' : '') + '</div>';
+    h += '<div class="sec-tit" style="margin-top:4px">' + (r.habitacion ? 'Cambiar a otra' : 'Elige la habitación') + '</div><div class="habs">' + r.opciones.map(function(o){
+      var libre = r.libres[o], es = r.habitacion === o;
+      return '<button class="hab' + (es ? ' on' : '') + (libre === false && !es ? ' ocup' : '') + '"' + (libre === false && !es ? ' disabled' : '') + ' onclick="reservarHab(\'' + o + '\')"><b>' + o + '</b><small>' + (es ? 'Reservada' : libre === false ? 'Ocupada esa noche' : libre === null ? 'Sin respuesta del hotel' : 'Libre') + '</small></button>';
+    }).join('') + '</div>';
+    if (r.habitacion) h += '<div class="btns" style="margin-top:12px"><button class="btn btn-s btn-sm" onclick="reservarHab(\'' + r.habitacion + '\')">Actualizar en el hotel (fecha y nombres)</button><button class="btn btn-d btn-sm" onclick="anularHab()">Anular la reserva</button></div>';
+    $('hab-cuerpo').innerHTML = h;
+  }).catch(function(e){ $('hab-cuerpo').innerHTML = '<div class="muted">' + esc(e.message) + '</div>'; });
+}
+function reservarHab(h){
+  api('POST', '/api/portal/eventos/' + CAR.id + '/habitacion', { habitacion: h }).then(function(r){ toast('Habitación ' + r.habitacion + ' reservada en el hotel'); recargarCarpeta(); }).catch(fallo);
+}
+function anularHab(){ if (!confirm('¿Anular la reserva de la habitación de los novios en el hotel?')) return; api('DELETE', '/api/portal/eventos/' + CAR.id + '/habitacion').then(function(){ toast('Anulada'); recargarCarpeta(); }).catch(fallo); }
+
+// ── Presupuesto, fianza y factura ──
 var DOC_TXT = {
-  presupuesto: { vacio: 'Todavía no hay presupuesto. Se prepara con el menú, los invitados y lo marcado en la hoja interna; luego ajustas precios y líneas.', crear: '+ Hacer el presupuesto' },
-  fianza: { vacio: 'Documento de reserva de la fecha con la fianza. Se firma con el dedo (aquí o en el móvil de los clientes) y se les envía en PDF.', crear: '+ Hacer el documento de reserva' },
+  presupuesto: { vacio: 'El presupuesto final se prepara con el menú, los invitados y lo marcado en «Menú y montaje»; luego ajustas precios y líneas. Se firma con el dedo y se envía al email de los novios.', crear: '+ Hacer el presupuesto' },
+  fianza: { vacio: 'Documento de reserva de la fecha con la fianza. Se firma con el dedo (en este móvil o tablet, o en el de los clientes) y queda guardado en PDF.', crear: '+ Hacer el documento de reserva y fianza' },
   factura: { vacio: 'La factura se crea sola cuando los clientes firman el presupuesto, y se actualiza si firman una versión nueva. También puedes crearla ahora.', crear: '+ Crear la factura' }
 };
 function carDoc(tipo){
   var act = docActual(tipo), todos = docsDe(tipo), h = '';
   DOCED = null;
+  if (tipo === 'fianza') h += tarjetaPagoFianza();
   if (!act) {
-    h += '<div class="card"><p style="margin-bottom:12px">' + DOC_TXT[tipo].vacio + '</p><button class="btn btn-p" onclick="crearDoc(\'' + tipo + '\')">' + DOC_TXT[tipo].crear + '</button></div>';
+    h += '<div class="card"><p style="margin-bottom:12px">' + DOC_TXT[tipo].vacio + '</p><button class="btn btn-p" onclick="crearDocEv(\'' + tipo + '\')">' + DOC_TXT[tipo].crear + '</button></div>';
   } else {
     var editable = act.estado === 'borrador' || act.estado === 'enviado';
     h += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><b style="font-size:15px">' + esc(act.numero || (tipo === 'factura' ? 'Factura (sin número todavía)' : '')) + (act.version > 1 ? ' · v' + act.version : '') + '</b>' + badgeDoc(act) + '</div>' +
@@ -1180,21 +1321,27 @@ function carDoc(tipo){
     if (editable) { DOCED = clon(act); h += editorDoc(tipo); }
     else h += vistaDoc(act);
     h += accionesDoc(act);
+    h += enviosDoc(act);
   }
-  // Versiones anteriores
   var viejos = todos.filter(function(d){ return !act || d.id !== act.id; });
   if (viejos.length) h += '<div class="card"><h3>Versiones anteriores</h3>' + viejos.map(function(d){
     return '<div class="arch"><a href="/api/portal/eventos/docs/' + d.id + '/pdf" target="_blank"><b>&#128196; ' + esc((d.numero || 'Borrador') + (d.version > 1 ? ' · v' + d.version : '')) + '</b><small>' + (EST_DOC[d.estado] || [''])[0] + (d.firmado_nombre ? ' por ' + esc(d.firmado_nombre) + ' · ' + esc(fechaSql(d.firmado_at)) : '') + (d.total ? ' · ' + euros(d.total) : '') + '</small></a></div>';
   }).join('') + '</div>';
-  if (tipo === 'fianza') h += tarjetaPagoFianza();
-  if (ST.admin) h += '<details class="card"><summary class="muted" style="cursor:pointer">Texto por defecto de ' + (tipo === 'factura' ? 'observaciones de la factura' : 'condiciones') + ' (para documentos nuevos)</summary><textarea class="in" id="txt-def" rows="7" style="margin-top:10px">' + esc(CAR.d.textos[tipo] || '') + '</textarea>' +
-    '<button class="btn btn-s btn-sm" style="margin-top:8px" onclick="guardarTextoDef(\'' + tipo + '\')">Guardar texto por defecto</button></details>';
+  if (ST.admin && tipo !== 'factura') h += '<details class="card"><summary class="muted" style="cursor:pointer">Ajustes: texto de condiciones por defecto y correo de envío</summary><textarea class="in" id="txt-def" rows="7" style="margin-top:10px">' + esc(CAR.d.textos[tipo] || '') + '</textarea>' +
+    '<button class="btn btn-s btn-sm" style="margin-top:8px" onclick="guardarTextoDef(\'' + tipo + '\')">Guardar texto por defecto</button><div style="margin-top:14px"><button class="btn btn-s btn-sm" onclick="configCorreo()">&#9993; Correo de envío (reservas@donfadrique.com)</button></div></details>';
   return h;
+}
+// Constancia de cada envío por email: fecha, hora, destinatario y desde qué dirección
+function enviosDoc(d){
+  var l = d.envios || []; if (!l.length) return '';
+  return '<div class="card"><h3>Envíos por email</h3>' + l.slice().reverse().map(function(e){
+    return '<div class="env">&#9993; <b>' + esc(fechaHoraSql(e.at)) + '</b> · ' + esc(e.que || 'PDF') + '<br><small>A ' + esc(e.para) + ' · desde ' + esc(e.desde) + '</small></div>';
+  }).join('') + '</div>';
 }
 function tarjetaPagoFianza(){
   var c = CAR.c;
   return '<div class="card"><h3>Pago de la fianza</h3>' + (c.fianza_pagada ? '<div><span class="badge b-verde">Pagada</span> ' + euros(c.fianza_importe) + ' el ' + esc(fechaCorta(c.fianza_fecha)) + (c.fianza_forma ? ' · ' + esc(c.fianza_forma) : '') + '</div>' :
-    '<div class="muted" style="margin-bottom:10px">Aún no está marcada como pagada' + (n2(c.fianza_importe) ? ' (' + euros(c.fianza_importe) + ')' : '') + '. Al marcarla, ' + TXT[c.tipo].la + ' pasa a confirmada (verde).</div><button class="btn btn-p btn-sm" onclick="fianzaPagada()">&#10003; Marcar fianza como pagada hoy</button>') + '</div>';
+    '<div class="muted" style="margin-bottom:10px">Aún no está marcada como pagada' + (n2(c.fianza_importe) ? ' (' + euros(c.fianza_importe) + ')' : '') + '. Al marcarla, ' + TXT[c.tipo].la + ' pasa a confirmada (verde)' + (c.tipo === 'boda' ? ' y se reserva la habitación de los novios' : '') + '.</div><button class="btn btn-p btn-sm" onclick="fianzaPagada()">&#10003; Marcar fianza como pagada hoy</button>') + '</div>';
 }
 function fianzaPagada(){
   var c = clon(CAR.c), fz = docActual('fianza');
@@ -1203,24 +1350,29 @@ function fianzaPagada(){
   if (!c.fianza_forma && fz && fz.datos) c.fianza_forma = fz.datos.forma_pago;
   c.fianza_pagada = true; c.fianza_fecha = hoyISO();
   api('PUT', '/api/portal/celebraciones/' + c.id, c).then(function(){ return api('POST', '/api/portal/eventos/' + c.id + '/notas', { tipo: 'nota', texto: 'Fianza de ' + euros(c.fianza_importe) + ' pagada' + (c.fianza_forma ? ' (' + c.fianza_forma + ')' : '') }); })
-    .then(function(){ toast('Fianza pagada · confirmada'); recargarCarpeta(); }).catch(fallo);
+    .then(function(){ toast('Fianza pagada · confirmada'); trasConfirmar(c); }).catch(fallo);
+}
+// Al confirmar una boda: a elegir la habitación de los novios
+function trasConfirmar(c){
+  if (c.tipo === 'boda' && !c.hab_novios) { toast('Boda confirmada: elige la habitación de los novios'); ir('#/celebracion/' + c.id + '/habitacion'); }
+  else recargarCarpeta();
 }
 function guardarTextoDef(tipo){ var o = {}; o[tipo] = $('txt-def').value; api('PUT', '/api/portal/eventos/textos', o).then(function(t){ CAR.d.textos = t; toast('Texto guardado para los próximos documentos'); }).catch(fallo); }
-function crearDoc(tipo){
+function crearDocEv(tipo){
   api('POST', '/api/portal/eventos/' + CAR.id + '/docs', { tipo: tipo }).then(function(){ toast('Creado'); recargarCarpeta(); }).catch(fallo);
 }
 function editorDoc(tipo){
   var d = DOCED.datos, h = '';
+  var refrescar = '<button class="lnk" onclick="refrescarDatosDoc()">Actualizar con los datos actuales</button>';
   if (tipo === 'fianza') {
     h += '<div class="card"><h3>Reserva y fianza</h3><div class="fila"><div class="field"><label>Importe de la fianza (€)</label><input inputmode="decimal" value="' + attr(d.importe_fianza || '') + '" oninput="DOCED.datos.importe_fianza=n2(this.value);marcar()"></div>' +
       '<div class="field"><label>Forma de pago</label><select onchange="DOCED.datos.forma_pago=this.value;marcar()">' + ['Transferencia', 'Tarjeta', 'Efectivo', 'Bizum'].map(function(f){ return '<option' + (d.forma_pago === f ? ' selected' : '') + '>' + f + '</option>'; }).join('') + '</select></div></div>' +
-      (d.presupuesto && d.presupuesto.numero ? '<div class="muted">Hace referencia al presupuesto ' + esc(d.presupuesto.numero) + '</div>' : '') +
-      '<div class="muted" style="margin-top:6px">Los nombres, DNI, fecha y lugar se toman de la pestaña Datos (' + esc(d.cliente && d.cliente.nombre || 'sin nombres') + ' · ' + esc(fechaCorta(d.evento && d.evento.fecha)) + '). <button class="lnk" onclick="refrescarDatosDoc()">Actualizar con los datos actuales</button></div></div>';
+      '<div class="muted">Nombres, DNI, fecha y lugar: ' + esc(d.cliente && d.cliente.nombre || 'sin nombres') + ' · ' + esc(fechaCorta(d.evento && d.evento.fecha)) + '. ' + refrescar + '</div></div>';
   } else {
     h += '<div class="card"><h3>' + (tipo === 'factura' ? 'Líneas de la factura' : 'Líneas del presupuesto') + '</h3><div id="doc-lineas">' + lineasDocHtml() + '</div>' +
       '<button class="btn btn-s btn-sm" onclick="DOCED.datos.lineas.push({concepto:\'\',cantidad:1,precio:0,iva:10});marcar();pintarLineasDoc()">+ Añadir línea</button>' +
       '<div class="tot-doc" id="doc-tot"></div>' +
-      '<div class="muted" style="margin-top:6px">Precio 0 se imprime como «Incluido». Cliente y datos del evento: ' + esc(d.cliente && d.cliente.nombre || 'sin nombres') + ' · ' + esc(fechaCorta(d.evento && d.evento.fecha)) + ' · ' + ((d.evento && d.evento.adultos) || 0) + ' adultos. <button class="lnk" onclick="refrescarDatosDoc()">Actualizar con los datos actuales</button></div></div>';
+      '<div class="muted" style="margin-top:6px">Precio 0 se imprime como «Incluido». ' + esc(d.cliente && d.cliente.nombre || 'Sin nombres') + ' · ' + esc(fechaCorta(d.evento && d.evento.fecha)) + ' · ' + ((d.evento && d.evento.adultos) || 0) + ' adultos' + (tipo === 'presupuesto' ? ' · menú: ' + esc(d.menu && d.menu.nombre || 'sin menú') : '') + '. ' + refrescar + '</div></div>';
   }
   h += '<div class="card"><h3>' + (tipo === 'factura' ? 'Observaciones' : 'Condiciones') + '</h3><textarea class="in" rows="7" oninput="DOCED.datos.condiciones=this.value;marcar()">' + esc(d.condiciones || '') + '</textarea>' +
     '<div class="field" style="margin-top:10px"><label>Nota adicional (opcional, sale en el documento)</label><textarea rows="2" oninput="DOCED.datos.notas=this.value;marcar()">' + esc(d.notas || '') + '</textarea></div></div>';
@@ -1237,22 +1389,14 @@ function lineasDocHtml(){
   }).join('');
 }
 function pintarLineasDoc(){ $('doc-lineas').innerHTML = lineasDocHtml(); totDoc(); }
-function calcTotDoc(datos){
-  var base = 0, iva = 0;
-  (datos.lineas || []).forEach(function(l){ var imp = n2(l.cantidad) * n2(l.precio); base += imp; iva += imp * (Number(l.iva) || 10) / 100; });
-  return { base: base, iva: iva, total: base + iva };
-}
 function totDoc(){
   var e = $('doc-tot'); if (!e || !DOCED) return;
-  var t = calcTotDoc(DOCED.datos);
-  e.innerHTML = 'Base ' + euros(t.base) + ' · IVA ' + euros(t.iva) + '<br>Total <b>' + euros(t.total) + '</b>';
+  var base = 0, iva = 0;
+  (DOCED.datos.lineas || []).forEach(function(l){ var imp = n2(l.cantidad) * n2(l.precio); base += imp; iva += imp * (Number(l.iva) || 10) / 100; });
+  e.innerHTML = 'Base ' + euros(base) + ' · IVA ' + euros(iva) + '<br>Total <b>' + euros(base + iva) + '</b>';
 }
 function refrescarDatosDoc(){
-  var c = CAR.c, p1 = [c.nombre1, c.apellidos1].filter(Boolean).join(' '), p2 = [c.nombre2, c.apellidos2].filter(Boolean).join(' ');
-  DOCED.datos.cliente = { nombre: c.tipo === 'evento' && c.empresa ? c.empresa : [p1, p2].filter(Boolean).join(' y '), persona1: p1, dni1: c.dni1 || '', persona2: p2, dni2: c.dni2 || '', empresa: c.empresa || '', cif: c.cif || '', direccion: c.direccion || '', email: c.email || '', tel: c.tel || '' };
-  DOCED.datos.evento = { tipo: c.tipo, nombre: nombreCeleb(c), fecha: c.fecha, hora: c.hora || '', lugar: c.lugar || '', adultos: c.adultos || 0, ninos: c.ninos || 0, menu: c.menu_nombre || '', protagonista: c.protagonista || '' };
-  if (DOCED.tipo === 'fianza' && !n2(DOCED.datos.importe_fianza) && n2(c.fianza_importe)) DOCED.datos.importe_fianza = c.fianza_importe;
-  guardarDocEv().then(function(){ toast('Datos actualizados'); recargarCarpeta(); }).catch(fallo);
+  guardarSiHace().then(function(){ return api('POST', '/api/portal/eventos/docs/' + DOCED.id + '/refrescar', {}); }).then(function(){ toast('Datos actualizados'); recargarCarpeta(); }).catch(fallo);
 }
 function guardarDocEv(){
   if (!DOCED) return Promise.resolve();
@@ -1267,11 +1411,12 @@ function vistaDoc(d){
     h += '<div class="tot-doc">Base ' + euros(d.base) + ' · IVA ' + euros(d.iva) + '<br>Total <b>' + euros(d.total) + '</b>';
     if (d.tipo === 'factura' && x.a_cuenta && x.a_cuenta.length) { var ac = x.a_cuenta.reduce(function(a, p){ return a + n2(p.importe); }, 0); h += '<br>A cuenta − ' + euros(ac) + '<br>Pendiente <b>' + euros(d.total - ac) + '</b>'; }
     h += '</div>';
+    if (d.tipo === 'factura' && d.huella) h += '<div class="muted" style="margin-top:8px">&#128274; Registro Verifactu: huella encadenada ' + esc(String(d.huella).slice(0, 16)) + '… y código QR de la AEAT en el PDF.</div>';
   }
   return h + '</div>';
 }
 function accionesDoc(d){
-  var id = d.id, pdf = '/api/portal/eventos/docs/' + id + '/pdf', h = '<div class="card"><div class="btns">';
+  var id = d.id, h = '<div class="card"><div class="btns">';
   var editable = d.estado === 'borrador' || d.estado === 'enviado';
   if (editable) h += '<button class="btn btn-p" onclick="guardarDocEv().then(function(){toast(\'Guardado\');recargarCarpeta()}).catch(fallo)">Guardar cambios</button>';
   h += '<button class="btn btn-s" onclick="verPdfDoc(' + id + ')">&#128196; Ver PDF</button>';
@@ -1285,38 +1430,38 @@ function accionesDoc(d){
   }
   if (d.tipo === 'factura' && d.estado === 'borrador') h += '<button class="btn btn-n" onclick="emitirFactura(' + id + ')">Emitir factura</button>';
   if (!editable) h += '<button class="btn btn-s" onclick="enviarDoc(' + id + ')">&#9993; Enviar PDF por email</button>';
-  if (d.estado === 'firmado' && d.token) h += '<button class="btn btn-s" onclick="waDoc(\'' + d.token + '\',\'firmado\')">&#128172; Enviar por WhatsApp</button>';
+  if (d.estado === 'firmado' && d.token) h += '<button class="btn btn-s" onclick="waDoc(' + id + ')">&#128172; Enviar por WhatsApp</button>';
   h += '</div>';
   if (d.estado === 'firmado') h += '<button class="btn btn-s btn-sm" style="margin-top:12px" onclick="nuevaVersion(' + id + ')">Hacer una nueva versión (la firmada se guarda)</button>';
   if (editable) h += '<button class="lnk" style="margin-top:14px;color:var(--rojo)" onclick="borrarDocEv(' + id + ')">Eliminar este borrador</button>';
   return h + '</div>';
 }
 function verPdfDoc(id){
-  var w = window.open('about:blank', '_blank');
-  guardarSiHace().then(function(){ var u = '/api/portal/eventos/docs/' + id + '/pdf?t=' + Date.now(); if (w) w.location = u; else location.href = u; }).catch(function(e){ if (w) w.close(); fallo(e); });
+  guardarSiHace().then(function(){ location.href = '/api/portal/eventos/docs/' + id + '/pdf?t=' + Date.now(); }).catch(fallo);
 }
+function docPorId(id){ return CAR.d.docs.filter(function(x){ return x.id === id; })[0]; }
 function textoWa(tipo, url, firmado){
   var c = CAR.c, quien = c.nombre1 ? ' ' + c.nombre1 : '';
   var doc = tipo === 'fianza' ? 'el documento de reserva de fecha y fianza' : 'el presupuesto';
   return firmado ? 'Hola' + quien + ', aquí tenéis ' + doc + ' firmado: ' + url + ' · Don Fadrique'
     : 'Hola' + quien + ', os enviamos ' + doc + ' de ' + nombreCeleb(c) + '. Podéis revisarlo y firmarlo con el dedo desde el móvil aquí: ' + url + ' · Don Fadrique';
 }
-function waDoc(token, firmado){ var url = location.origin + '/firma/' + token; window.open('https://wa.me/' + telWa(CAR.c.tel) + '?text=' + encodeURIComponent(textoWa(docsDe('presupuesto').concat(docsDe('fianza')).filter(function(d){ return d.token === token; })[0].tipo, url, firmado)), '_blank'); }
+function waDoc(id){ var d = docPorId(id); window.open('https://wa.me/' + telWa(CAR.c.tel) + '?text=' + encodeURIComponent(textoWa(d.tipo, location.origin + '/firma/' + d.token, true)), '_blank'); }
 function firmarDoc(id, modo){
-  if (modo === 'email' && !CAR.c.email) return toast('Añade el email de los clientes en la pestaña Datos');
+  if (modo === 'email' && !CAR.c.email) return toast('Añade el email de los clientes en «Datos»');
   if (modo === 'email' && !confirm('¿Enviar por email a ' + CAR.c.email + ' el enlace para firmar y el PDF?')) return;
-  var w = modo === 'aqui' ? window.open('about:blank', '_blank') : null;
-  var d = docsDe('presupuesto').concat(docsDe('fianza')).filter(function(x){ return x.id === id; })[0];
+  var d = docPorId(id);
   guardarSiHace().then(function(){ return api('POST', '/api/portal/eventos/docs/' + id + '/firmar', { email: modo === 'email' }); }).then(function(r){
-    if (modo === 'aqui') { CAR.esperando = true; if (w) w.location = r.url; else location.href = r.url; return; }
-    if (modo === 'email') { toast(r.email ? 'Enviado a ' + r.email.join(', ') : (r.aviso || 'Enlace creado')); if (r.aviso) alert(r.aviso); }
+    // Firmar aquí: se abre la página de firma en esta misma pantalla (también en la app instalada en el móvil) y vuelve sola al terminar
+    if (modo === 'aqui') { location.href = r.url.replace(/^https?:\/\/[^/]+/, '') + '?volver=' + encodeURIComponent(location.pathname + '#/celebracion/' + CAR.id + '/' + d.tipo); return; }
+    if (modo === 'email') { if (r.aviso) alert(r.aviso); else toast('Enviado a ' + r.email.join(', ')); }
     if (modo === 'wa') window.open('https://wa.me/' + telWa(CAR.c.tel) + '?text=' + encodeURIComponent(textoWa(d.tipo, r.url)), '_blank');
     if (modo === 'copiar') { (navigator.clipboard ? navigator.clipboard.writeText(r.url) : Promise.reject()).then(function(){ toast('Enlace copiado'); }, function(){ prompt('Copia el enlace:', r.url); }); }
     recargarCarpeta();
-  }).catch(function(e){ if (w) w.close(); fallo(e); });
+  }).catch(fallo);
 }
 function enviarDoc(id){
-  if (!CAR.c.email) return toast('Añade el email de los clientes en la pestaña Datos');
+  if (!CAR.c.email) return toast('Añade el email de los clientes en «Datos»');
   if (!confirm('¿Enviar el PDF por email a ' + CAR.c.email + '?')) return;
   api('POST', '/api/portal/eventos/docs/' + id + '/enviar', {}).then(function(r){ toast('Enviado a ' + r.para.join(', ')); recargarCarpeta(); }).catch(fallo);
 }
@@ -1326,7 +1471,7 @@ function nuevaVersion(id){
 }
 function emitirFactura(id){
   guardarSiHace().then(function(){
-    if (!confirm('Al emitirla recibe número y fecha de hoy y ya no se puede cambiar. Se descuentan la fianza y los pagos anotados. ¿Emitir la factura?')) return;
+    if (!confirm('Al emitirla recibe número y fecha de hoy, su registro Verifactu (huella y QR) y ya no se puede cambiar. Se descuentan la fianza y los pagos anotados. ¿Emitir la factura?')) return;
     return api('POST', '/api/portal/eventos/docs/' + id + '/emitir', {}).then(function(d){ toast('Factura ' + d.numero + ' emitida'); recargarCarpeta(); });
   }).catch(fallo);
 }
@@ -1334,13 +1479,30 @@ function borrarDocEv(id){
   if (!confirm('¿Eliminar este borrador?')) return;
   api('DELETE', '/api/portal/eventos/docs/' + id).then(function(){ SUCIO = false; toast('Eliminado'); recargarCarpeta(); }).catch(fallo);
 }
+// Correo de envío (solo administradores): reservas@donfadrique.com
+function configCorreo(){
+  api('GET', '/api/portal/eventos/correo').then(function(k){
+    var o = $('ov-correo'); if (o) o.remove();
+    o = document.createElement('div'); o.id = 'ov-correo'; o.className = 'ov';
+    o.innerHTML = '<div class="ov-c"><h3 style="margin-bottom:6px">Correo de envío de eventos</h3><p class="muted" style="margin-bottom:12px">Presupuestos, reservas y facturas se envían desde esta dirección, y queda constancia de cada envío.' + (k.activo ? ' Ahora se envía desde <b>' + esc(k.activo) + '</b>.' : ' Ahora no hay ninguno configurado.') + '</p>' +
+      '<div class="field"><label>Dirección</label><input id="co-desde" value="' + attr(k.desde) + '"></div>' +
+      '<div class="field"><label>Nombre que ven los clientes</label><input id="co-nombre" value="' + attr(k.nombre) + '"></div>' +
+      '<div class="fila"><div class="field"><label>Servidor SMTP</label><input id="co-host" value="' + attr(k.host) + '" placeholder="smtp.gmail.com"></div><div class="field" style="max-width:90px"><label>Puerto</label><input id="co-port" inputmode="numeric" value="' + attr(k.port) + '"></div></div>' +
+      '<div class="field"><label>Usuario (normalmente la propia dirección)</label><input id="co-user" value="' + attr(k.user || k.desde) + '" autocapitalize="off"></div>' +
+      '<div class="field"><label>Contraseña ' + (k.tiene_pass ? '(ya guardada: déjala vacía para no cambiarla)' : '(o contraseña de aplicación)') + '</label><input id="co-pass" type="password" autocomplete="new-password"></div>' +
+      '<div class="btns"><button class="btn btn-p" onclick="guardarCorreo()">Guardar</button><button class="btn btn-s" onclick="probarCorreo()">Enviar prueba</button><button class="btn btn-s" onclick="$(\'ov-correo\').remove()">Cerrar</button></div></div>';
+    document.body.appendChild(o);
+  }).catch(fallo);
+}
+function datosCorreo(){ return { desde: $('co-desde').value, nombre: $('co-nombre').value, host: $('co-host').value, port: $('co-port').value, user: $('co-user').value, pass: $('co-pass').value }; }
+function guardarCorreo(){ api('PUT', '/api/portal/eventos/correo', datosCorreo()).then(function(){ toast('Correo guardado'); $('ov-correo').remove(); }).catch(fallo); }
+function probarCorreo(){ api('PUT', '/api/portal/eventos/correo', datosCorreo()).then(function(){ return api('POST', '/api/portal/eventos/correo/prueba', {}); }).then(function(r){ toast('Prueba enviada desde ' + r.desde + ': mira la bandeja de entrada'); }).catch(fallo); }
 
 // ── Archivos ──
 var CAT_ARCH = { presupuesto: 'Presupuestos', fianza: 'Fianza y reserva', factura: 'Facturas', contrato: 'Contratos', proveedor: 'Proveedores', foto: 'Fotos', otro: 'Otros' };
 function carArchivos(){
   var d = CAR.d, h = '<div class="card"><h3>Subir archivos</h3><div class="fila" style="align-items:center"><select class="in" id="ar-cat">' + Object.keys(CAT_ARCH).map(function(k){ return '<option value="' + k + '"' + (k === 'otro' ? ' selected' : '') + '>' + CAT_ARCH[k] + '</option>'; }).join('') + '</select>' +
     '<label class="btn btn-p" style="margin:0">&#128206; Elegir archivos<input type="file" multiple style="display:none" onchange="subirArchivos(this.files)"></label></div><div class="muted" id="ar-prog" style="margin-top:6px">Fotos, PDF, Word, Excel… (hasta 30 MB cada uno)</div></div>';
-  // Documentos hechos con la app
   if (d.docs.length) h += '<div class="card"><h3>Documentos de la app</h3>' + d.docs.slice().sort(function(a, b){ return a.tipo === b.tipo ? b.id - a.id : a.tipo < b.tipo ? -1 : 1; }).map(function(x){
     var tit = { presupuesto: 'Presupuesto', fianza: 'Reserva y fianza', factura: 'Factura' }[x.tipo];
     return '<div class="arch"><a href="/api/portal/eventos/docs/' + x.id + '/pdf" target="_blank"><b>&#128196; ' + tit + ' ' + esc(x.numero || '') + (x.version > 1 ? ' · v' + x.version : '') + '</b><small>' + (EST_DOC[x.estado] || [''])[0] + (x.sustituido ? ' · versión anterior' : '') + (x.firmado_at ? ' · ' + esc(fechaSql(x.firmado_at)) : '') + (x.total ? ' · ' + euros(x.total) : '') + '</small></a></div>';
@@ -1367,6 +1529,30 @@ function subirArchivos(files){
   })();
 }
 function borrarArchivo(id){ if (!confirm('¿Quitar este archivo de la carpeta?')) return; api('DELETE', '/api/portal/eventos/archivos/' + id).then(recargarCarpeta).catch(fallo); }
+
+// ── Lista de carpetas: una por boda / comunión / evento, ordenadas por fecha y agrupadas por mes ──
+var EST_LISTA = null;
+function pintarCarpetasCeleb(tipo){
+  api('GET', '/api/portal/eventos/estado').then(function(est){
+    EST_LISTA = est;
+    var hoy = hoyISO(), verPas = CAL['pas_' + tipo];
+    var l = CELEBS.filter(function(c){ return verPas ? c.fecha < hoy : c.fecha >= hoy; }).sort(function(a, b){ return verPas ? (a.fecha < b.fecha ? 1 : -1) : (a.fecha < b.fecha ? -1 : 1); });
+    var h = '<div class="chips"><button class="chip' + (!verPas ? ' on' : '') + '" onclick="CAL[\'pas_' + tipo + '\']=false;pintarCarpetasCeleb(\'' + tipo + '\')">Próximas</button><button class="chip' + (verPas ? ' on' : '') + '" onclick="CAL[\'pas_' + tipo + '\']=true;pintarCarpetasCeleb(\'' + tipo + '\')">Celebradas</button></div>';
+    if (!l.length) h += '<div class="vacio">No hay ' + TXT[tipo].plural.toLowerCase() + (verPas ? ' celebradas' : ' próximas') + '</div>';
+    var mes = '';
+    l.forEach(function(c){
+      var m = c.fecha.slice(0, 7);
+      if (m !== mes) { if (mes) h += '</div>'; mes = m; var ym = m.split('-').map(Number); h += '<div class="mes-carp">' + mesTxt(ym[0], ym[1]) + '</div><div class="lista-carp">'; }
+      var e = est[c.id] || {}, col = c.estado === 'cancelada' ? 'g' : c.estado === 'confirmada' ? 'v' : 'a';
+      var pt = function(v, t){ return '<span class="pt-e ' + (v === 2 ? 'v' : v === 1 ? 'a' : 'g') + '">' + t + '</span>'; };
+      h += '<button class="fila-carp' + (c.estado === 'cancelada' ? ' canc' : '') + '" onclick="ir(\'#/celebracion/' + c.id + '\')">' + svgCarpeta(col) +
+        '<div class="tx"><b>' + esc(nombreCeleb(c)) + '</b><small>' + esc(cap1(fechaSinAno(c.fecha))) + (c.hora ? ' · ' + esc(c.hora) : '') + ((c.adultos || c.ninos) ? ' · ' + ((c.adultos || 0) + (c.ninos || 0)) + ' invitados' : '') + (c.estado === 'cancelada' ? ' · cancelada' : '') + '</small>' +
+        '<div class="pts">' + pt(e.fianza, 'Fianza') + pt(e.menu, 'Menú') + pt(e.presupuesto, 'Presupuesto') + pt(e.factura, 'Factura') + (c.tipo === 'boda' ? pt(e.hab ? 2 : 0, e.hab ? 'Hab. ' + e.hab : 'Habitación') : '') + '</div></div></button>';
+    });
+    if (mes) h += '</div>';
+    $('cel-body').innerHTML = h;
+  }).catch(fallo);
+}
 
 // Documento con nombres y DNI. FORMATO PROVISIONAL: se sustituirá por el formato exacto que indique Manuel.
 function documentoCeleb(){
