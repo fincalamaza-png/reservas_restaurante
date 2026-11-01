@@ -148,12 +148,14 @@ details.card summary{list-style:none}
 .env{padding:7px 0;border-bottom:1px solid #f0ede8;font-size:13.5px}.env:last-child{border-bottom:none}.env small{color:var(--gris)}
 .ov{position:fixed;inset:0;background:rgba(20,15,10,.45);z-index:900;display:flex;align-items:flex-start;justify-content:center;padding:30px 14px;overflow:auto}
 .ov-c{background:#fff;border-radius:14px;padding:18px;max-width:460px;width:100%}
-.cuadros-ev{max-width:none;margin:0 0 10px}
-@media(min-width:640px){.cuadros-ev{grid-template-columns:repeat(3,1fr)}}
-.cuadros-ev .cuadro{position:relative;aspect-ratio:auto;min-height:150px;gap:8px;padding:14px 10px}
-.cuadros-ev .cuadro small{margin-top:-4px}
-.cuadros-ev .cuadro b{font-size:14.5px}
-.mes-carp+.cuadros-ev .cuadro b{text-transform:none;letter-spacing:.01em;font-size:15px}
+.cuadros-ev{max-width:560px;margin:0 auto 14px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:700px){.cuadros-ev{max-width:720px;grid-template-columns:repeat(3,minmax(0,1fr))}}
+.cuadros-ev .cuadro{position:relative}
+.cuadros-ev .cuadro .ic{width:64px;height:64px;font-size:32px}
+.cuadros-ev .cuadro small{margin-top:-6px;padding:0 4px}
+.mes-carp+.cuadros-ev .cuadro b{text-transform:none;letter-spacing:.01em;font-size:14.5px;padding:0 4px}
+.mes-carp{max-width:560px;margin-left:auto!important;margin-right:auto!important}
+@media(min-width:700px){.mes-carp{max-width:720px}}
 .cuadro.est-v{border-color:#9fd3b4;background:#f7fcf9}.cuadro.est-v .ic{background:var(--verde-bg)}
 .cuadro.est-a{border-color:#efd08a;background:#fffcf3}.cuadro.est-a .ic{background:var(--ambar-bg)}
 .cuadro .est-p{position:absolute;top:10px;right:10px;width:10px;height:10px;border-radius:50%;background:#d6cfc4}
@@ -842,7 +844,7 @@ function vCelebraciones(app, tipo, sub){
   }
   var vista = sub === 'lista' ? 'lista' : sub === 'calendario' ? 'cal' : 'carp';
   app.innerHTML = '<div class="vista">' + cabecera(titulo, { lista: 'Listado', cal: 'Calendario', carp: 'Reservas por fecha' }[vista], rutaTipo(tipo), accion) +
-    '<div class="content">' + pest(vista) + '<div id="cel-body"><div class="cargando">Cargando…</div></div></div></div>';
+    '<div class="content">' + (vista === 'carp' ? '' : pest(vista)) + '<div id="cel-body"><div class="cargando">Cargando…</div></div></div></div>';
   api('GET', '/api/portal/celebraciones?tipo=' + tipo).then(function(l){
     CELEBS = l;
     if (vista === 'lista') pintarListaCeleb(tipo); else if (vista === 'cal') pintarCalendario(tipo); else pintarCarpetasCeleb(tipo);
