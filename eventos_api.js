@@ -122,6 +122,25 @@ module.exports = function montarEventos(app, db, h) {
     });
     return lineas.length ? { nombre: m.nombre, lineas } : null;
   }
+  // Montaje (anexo al presupuesto): dónde y cómo va cada parte de la celebración
+  const MONTAJE = [['general', 'Espacios y horario', [['espacios', 'Espacios'], ['horario', 'Horario']]],
+    ['ceremonia', 'Ceremonia', [['tipo', 'Tipo'], ['lugar', 'Dónde'], ['hora', 'Hora'], ['oficiante', 'Oficia'], ['montaje', 'Montaje']]],
+    ['coctel', 'Cóctel de bienvenida', [['lugar', 'Dónde'], ['hora', 'Hora'], ['duracion', 'Duración'], ['montaje', 'Montaje']]],
+    ['banquete', 'Menú sentados', [['lugar', 'Dónde'], ['hora', 'Hora'], ['mesas', 'Mesas'], ['presidencial', 'Mesa presidencial'], ['montaje', 'Montaje']]],
+    ['barra', 'Barra libre', [['lugar', 'Dónde'], ['hora', 'Desde las'], ['horas', 'Horas'], ['bebidas', 'Bebidas']]],
+    ['musica', 'Música y DJ', [['dj', 'DJ'], ['proveedor', 'Empresa'], ['montaje', 'Necesita']]],
+    ['otros', 'Otros detalles', [['fotografo', 'Fotógrafo / vídeo'], ['flores', 'Flores y decoración'], ['tarta', 'Tarta'], ['ninos', 'Niños'], ['proveedores', 'Otros proveedores']]]];
+  const DJ = { nosotros: 'Lo pone Don Fadrique', ellos: 'Lo contratan los clientes aparte', no: 'Sin DJ' };
+  function montajeDe(c) {
+    const f = c.ficha || {}, out = [];
+    MONTAJE.forEach(([k, tit, campos]) => {
+      const d = f[k] || {};
+      if (d.si === false) { out.push({ t: tit, filas: [['', 'No']] }); return; }
+      const filas = campos.map(([ck, ct]) => { let v = d[ck]; if (v == null || v === '') return null; if (ck === 'dj') v = DJ[v] || v; if (ck === 'hora') v = v + ' h'; if (ck === 'horas') v = v + ' h'; return [ct, String(v)]; }).filter(Boolean);
+      if (filas.length || d.si) out.push({ t: tit, filas: filas.length ? filas : [['', 'Sí']] });
+    });
+    return out.length ? out : null;
+  }
   function lineasPropuestas(c) {
     const f = c.ficha || {}, l = [];
     if (c.adultos) l.push({ concepto: (/^men[uú]/i.test(c.menu_nombre || '') ? c.menu_nombre : 'Menú ' + (c.menu_nombre || '')).trim() + ' · adultos', cantidad: c.adultos, precio: c.precio_adulto || 0, iva: 10 });
@@ -156,7 +175,7 @@ module.exports = function montarEventos(app, db, h) {
   function crearDoc(c, tipo, autor) {
     const t = textos();
     let datos;
-    if (tipo === 'presupuesto') datos = { cliente: clienteDe(c), evento: eventoDe(c), lineas: lineasPropuestas(c), menu: menuDe(c), condiciones: t.presupuesto };
+    if (tipo === 'presupuesto') datos = { cliente: clienteDe(c), evento: eventoDe(c), lineas: lineasPropuestas(c), menu: menuDe(c), montaje: montajeDe(c), condiciones: t.presupuesto };
     else if (tipo === 'fianza') datos = { cliente: clienteDe(c), evento: eventoDe(c), importe_fianza: c.fianza_importe || 0, forma_pago: c.fianza_forma || 'Transferencia', condiciones: t.fianza,
       presupuesto: (db.prepare("SELECT numero, total FROM evento_docs WHERE celebracion_id = ? AND tipo = 'presupuesto' AND estado = 'firmado' AND sustituido = 0 ORDER BY id DESC LIMIT 1").get(c.id) || null) };
     else {
@@ -305,6 +324,26 @@ module.exports = function montarEventos(app, db, h) {
         y += 6; nuevaPagina(30);
         doc.font('Helvetica').fontSize(6.8).fillColor(GRIS).text('Firmado electrónicamente con firma manuscrita en pantalla el ' + new Date(d.firmado_at.replace(' ', 'T') + 'Z').toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }) +
           (d.firmado_ip ? ' desde ' + d.firmado_ip : '') + '. Huella del documento (SHA-256): ' + (d.huella || ''), L, y, { width: R - L });
+      }
+      // Anexo: montaje (presupuesto)
+      if (d.tipo === 'presupuesto' && Array.isArray(datos.montaje) && datos.montaje.length) {
+        doc.addPage(); y = 50;
+        doc.font('Helvetica').fontSize(14).fillColor(TINTA).text('ANEXO · MONTAJE', L, y, { characterSpacing: 2 });
+        doc.font('Helvetica').fontSize(9).fillColor(GRIS).text('Presupuesto ' + (d.numero || '') + ' · ' + (cli.nombre || '') + ' · ' + fechaLarga(ev.fecha), L, y + 4, { width: R - L, align: 'right' });
+        y += 30;
+        datos.montaje.forEach(sec => {
+          nuevaPagina(40);
+          doc.font('Helvetica-Bold').fontSize(7.5).fillColor(ORO).text(String(sec.t).toUpperCase(), L, y, { characterSpacing: 1.2 }); y += 12;
+          (sec.filas || []).forEach(([k, v]) => {
+            const h = doc.font('Helvetica').fontSize(9.5).heightOfString(v, { width: R - L - 130 });
+            nuevaPagina(h + 6);
+            if (k) doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#4a4540').text(k, L, y, { width: 122 });
+            doc.font('Helvetica').fontSize(9.5).fillColor(TINTA).text(v, k ? L + 130 : L, y, { width: k ? R - L - 130 : R - L });
+            y += Math.max(h, 11) + 4;
+          });
+          y += 8;
+        });
+        if (d.firma) { nuevaPagina(60); doc.font('Helvetica').fontSize(8).fillColor(GRIS).text('Anexo firmado junto con el presupuesto por ' + (d.firmado_nombre || '') + (d.firmado_dni ? ' (DNI ' + d.firmado_dni + ')' : '') + '.', L, y, { width: R - L }); }
       }
       if (!firmado) doc.save().rotate(-30, { origin: [W / 2, 420] }).font('Helvetica-Bold').fontSize(70).fillColor('#b8965a').opacity(.08).text('BORRADOR', 60, 380, { width: W - 120, align: 'center' }).restore();
       // Pie con distintivos en todas las páginas
@@ -558,7 +597,7 @@ module.exports = function montarEventos(app, db, h) {
     const c = conPermiso(req, res, d.celebracion_id); if (!c) return;
     if (!['borrador', 'enviado'].includes(d.estado)) return res.status(400).json({ error: 'Este documento ya no se puede cambiar' });
     const datos = Object.assign({}, d.datos, { cliente: clienteDe(c), evento: eventoDe(c) });
-    if (d.tipo === 'presupuesto') datos.menu = menuDe(c);
+    if (d.tipo === 'presupuesto') { datos.menu = menuDe(c); datos.montaje = montajeDe(c); }
     if (d.tipo === 'fianza' && !Number(datos.importe_fianza) && c.fianza_importe) datos.importe_fianza = c.fianza_importe;
     guardarDatos(d.id, datos);
     if (d.estado === 'enviado') db.prepare("UPDATE evento_docs SET estado = 'borrador' WHERE id = ?").run(d.id);

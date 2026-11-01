@@ -72,6 +72,8 @@ function pintar(){
     var t = D.totales || {};
     h += '<div class="tot"><div><span>Base imponible</span><span>' + eur(t.base) + '</span></div>' + Object.keys(t.porIva || {}).map(function(k){ return '<div><span>IVA ' + k + '%</span><span>' + eur(t.porIva[k] * k / 100) + '</span></div>'; }).join('') +
       '<div class="g"><span>Total</span><span>' + eur(t.total) + '</span></div></div>';
+    if (d.menu && d.menu.lineas && d.menu.lineas.length) h += '<span class="et" style="margin-top:14px">Menú</span><div class="cond" style="color:#1a1a1a">' + d.menu.lineas.map(function(m){ return '<b>' + esc(m.t) + '</b>' + (m.v ? ': ' + esc(m.v) : ''); }).join('\n') + '</div>';
+    if (d.montaje && d.montaje.length) h += '<span class="et">Anexo · Montaje</span><div class="cond" style="color:#1a1a1a">' + d.montaje.map(function(sec){ return '<b>' + esc(sec.t) + '</b>\n' + (sec.filas || []).map(function(f){ return (f[0] ? esc(f[0]) + ': ' : '') + esc(f[1]); }).join('\n'); }).join('\n\n') + '</div>';
   } else {
     var quien = [cl.persona1 && (cl.persona1 + (cl.dni1 ? ', con DNI ' + cl.dni1 : '')), cl.persona2 && (cl.persona2 + (cl.dni2 ? ', con DNI ' + cl.dni2 : ''))].filter(Boolean).join(', y ');
     h += '<div class="texto">De una parte, NIMANSANMON S.L. (CIF B37297223), titular de Don Fadrique. De otra parte, ' + esc(quien || cl.nombre) + '.\n\nAmbas partes acuerdan la reserva de la fecha del <b>' + esc(fLarga(ev.fecha)) + '</b>' + (ev.hora ? ' a las ' + esc(ev.hora) + ' h' : '') + ', en ' + esc(ev.lugar || 'Don Fadrique') +
