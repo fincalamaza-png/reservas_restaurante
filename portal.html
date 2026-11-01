@@ -1318,6 +1318,9 @@ function carDoc(tipo){
         act.estado === 'emitida' ? 'Emitida el ' + esc(fechaCorta(act.fecha_emision)) + '. Ya no se puede cambiar.' :
         act.estado === 'enviado' ? 'Preparado para firmar desde el ' + esc(fechaHoraSql(act.enviado_at)) + '. Si lo cambias, vuelve a mandar el enlace.' :
         'Creado el ' + esc(fechaSql(act.created_at)) + (act.creado_por ? ' por ' + esc(act.creado_por) : '')) + '</div></div>';
+    // Lo primero: firmar con el dedo (el PDF es solo para ver o imprimir; en él no se escribe)
+    if (editable && tipo !== 'factura') h += '<div class="card firma-ya"><button class="btn btn-n" style="font-size:17px;padding:16px" onclick="firmarDoc(' + act.id + ',\'aqui\')">&#9997; Firmar con el dedo ahora</button>' +
+      '<div class="muted" style="margin-top:8px;text-align:center">Se abre el documento para que lo lean, escriban su nombre y DNI y firmen en la pantalla de este móvil o tablet.</div></div>';
     if (editable) { DOCED = clon(act); h += editorDoc(tipo); }
     else h += vistaDoc(act);
     h += accionesDoc(act);
@@ -1419,11 +1422,10 @@ function accionesDoc(d){
   var id = d.id, h = '<div class="card"><div class="btns">';
   var editable = d.estado === 'borrador' || d.estado === 'enviado';
   if (editable) h += '<button class="btn btn-p" onclick="guardarDocEv().then(function(){toast(\'Guardado\');recargarCarpeta()}).catch(fallo)">Guardar cambios</button>';
-  h += '<button class="btn btn-s" onclick="verPdfDoc(' + id + ')">&#128196; Ver PDF</button>';
+  h += '<button class="btn btn-s" onclick="verPdfDoc(' + id + ')">&#128196; Ver PDF (solo lectura)</button>';
   if (editable && d.tipo !== 'factura') {
-    h += '</div><h3 style="margin-top:16px">Firmar con el dedo</h3><div class="btns">' +
-      '<button class="btn btn-n" onclick="firmarDoc(' + id + ',\'aqui\')">&#9997; Firmar ahora en este móvil o tablet</button></div>' +
-      '<div class="muted" style="margin:10px 0 6px">O mandarles el enlace para que lo firmen en su móvil:</div><div class="btns">' +
+    h += '</div><h3 style="margin-top:16px">Que lo firmen en su propio móvil</h3>' +
+      '<div class="muted" style="margin:0 0 6px">Mándales el enlace y lo firman con el dedo desde su teléfono:</div><div class="btns">' +
       '<button class="btn btn-s btn-sm" onclick="firmarDoc(' + id + ',\'email\')">&#9993; Por email' + (CAR.c.email ? '' : ' (falta email)') + '</button>' +
       '<button class="btn btn-s btn-sm" onclick="firmarDoc(' + id + ',\'wa\')">&#128172; Por WhatsApp</button>' +
       '<button class="btn btn-s btn-sm" onclick="firmarDoc(' + id + ',\'copiar\')">&#128279; Copiar enlace</button>';
