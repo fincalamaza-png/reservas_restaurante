@@ -165,6 +165,7 @@ details.card summary{list-style:none}
 .pts-c{display:flex;gap:5px}.pts-c i{width:9px;height:9px;border-radius:50%;background:#d6cfc4}.pts-c i.v{background:var(--verde)}.pts-c i.a{background:var(--ambar)}
 .home-links{display:flex;gap:18px;justify-content:center;margin-top:22px;flex-wrap:wrap}
 .home-links button{background:none;border:none;color:var(--oro-osc);font-size:14px;cursor:pointer;font-family:inherit;text-decoration:underline}
+.opc{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #f0ede8}.opc span{flex:1;font-size:13.5px}.opc input{width:64px;padding:7px 8px}.opc input:last-of-type{width:76px}.opc small{color:var(--gris)}
 /* Listas */
 .item{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer}
 .item .tx{flex:1;min-width:0}
@@ -1372,7 +1373,7 @@ function carDoc(tipo){
     return '<div class="arch"><a href="/api/portal/eventos/docs/' + d.id + '/pdf" target="_blank"><b>&#128196; ' + esc((d.numero || 'Borrador') + (d.version > 1 ? ' · v' + d.version : '')) + '</b><small>' + (EST_DOC[d.estado] || [''])[0] + (d.firmado_nombre ? ' por ' + esc(d.firmado_nombre) + ' · ' + esc(fechaSql(d.firmado_at)) : '') + (d.total ? ' · ' + euros(d.total) : '') + '</small></a></div>';
   }).join('') + '</div>';
   if (ST.admin && tipo !== 'factura') h += '<details class="card"><summary class="muted" style="cursor:pointer">Ajustes: texto de condiciones por defecto y correo de envío</summary><textarea class="in" id="txt-def" rows="7" style="margin-top:10px">' + esc(CAR.d.textos[tipo] || '') + '</textarea>' +
-    '<button class="btn btn-s btn-sm" style="margin-top:8px" onclick="guardarTextoDef(\'' + tipo + '\')">Guardar texto por defecto</button><div style="margin-top:14px"><button class="btn btn-s btn-sm" onclick="configCorreo()">&#9993; Correo de envío (reservas@donfadrique.com)</button></div></details>';
+    '<button class="btn btn-s btn-sm" style="margin-top:8px" onclick="guardarTextoDef(\'' + tipo + '\')">Guardar texto por defecto</button><div style="margin-top:14px" class="btns"><button class="btn btn-s btn-sm" onclick="configCorreo()">&#9993; Correo de envío (reservas@donfadrique.com)</button>' + (tipo === 'presupuesto' ? '<button class="btn btn-s btn-sm" onclick="editarPlantilla()">&#127912; Plantilla del presupuesto (cóctel, barra, opcionales)</button>' : '') + '</div></details>';
   return h;
 }
 // Constancia de cada envío por email: fecha, hora, destinatario y desde qué dirección
@@ -1407,6 +1408,8 @@ function crearDocEv(tipo){
 }
 function editorDoc(tipo){
   var d = DOCED.datos, h = '';
+  LK = d.diseno ? 'lineas_extra' : 'lineas';
+  if (d.diseno) return editorDiseno();
   var refrescar = '<button class="lnk" onclick="refrescarDatosDoc()">Actualizar con los datos actuales</button>';
   if (tipo === 'fianza') {
     h += '<div class="card"><h3>Reserva y fianza</h3><div class="fila"><div class="field"><label>Importe de la fianza (€)</label><input inputmode="decimal" value="' + attr(d.importe_fianza || '') + '" oninput="DOCED.datos.importe_fianza=n2(this.value);marcar()"></div>' +
@@ -1414,7 +1417,7 @@ function editorDoc(tipo){
       '<div class="muted">Nombres, DNI, fecha y lugar: ' + esc(d.cliente && d.cliente.nombre || 'sin nombres') + ' · ' + esc(fechaCorta(d.evento && d.evento.fecha)) + '. ' + refrescar + '</div></div>';
   } else {
     h += '<div class="card"><h3>' + (tipo === 'factura' ? 'Líneas de la factura' : 'Líneas del presupuesto') + '</h3><div id="doc-lineas">' + lineasDocHtml() + '</div>' +
-      '<button class="btn btn-s btn-sm" onclick="DOCED.datos.lineas.push({concepto:\'\',cantidad:1,precio:0,iva:10});marcar();pintarLineasDoc()">+ Añadir línea</button>' +
+      '<button class="btn btn-s btn-sm" onclick="DOCED.datos[LK].push({concepto:\'\',cantidad:1,precio:0,iva:10});marcar();pintarLineasDoc()">+ Añadir línea</button>' +
       '<div class="tot-doc" id="doc-tot"></div>' +
       '<div class="muted" style="margin-top:6px">Precio 0 se imprime como «Incluido». ' + esc(d.cliente && d.cliente.nombre || 'Sin nombres') + ' · ' + esc(fechaCorta(d.evento && d.evento.fecha)) + ' · ' + ((d.evento && d.evento.adultos) || 0) + ' adultos' + (tipo === 'presupuesto' ? ' · menú: ' + esc(d.menu && d.menu.nombre || 'sin menú') : '') + '. ' + refrescar + '</div></div>';
   }
@@ -1422,22 +1425,85 @@ function editorDoc(tipo){
     '<div class="field" style="margin-top:10px"><label>Nota adicional (opcional, sale en el documento)</label><textarea rows="2" oninput="DOCED.datos.notas=this.value;marcar()">' + esc(d.notas || '') + '</textarea></div></div>';
   return h;
 }
+var LK = 'lineas'; // líneas que se editan: «lineas» (normal) o «lineas_extra» (presupuesto con diseño)
 function lineasDocHtml(){
-  var ls = DOCED.datos.lineas = DOCED.datos.lineas || [];
+  var ls = DOCED.datos[LK] = DOCED.datos[LK] || [];
   if (!ls.length) return '<div class="muted" style="margin-bottom:8px">Sin líneas</div>';
   return ls.map(function(l, i){
-    return '<div class="lin-doc"><div style="display:flex;gap:6px"><input class="in" placeholder="Concepto" value="' + attr(l.concepto) + '" oninput="DOCED.datos.lineas[' + i + '].concepto=this.value;marcar()"><button class="mini" title="Quitar" onclick="DOCED.datos.lineas.splice(' + i + ',1);marcar();pintarLineasDoc()">&#10005;</button></div>' +
-      '<div class="fila"><label class="mini-l">Cantidad<input class="in" inputmode="decimal" value="' + attr(l.cantidad) + '" oninput="DOCED.datos.lineas[' + i + '].cantidad=n2(this.value);marcar();totDoc()"></label>' +
-      '<label class="mini-l">Precio (€ sin IVA)<input class="in" inputmode="decimal" value="' + attr(l.precio || '') + '" placeholder="Incluido" oninput="DOCED.datos.lineas[' + i + '].precio=n2(this.value);marcar();totDoc()"></label>' +
-      '<label class="mini-l">IVA<select class="in" onchange="DOCED.datos.lineas[' + i + '].iva=parseInt(this.value);marcar();totDoc()">' + [10, 21, 4].map(function(t){ return '<option value="' + t + '"' + (Number(l.iva || 10) === t ? ' selected' : '') + '>' + t + '%</option>'; }).join('') + '</select></label></div></div>';
+    return '<div class="lin-doc"><div style="display:flex;gap:6px"><input class="in" placeholder="Concepto" value="' + attr(l.concepto) + '" oninput="DOCED.datos[LK][' + i + '].concepto=this.value;marcar()"><button class="mini" title="Quitar" onclick="DOCED.datos[LK].splice(' + i + ',1);marcar();pintarLineasDoc()">&#10005;</button></div>' +
+      '<div class="fila"><label class="mini-l">Cantidad<input class="in" inputmode="decimal" value="' + attr(l.cantidad) + '" oninput="DOCED.datos[LK][' + i + '].cantidad=n2(this.value);marcar();totDoc()"></label>' +
+      '<label class="mini-l">Precio (€ sin IVA)<input class="in" inputmode="decimal" value="' + attr(l.precio || '') + '" placeholder="Incluido" oninput="DOCED.datos[LK][' + i + '].precio=n2(this.value);marcar();totDoc()"></label>' +
+      '<label class="mini-l">IVA<select class="in" onchange="DOCED.datos[LK][' + i + '].iva=parseInt(this.value);marcar();totDoc()">' + [10, 21, 4].map(function(t){ return '<option value="' + t + '"' + (Number(l.iva || 10) === t ? ' selected' : '') + '>' + t + '%</option>'; }).join('') + '</select></label></div></div>';
   }).join('');
 }
 function pintarLineasDoc(){ $('doc-lineas').innerHTML = lineasDocHtml(); totDoc(); }
 function totDoc(){
   var e = $('doc-tot'); if (!e || !DOCED) return;
   var base = 0, iva = 0;
-  (DOCED.datos.lineas || []).forEach(function(l){ var imp = n2(l.cantidad) * n2(l.precio); base += imp; iva += imp * (Number(l.iva) || 10) / 100; });
+  (DOCED.datos.diseno ? lineasDiseno() : (DOCED.datos[LK] || [])).forEach(function(l){ var imp = n2(l.cantidad) * n2(l.precio); base += imp; iva += imp * (Number(l.iva) || 10) / 100; });
   e.innerHTML = 'Base ' + euros(base) + ' · IVA ' + euros(iva) + '<br>Total <b>' + euros(base + iva) + '</b>';
+}
+// ── Presupuesto con diseño: qué incluye (cóctel, menú, barra libre, opcionales) ──
+function opcionalesPlantilla(){
+  return String((CAR.d.plantilla || {}).opcionales || '').split('\n').map(function(l){ l = l.trim(); if (!l) return null; var m = l.match(/^(.*?)\s*=\s*([\d.,]+)\s*€?$/); return m ? { concepto: m[1].trim(), precio: n2(m[2].replace(/\./g, '').replace(',', '.')) } : { concepto: l, precio: 0 }; }).filter(Boolean);
+}
+function lineasDiseno(){
+  var pq = DOCED.datos.paquete || {}, c = CAR.c, P = CAR.d.plantilla || {}, ad = n2(c.adultos), ni = n2(c.ninos), l = [];
+  if (pq.coctel && pq.coctel.si) l.push({ concepto: P.coctel_titulo, cantidad: ad, precio: n2(pq.coctel.precio), iva: 10 });
+  l.push({ concepto: pq.menu_nombre || 'Menú', cantidad: ad, precio: n2(pq.menu_precio), iva: 10 });
+  if (ni) l.push({ concepto: 'Menú infantil', cantidad: ni, precio: n2(pq.nino_precio), iva: 10 });
+  if (pq.barra && pq.barra.si) l.push({ concepto: 'Barra libre · ' + (pq.barra.horas || '') + ' horas', cantidad: ad, precio: n2(pq.barra.precio), iva: 10 });
+  (pq.extras || []).filter(function(x){ return n2(x.cantidad); }).forEach(function(x){ l.push({ concepto: x.concepto, cantidad: n2(x.cantidad), precio: n2(x.precio), iva: /dj|audiovisual|wedding planner|fot[oó]graf|animaci/i.test(x.concepto) ? 21 : 10 }); });
+  return l.concat(DOCED.datos.lineas_extra || []);
+}
+function siPq(k, v, b){
+  DOCED.datos.paquete[k].si = v; marcar(); totDoc();
+  b.parentNode.querySelectorAll('.chip').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on');
+  $('pq-' + k).style.display = v ? '' : 'none';
+}
+function editorDiseno(){
+  var d = DOCED.datos, pq = d.paquete = d.paquete || {}, c = CAR.c, P = CAR.d.plantilla || {};
+  pq.coctel = pq.coctel || { si: false, precio: P.coctel_precio }; pq.barra = pq.barra || { si: false, horas: P.barra_horas, precio: P.barra_precio }; pq.extras = pq.extras || [];
+  d.lineas_extra = d.lineas_extra || [];
+  var chips = function(k){ return '<div class="chips" style="margin-bottom:8px">' + [[true, 'Sí'], [false, 'No']].map(function(o){ return '<button class="chip' + (!!pq[k].si === o[0] ? ' on' : '') + '" onclick="siPq(\'' + k + '\',' + o[0] + ',this)">' + o[1] + '</button>'; }).join('') + '</div>'; };
+  var h = '<div class="card"><h3>Cóctel de bienvenida</h3>' + chips('coctel') + '<div id="pq-coctel" style="' + (pq.coctel.si ? '' : 'display:none') + '"><div class="field"><label>Precio por persona (€)</label><input inputmode="decimal" value="' + attr(pq.coctel.precio) + '" oninput="DOCED.datos.paquete.coctel.precio=n2(this.value);marcar();totDoc()"></div>' +
+    '<div class="muted">Los platos del cóctel salen de la plantilla del presupuesto (' + esc(P.coctel_titulo || '') + ').</div></div></div>';
+  h += '<div class="card"><h3>Menú</h3><div class="field"><label>Nombre del menú</label><input value="' + attr(pq.menu_nombre) + '" oninput="DOCED.datos.paquete.menu_nombre=this.value;marcar();totDoc()"></div>' +
+    '<div class="fila"><div class="field"><label>Precio adulto (€)</label><input inputmode="decimal" value="' + attr(pq.menu_precio) + '" oninput="DOCED.datos.paquete.menu_precio=n2(this.value);marcar();totDoc()"></div><div class="field"><label>Precio niño (€)</label><input inputmode="decimal" value="' + attr(pq.nino_precio || '') + '" oninput="DOCED.datos.paquete.nino_precio=n2(this.value);marcar();totDoc()"></div></div>' +
+    '<div class="muted">' + (c.adultos || 0) + ' adultos y ' + (c.ninos || 0) + ' niños. Los platos salen del cuadrado «Menú»' + (d.menu && d.menu.lineas ? ' (' + d.menu.lineas.length + ' apartados)' : ' (todavía sin platos)') + '.</div></div>';
+  h += '<div class="card"><h3>Barra libre</h3>' + chips('barra') + '<div id="pq-barra" style="' + (pq.barra.si ? '' : 'display:none') + '"><div class="fila"><div class="field"><label>Horas</label><input inputmode="decimal" value="' + attr(pq.barra.horas) + '" oninput="DOCED.datos.paquete.barra.horas=this.value;marcar();totDoc()"></div><div class="field"><label>Precio por persona (€)</label><input inputmode="decimal" value="' + attr(pq.barra.precio) + '" oninput="DOCED.datos.paquete.barra.precio=n2(this.value);marcar();totDoc()"></div></div></div></div>';
+  h += '<div class="card"><h3>Recena y servicios opcionales</h3><p class="muted" style="margin-bottom:8px">Pon cantidad en los que contraten (0 = no). Todos salen listados en el presupuesto; solo los que tienen cantidad se suman.</p>' + opcionalesPlantilla().map(function(o, i){
+    var x = pq.extras.filter(function(e){ return e.concepto === o.concepto; })[0];
+    return '<div class="opc"><span>' + esc(o.concepto) + '</span><input class="in" inputmode="decimal" placeholder="Cant." value="' + attr(x ? x.cantidad : '') + '" oninput="cantOpc(' + i + ',this.value)"><input class="in" inputmode="decimal" value="' + attr(x ? x.precio : o.precio) + '" id="opc-p-' + i + '" oninput="cantOpc(' + i + ')"><small>€</small></div>';
+  }).join('') + '</div>';
+  h += '<div class="card"><h3>Otras líneas</h3><div id="doc-lineas">' + lineasDocHtml() + '</div><button class="btn btn-s btn-sm" onclick="DOCED.datos[LK].push({concepto:\'\',cantidad:1,precio:0,iva:10});marcar();pintarLineasDoc()">+ Añadir línea</button>' +
+    '<div class="tot-doc" id="doc-tot"></div><div class="muted" style="margin-top:6px">' + esc(d.cliente && d.cliente.nombre || 'Sin nombres') + ' · ' + esc(fechaCorta(d.evento && d.evento.fecha)) + '. <button class="lnk" onclick="refrescarDatosDoc()">Actualizar con los datos actuales (nombres, invitados, menú y montaje)</button></div></div>';
+  h += '<div class="card"><h3>Nota (opcional)</h3><textarea class="in" rows="2" oninput="DOCED.datos.notas=this.value;marcar()">' + esc(d.notas || '') + '</textarea></div>';
+  return h;
+}
+function cantOpc(i, cant){
+  var o = opcionalesPlantilla()[i], pq = DOCED.datos.paquete, x = pq.extras.filter(function(e){ return e.concepto === o.concepto; })[0];
+  if (!x) { x = { concepto: o.concepto, precio: o.precio, cantidad: 0 }; pq.extras.push(x); }
+  if (cant !== undefined) x.cantidad = n2(cant);
+  x.precio = n2($('opc-p-' + i).value);
+  marcar(); totDoc();
+}
+// Plantilla del presupuesto con diseño (solo administradores)
+var CAMPOS_PLANTILLA = [['coctel_titulo', 'Nombre del cóctel', 1], ['coctel_precio', 'Precio del cóctel por persona (€)', 1], ['coctel_sub', 'Texto bajo «Cóctel de bienvenida»', 2], ['coctel', 'Platos del cóctel (cada grupo: primera línea el título, luego un plato por línea; los grupos separados por una línea en blanco)', 14],
+  ['estaciones', 'Estaciones opcionales', 3], ['menu_sub', 'Texto bajo el nombre del menú', 2], ['menu_incluye', 'Lo que incluye el menú', 2], ['alergias', 'Nota de alergias', 2],
+  ['barra_sub', 'Texto bajo «Barra libre»', 2], ['barra_horas', 'Horas de barra libre por defecto', 1], ['barra_precio', 'Precio de la barra libre por persona (€)', 1], ['barra_hora_extra', 'Hora adicional por persona (€)', 1], ['barra_condiciones', 'Condiciones de la barra libre (una por línea)', 6],
+  ['opcionales', 'Recena y servicios opcionales (uno por línea: «Concepto = precio»)', 8], ['condiciones', 'Condiciones generales (una por línea)', 5], ['contacto_wa', 'WhatsApp', 1], ['contacto_email', 'Email', 1], ['contacto_tel', 'Teléfono', 1]];
+function editarPlantilla(){
+  var P = CAR.d.plantilla || {}, o = $('ov-pl'); if (o) o.remove();
+  o = document.createElement('div'); o.id = 'ov-pl'; o.className = 'ov';
+  o.innerHTML = '<div class="ov-c" style="max-width:640px"><h3 style="margin-bottom:6px">Plantilla del presupuesto</h3><p class="muted" style="margin-bottom:12px">Lo que sale igual en todos los presupuestos: cóctel, barra libre, opcionales y condiciones. Los presupuestos ya firmados no cambian.</p>' +
+    CAMPOS_PLANTILLA.map(function(c){ return '<div class="field"><label>' + c[1] + '</label>' + (c[2] > 1 ? '<textarea id="pl-' + c[0] + '" rows="' + c[2] + '">' + esc(P[c[0]] == null ? '' : P[c[0]]) + '</textarea>' : '<input id="pl-' + c[0] + '" value="' + attr(P[c[0]]) + '">') + '</div>'; }).join('') +
+    '<div class="btns"><button class="btn btn-p" onclick="guardarPlantillaPres()">Guardar</button><button class="btn btn-s" onclick="$(\'ov-pl\').remove()">Cerrar</button></div></div>';
+  document.body.appendChild(o);
+}
+function guardarPlantillaPres(){
+  var b = {}; CAMPOS_PLANTILLA.forEach(function(c){ b[c[0]] = $('pl-' + c[0]).value; });
+  api('PUT', '/api/portal/eventos/plantilla', b).then(function(p){ CAR.d.plantilla = p; $('ov-pl').remove(); toast('Plantilla guardada'); recargarCarpeta(); }).catch(fallo);
 }
 function refrescarDatosDoc(){
   guardarSiHace().then(function(){ return api('POST', '/api/portal/eventos/docs/' + DOCED.id + '/refrescar', {}); }).then(function(){ toast('Datos actualizados'); recargarCarpeta(); }).catch(fallo);

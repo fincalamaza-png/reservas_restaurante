@@ -12,6 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const PDFDocument = require('./pdf-fuentes');
+const DISENO = require('./presupuesto_diseno');
 
 const TEXTOS_DEFECTO = {
   presupuesto: 'Precios por persona salvo indicación. IVA (10%) no incluido en los precios unitarios; se suma al final.\n' +
@@ -120,7 +121,7 @@ module.exports = function montarEventos(app, db, h) {
       else if (x.tipo === 'barra_libre' || x.tipo === 'recena') { if (x.valor) lineas.push({ t: x.titulo, v: [x.horas, x.texto].filter(Boolean).join(' · ') }); }
       else if (String(x.texto || '').trim()) lineas.push({ t: x.titulo, v: String(x.texto).trim() });
     });
-    return lineas.length ? { nombre: m.nombre, lineas } : null;
+    return lineas.length ? { nombre: c.menu_nombre || String(m.nombre || '').split(' · ')[0], lineas } : null;
   }
   // Montaje (anexo al presupuesto): dónde y cómo va cada parte de la celebración
   const MONTAJE = [['general', 'Espacios y horario', [['espacios', 'Espacios'], ['horario', 'Horario']]],
@@ -141,6 +142,37 @@ module.exports = function montarEventos(app, db, h) {
     });
     return out.length ? out : null;
   }
+  // ── Presupuesto con diseño (como el dossier de bodas): plantilla editable y «paquete» de cada celebración ──
+  const plantillaBoda = () => Object.assign({}, DISENO.PLANTILLA, json(cfg().eventos_plantilla_boda, {}));
+  const NOMBRE_COMPLETO = { Manuel: 'Manuel Sánchez', 'Nicolás': 'Nicolás Sánchez' };
+  function paqueteDe(c, previo) {
+    const P = plantillaBoda(), f = c.ficha || {}, boda = c.tipo === 'boda', pv = previo || {};
+    return {
+      coctel: pv.coctel || { si: boda, precio: Number(P.coctel_precio) || 0 },
+      barra: pv.barra || { si: boda || !!(f.barra && f.barra.si), horas: Number((f.barra || {}).horas) || Number(P.barra_horas) || 4, precio: Number(P.barra_precio) || 0 },
+      menu_nombre: c.menu_nombre || pv.menu_nombre || 'Menú', menu_precio: Number(c.precio_adulto) || Number(pv.menu_precio) || 0, nino_precio: Number(c.precio_nino) || Number(pv.nino_precio) || 0,
+      extras: Array.isArray(pv.extras) ? pv.extras : []
+    };
+  }
+  const ivaServicio = t => /dj|audiovisual|wedding planner|fot[oó]graf|animaci/i.test(t) ? 21 : 10;
+  function lineasPaquete(c, pq, extraManual) {
+    const P = plantillaBoda(), ad = Number(c.adultos) || 0, ni = Number(c.ninos) || 0, f = c.ficha || {}, l = [];
+    if (pq.coctel && pq.coctel.si) l.push({ concepto: P.coctel_titulo, cantidad: ad, precio: Number(pq.coctel.precio) || 0, iva: 10 });
+    l.push({ concepto: pq.menu_nombre || 'Menú', cantidad: ad, precio: Number(pq.menu_precio) || 0, iva: 10 });
+    if (ni) l.push({ concepto: 'Menú infantil', cantidad: ni, precio: Number(pq.nino_precio) || 0, iva: 10 });
+    if (pq.barra && pq.barra.si) l.push({ concepto: 'Barra libre · ' + (pq.barra.horas || '') + ' horas', cantidad: ad, precio: Number(pq.barra.precio) || 0, iva: 10 });
+    if (f.ceremonia && f.ceremonia.si) l.push({ concepto: 'Montaje de ceremonia' + (f.ceremonia.lugar ? ' en ' + f.ceremonia.lugar : ''), cantidad: 1, precio: 0, iva: 10 });
+    (pq.extras || []).filter(x => Number(x.cantidad)).forEach(x => l.push({ concepto: x.concepto, cantidad: Number(x.cantidad) || 1, precio: Number(x.precio) || 0, iva: ivaServicio(x.concepto) }));
+    return l.concat(extraManual || []);
+  }
+  // Nº como el del dossier: DF-B-AAMMDD (boda), DF-C-… (comunión), DF-E-… (evento), con la fecha de la celebración
+  function numeroDiseno(c) {
+    const base = 'DF-' + ({ boda: 'B', comunion: 'C', evento: 'E' }[c.tipo] || 'E') + '-' + String(c.fecha || new Date().toISOString().slice(0, 10)).slice(2).replace(/-/g, '');
+    let n = base, i = 2;
+    while (db.prepare('SELECT 1 FROM evento_docs WHERE numero = ? AND celebracion_id != ?').get(n, c.id)) n = base + '-' + i++;
+    return n;
+  }
+  const limpiaLineas = a => (Array.isArray(a) ? a : []).filter(l => String(l.concepto || '').trim()).map(l => ({ concepto: String(l.concepto).slice(0, 300), cantidad: Number(String(l.cantidad).replace(',', '.')) || 0, precio: Number(String(l.precio).replace(',', '.')) || 0, iva: [4, 10, 21].includes(Number(l.iva)) ? Number(l.iva) : 10 }));
   function lineasPropuestas(c) {
     const f = c.ficha || {}, l = [];
     if (c.adultos) l.push({ concepto: (/^men[uú]/i.test(c.menu_nombre || '') ? c.menu_nombre : 'Menú ' + (c.menu_nombre || '')).trim() + ' · adultos', cantidad: c.adultos, precio: c.precio_adulto || 0, iva: 10 });
@@ -175,14 +207,14 @@ module.exports = function montarEventos(app, db, h) {
   function crearDoc(c, tipo, autor) {
     const t = textos();
     let datos;
-    if (tipo === 'presupuesto') datos = { cliente: clienteDe(c), evento: eventoDe(c), lineas: lineasPropuestas(c), menu: menuDe(c), montaje: montajeDe(c), condiciones: t.presupuesto };
+    if (tipo === 'presupuesto') { const pq = paqueteDe(c); datos = { diseno: true, paquete: pq, lineas_extra: [], cliente: clienteDe(c), evento: eventoDe(c), lineas: lineasPaquete(c, pq, []), menu: menuDe(c), montaje: montajeDe(c), condiciones: '' }; }
     else if (tipo === 'fianza') datos = { cliente: clienteDe(c), evento: eventoDe(c), importe_fianza: c.fianza_importe || 0, forma_pago: c.fianza_forma || 'Transferencia', condiciones: t.fianza,
       presupuesto: (db.prepare("SELECT numero, total FROM evento_docs WHERE celebracion_id = ? AND tipo = 'presupuesto' AND estado = 'firmado' AND sustituido = 0 ORDER BY id DESC LIMIT 1").get(c.id) || null) };
     else {
       const pres = db.prepare("SELECT * FROM evento_docs WHERE celebracion_id = ? AND tipo = 'presupuesto' AND estado = 'firmado' AND sustituido = 0 ORDER BY id DESC LIMIT 1").get(c.id);
       datos = { cliente: clienteDe(c), evento: eventoDe(c), lineas: pres ? json(pres.datos, {}).lineas || [] : lineasPropuestas(c), condiciones: t.factura, presupuesto: pres ? pres.numero : '' };
     }
-    const numero = tipo === 'factura' ? null : siguienteNumero(tipo);
+    const numero = tipo === 'factura' ? null : tipo === 'presupuesto' ? numeroDiseno(c) : siguienteNumero(tipo);
     const r = db.prepare("INSERT INTO evento_docs (celebracion_id, tipo, numero, estado, datos, creado_por) VALUES (?, ?, ?, 'borrador', '{}', ?)").run(c.id, tipo, numero, autor || '');
     guardarDatos(r.lastInsertRowid, datos);
     return r.lastInsertRowid;
@@ -190,7 +222,7 @@ module.exports = function montarEventos(app, db, h) {
 
   // ── PDF ──
   const PREMIOS = ['michelin.png', 'repsol.png', 'tierra.png'].map(f => path.join(__dirname, 'marca', 'premios', f)).filter(f => fs.existsSync(f));
-  function pdfDoc(d, c) {
+  let pdfDoc = function (d, c) {
     return new Promise(async (resolve, reject) => {
       const doc = new PDFDocument({ size: 'A4', bufferPages: true, margins: { top: 46, bottom: 60, left: 52, right: 52 }, info: { Title: (TITULO[d.tipo] + ' ' + (d.numero || '')).trim(), Author: 'NIMANSANMON S.L. · Don Fadrique' } });
       const bufs = []; doc.on('data', b => bufs.push(b)); doc.on('end', () => resolve(Buffer.concat(bufs))); doc.on('error', reject);
@@ -356,7 +388,12 @@ module.exports = function montarEventos(app, db, h) {
       }
       doc.end();
     });
-  }
+  };
+  const pdfDocBase = pdfDoc;
+  pdfDoc = function (d, c) {
+    if (d.tipo === 'presupuesto' && d.datos && d.datos.diseno) return DISENO.generar(d, { plantilla: plantillaBoda(), totales, autor: NOMBRE_COMPLETO[d.creado_por] || d.creado_por || '' });
+    return pdfDocBase(d, c);
+  };
   async function pdfDe(d) {
     if (d.pdf) { const f = path.join(carpeta(d.celebracion_id), d.pdf); if (fs.existsSync(f)) return fs.readFileSync(f); }
     return pdfDoc(d, celeb(d.celebracion_id));
@@ -406,13 +443,22 @@ module.exports = function montarEventos(app, db, h) {
     res.json(textos());
   });
 
+  // Plantilla del presupuesto con diseño (cóctel, barra libre, opcionales, condiciones)
+  app.get('/api/portal/eventos/plantilla', (req, res) => res.json(plantillaBoda()));
+  app.put('/api/portal/eventos/plantilla', (req, res) => {
+    const b = req.body || {}, o = {};
+    Object.keys(DISENO.PLANTILLA).forEach(k => { if (b[k] !== undefined) o[k] = typeof DISENO.PLANTILLA[k] === 'number' ? (Number(String(b[k]).replace(',', '.')) || 0) : String(b[k]).slice(0, 8000); });
+    db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('eventos_plantilla_boda', ?)").run(JSON.stringify(Object.assign(json(cfg().eventos_plantilla_boda, {}), o)));
+    res.json(plantillaBoda());
+  });
+
   // Todo lo de la carpeta de un evento, de una vez
   app.get('/api/portal/eventos/:cid/carpeta', (req, res) => {
     const c = conPermiso(req, res, req.params.cid); if (!c) return;
     const notas = db.prepare('SELECT * FROM evento_notas WHERE celebracion_id = ? ORDER BY fecha DESC, id DESC').all(c.id);
     const archivos = db.prepare('SELECT * FROM evento_archivos WHERE celebracion_id = ? ORDER BY id DESC').all(c.id);
     const docs = db.prepare('SELECT * FROM evento_docs WHERE celebracion_id = ? ORDER BY tipo, id DESC').all(c.id).map(d => { d.datos = json(d.datos, {}); d.envios = json(d.envios, []); return sinFirma(d); });
-    res.json({ ficha: c.ficha, notas, archivos, docs, textos: textos() });
+    res.json({ ficha: c.ficha, notas, archivos, docs, textos: textos(), plantilla: plantillaBoda() });
   });
   app.put('/api/portal/eventos/:cid/ficha', (req, res) => {
     const c = conPermiso(req, res, req.params.cid); if (!c) return;
@@ -500,7 +546,12 @@ module.exports = function montarEventos(app, db, h) {
     if (!conPermiso(req, res, d.celebracion_id)) return;
     if (!['borrador', 'enviado'].includes(d.estado)) return res.status(400).json({ error: d.estado === 'firmado' ? 'Ya está firmado: haz una nueva versión para cambiarlo' : 'Este documento ya no se puede cambiar' });
     const datos = (req.body || {}).datos || {};
-    datos.lineas = (Array.isArray(datos.lineas) ? datos.lineas : []).filter(l => String(l.concepto || '').trim()).map(l => ({ concepto: String(l.concepto).slice(0, 300), cantidad: Number(String(l.cantidad).replace(',', '.')) || 0, precio: Number(String(l.precio).replace(',', '.')) || 0, iva: [4, 10, 21].includes(Number(l.iva)) ? Number(l.iva) : 10 }));
+    if (d.datos.diseno && datos.paquete) {
+      const c = celeb(d.celebracion_id);
+      datos.lineas_extra = limpiaLineas(datos.lineas_extra);
+      datos.paquete.extras = (Array.isArray(datos.paquete.extras) ? datos.paquete.extras : []).map(x => ({ concepto: String(x.concepto || '').slice(0, 200), precio: Number(x.precio) || 0, cantidad: Number(x.cantidad) || 0 })).filter(x => x.cantidad);
+      datos.lineas = lineasPaquete(c, datos.paquete, datos.lineas_extra);
+    } else datos.lineas = limpiaLineas(datos.lineas);
     guardarDatos(d.id, Object.assign({}, d.datos, datos));
     if (d.estado === 'enviado') db.prepare("UPDATE evento_docs SET estado = 'borrador' WHERE id = ?").run(d.id); // cambió: hay que volver a mandarlo
     res.json(sinFirma(docDe(d.id)));
@@ -597,7 +648,10 @@ module.exports = function montarEventos(app, db, h) {
     const c = conPermiso(req, res, d.celebracion_id); if (!c) return;
     if (!['borrador', 'enviado'].includes(d.estado)) return res.status(400).json({ error: 'Este documento ya no se puede cambiar' });
     const datos = Object.assign({}, d.datos, { cliente: clienteDe(c), evento: eventoDe(c) });
-    if (d.tipo === 'presupuesto') { datos.menu = menuDe(c); datos.montaje = montajeDe(c); }
+    if (d.tipo === 'presupuesto') {
+      datos.menu = menuDe(c); datos.montaje = montajeDe(c);
+      if (datos.diseno) { const pq = Object.assign({}, datos.paquete || {}); pq.menu_nombre = c.menu_nombre || pq.menu_nombre; if (Number(c.precio_adulto)) pq.menu_precio = Number(c.precio_adulto); if (Number(c.precio_nino)) pq.nino_precio = Number(c.precio_nino); datos.paquete = pq; datos.lineas = lineasPaquete(c, pq, datos.lineas_extra || []); }
+    }
     if (d.tipo === 'fianza' && !Number(datos.importe_fianza) && c.fianza_importe) datos.importe_fianza = c.fianza_importe;
     guardarDatos(d.id, datos);
     if (d.estado === 'enviado') db.prepare("UPDATE evento_docs SET estado = 'borrador' WHERE id = ?").run(d.id);
