@@ -1022,4 +1022,6 @@ module.exports = function montarPortal(app, db) {
     try { res.json(await jsonTPV('/api/personal/fichajes/' + int(req.params.id), 'DELETE')); }
     catch (e) { res.status(400).json({ error: e.message }); }
   });
+  // Carpeta de cada evento: historial, hoja interna, archivos, presupuesto y fianza firmados, factura
+  require('./eventos_api')(app, db, { puedeTipo });
 };

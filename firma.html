@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Firma · Don Fadrique</title>
+<link rel="stylesheet" href="/fonts/jost.css">
+<link rel="stylesheet" href="/marca/marca-df.css">
+<script src="/marca/marca-df.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:Jost,"Helvetica Neue",Arial,sans-serif;background:#f7f4ee;color:#1a1a1a;padding:20px 14px 40px;line-height:1.5}
+.hoja{max-width:640px;margin:0 auto;background:#fff;border:1px solid #e6dfd3;border-radius:16px;padding:24px 20px}
+.cab{text-align:center;margin-bottom:18px}
+.tit{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;border-bottom:1px solid #e6dfd3;padding-bottom:8px;margin-bottom:14px}
+.tit b{font-size:15px;letter-spacing:.16em;font-weight:500;text-transform:uppercase}
+.tit span{font-size:12px;color:#8b6a2e;white-space:nowrap}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;font-size:14px}
+.dos small,.et{display:block;font-size:10px;letter-spacing:.14em;color:#b8965a;font-weight:600;text-transform:uppercase;margin-bottom:3px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:6px 0 4px}
+th{font-size:10px;letter-spacing:.1em;color:#9a9086;text-transform:uppercase;font-weight:500;text-align:left;border-bottom:1px solid #e6dfd3;padding:6px 0}
+td{padding:7px 0;border-bottom:1px solid #f3efe7;vertical-align:top}
+.r{text-align:right;white-space:nowrap;padding-left:8px}
+.tot{margin:8px 0 4px auto;max-width:260px;font-size:14px}
+.tot div{display:flex;justify-content:space-between;padding:2px 0}
+.tot .g{font-size:19px;font-weight:600;border-top:1px solid #b8965a;margin-top:4px;padding-top:6px}
+.texto{font-size:15px;text-align:justify;margin:6px 0 12px;white-space:pre-line}
+.cond{font-size:12.5px;color:#4a4540;white-space:pre-line;margin-bottom:16px}
+.pdf{display:block;text-align:center;font-size:13px;color:#8b6a2e;margin:4px 0 18px}
+.firmar{border-top:1px solid #e6dfd3;padding-top:16px}
+label.c{display:flex;gap:10px;align-items:flex-start;font-size:14px;margin:12px 0}
+label.c input{width:22px;height:22px;flex:none;margin-top:1px;accent-color:#1a1a1a}
+.in{width:100%;padding:12px;border:1px solid #e6dfd3;border-radius:10px;font:inherit;font-size:16px;margin-bottom:8px;background:#fff}
+.zona{position:relative;border:1.5px dashed #b8965a;border-radius:12px;background:#fffdf9;height:200px;margin-top:6px}
+.zona canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;border-radius:12px}
+.zona .lin{position:absolute;left:16px;right:16px;bottom:38px;border-top:1px solid #e6dfd3;font-size:11px;color:#b5ab9c;padding-top:4px;pointer-events:none}
+.btns{display:flex;gap:8px;margin-top:12px}
+.btn{flex:1;padding:15px 10px;border-radius:12px;border:none;font:inherit;font-size:16px;cursor:pointer;background:#1a1a1a;color:#fff}
+.btn.s{background:#fff;color:#8b6a2e;border:1.5px solid #b8965a}
+.btn:disabled{background:#e6dfd3;color:#a59c91}
+.ok{text-align:center;padding:20px 6px}
+.ok .i{font-size:52px;color:#b8965a}
+.err{color:#a3283a;font-size:14px;margin-top:8px;min-height:18px}
+.pie{max-width:640px;margin:18px auto 0}
+</style>
+</head>
+<body>
+<div class="hoja" id="hoja"><div class="cab"><div data-df-logo="" style="--t:24px"></div></div><p style="text-align:center;color:#9a9086">Cargando…</p></div>
+<div class="pie" data-df-premios style="--h:30px"></div>
+<script>
+var TOKEN = location.pathname.split('/').filter(Boolean)[1] || '', D = null, FIRMA = null;
+function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function eur(n){ var v = (Math.round((Number(n) || 0) * 100) / 100).toFixed(2).split('.'); return v[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + v[1] + ' €'; }
+function fLarga(iso){ return iso ? new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''; }
+var TIPO = { boda: 'Boda', comunion: 'Primera Comunión', evento: 'Evento' };
+fetch('/api/publico/firma/' + encodeURIComponent(TOKEN)).then(function(r){ return r.json().then(function(d){ if (!r.ok) throw new Error(d.error || 'Error'); return d; }); })
+  .then(function(d){ D = d; pintar(); }).catch(function(e){ document.getElementById('hoja').innerHTML = cab() + '<p style="text-align:center;padding:20px">' + esc(e.message) + '</p>'; });
+function cab(){ return '<div class="cab"><div data-df-logo="" style="--t:24px"></div></div>'; }
+function pintar(){
+  var d = D.datos || {}, cl = d.cliente || {}, ev = d.evento || {};
+  var h = cab() + '<div class="tit"><b>' + esc(D.titulo) + '</b><span>' + esc(D.numero || '') + (D.version > 1 ? ' · v' + D.version : '') + '</span></div>';
+  h += '<div class="dos"><div><small>Cliente</small><b>' + esc(cl.nombre) + '</b>' + (cl.persona1 ? '<br>' + esc(cl.persona1) + (cl.dni1 ? ' · ' + esc(cl.dni1) : '') : '') + (cl.persona2 ? '<br>' + esc(cl.persona2) + (cl.dni2 ? ' · ' + esc(cl.dni2) : '') : '') + '</div>' +
+    '<div><small>Celebración</small><b>' + esc(TIPO[ev.tipo] || 'Evento') + '</b><br>' + esc(fLarga(ev.fecha)) + (ev.hora ? ' · ' + esc(ev.hora) + ' h' : '') + '<br>' + esc(ev.lugar || '') + ((ev.adultos || ev.ninos) ? '<br>' + (ev.adultos || 0) + ' adultos' + (ev.ninos ? ' y ' + ev.ninos + ' niños' : '') : '') + '</div></div>';
+  if (D.tipo === 'presupuesto') {
+    h += '<table><tr><th>Concepto</th><th class="r">Cant.</th><th class="r">Importe</th></tr>' + (d.lineas || []).map(function(l){
+      var imp = (Number(l.cantidad) || 0) * (Number(l.precio) || 0);
+      return '<tr><td>' + esc(l.concepto) + (Number(l.precio) ? '<br><span style="font-size:12px;color:#9a9086">' + eur(l.precio) + ' / ud.</span>' : '') + '</td><td class="r">' + esc(l.cantidad) + '</td><td class="r">' + (Number(l.precio) ? eur(imp) : 'Incluido') + '</td></tr>';
+    }).join('') + '</table>';
+    var t = D.totales || {};
+    h += '<div class="tot"><div><span>Base imponible</span><span>' + eur(t.base) + '</span></div>' + Object.keys(t.porIva || {}).map(function(k){ return '<div><span>IVA ' + k + '%</span><span>' + eur(t.porIva[k] * k / 100) + '</span></div>'; }).join('') +
+      '<div class="g"><span>Total</span><span>' + eur(t.total) + '</span></div></div>';
+  } else {
+    var quien = [cl.persona1 && (cl.persona1 + (cl.dni1 ? ', con DNI ' + cl.dni1 : '')), cl.persona2 && (cl.persona2 + (cl.dni2 ? ', con DNI ' + cl.dni2 : ''))].filter(Boolean).join(', y ');
+    h += '<div class="texto">De una parte, NIMANSANMON S.L. (CIF B37297223), titular de Don Fadrique. De otra parte, ' + esc(quien || cl.nombre) + '.\n\nAmbas partes acuerdan la reserva de la fecha del <b>' + esc(fLarga(ev.fecha)) + '</b>' + (ev.hora ? ' a las ' + esc(ev.hora) + ' h' : '') + ', en ' + esc(ev.lugar || 'Don Fadrique') +
+      ', con una fianza de <b>' + eur(d.importe_fianza) + '</b> mediante ' + esc(d.forma_pago || '') + '.' + (d.presupuesto && d.presupuesto.numero ? ' El servicio se prestará según el presupuesto ' + esc(d.presupuesto.numero) + '.' : '') + '</div>';
+  }
+  if (d.condiciones) h += '<span class="et">Condiciones</span><div class="cond">' + esc(d.condiciones) + '</div>';
+  h += '<a class="pdf" href="/firma/' + encodeURIComponent(TOKEN) + '/pdf" target="_blank">Ver el documento completo en PDF</a>';
+  if (D.estado === 'firmado') {
+    h += '<div class="ok"><div class="i">&#10003;</div><div style="font-size:18px;margin:6px 0">Documento firmado</div><div style="color:#9a9086;font-size:14px">por ' + esc(D.firmado_nombre) + (D.firmado_dni ? ' · DNI ' + esc(D.firmado_dni) : '') + '<br>' + esc(new Date(String(D.firmado_at).replace(' ', 'T') + 'Z').toLocaleString('es-ES')) + '</div>' +
+      '<div class="btns"><a class="btn" style="text-decoration:none" href="/firma/' + encodeURIComponent(TOKEN) + '/pdf" target="_blank">Descargar copia firmada</a></div></div>';
+  } else if (D.sustituido) {
+    h += '<div class="ok" style="color:#a3283a">Hay una versión más reciente de este documento. Pide a Don Fadrique el enlace nuevo.</div>';
+  } else {
+    var nom = cl.persona1 || cl.nombre || '';
+    h += '<div class="firmar"><span class="et">Firma</span>' +
+      '<input class="in" id="f-nombre" placeholder="Nombre y apellidos" value="' + esc(nom) + '"><input class="in" id="f-dni" placeholder="DNI / NIE" value="' + esc(cl.dni1 || '') + '" autocapitalize="characters">' +
+      '<label class="c"><input type="checkbox" id="f-ok" onchange="comprobar()"> He leído el documento y estoy conforme con su contenido y condiciones.</label>' +
+      '<div class="zona"><canvas id="cv"></canvas><div class="lin">Firme aquí con el dedo</div></div>' +
+      '<div class="btns"><button class="btn s" onclick="borrar()">Borrar</button><button class="btn" id="b-firmar" onclick="firmar()" disabled>Firmar</button></div><div class="err" id="err"></div></div>';
+  }
+  document.getElementById('hoja').innerHTML = h;
+  if (window.DFMarca) DFMarca.pintar();
+  if (document.getElementById('cv')) iniciar();
+}
+function iniciar(){
+  var cv = document.getElementById('cv'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  var ctx = cv.getContext('2d'); ctx.scale(dpr, dpr); ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1a1a1a'; ctx.fillStyle = '#1a1a1a';
+  FIRMA = { cv: cv, ctx: ctx, n: 0, d: false, x: 0, y: 0 };
+  function p(e){ var b = cv.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; }
+  cv.addEventListener('pointerdown', function(e){ e.preventDefault(); cv.setPointerCapture(e.pointerId); var q = p(e); FIRMA.d = true; FIRMA.x = q.x; FIRMA.y = q.y; ctx.beginPath(); ctx.arc(q.x, q.y, 1.2, 0, 6.3); ctx.fill(); });
+  cv.addEventListener('pointermove', function(e){ if (!FIRMA.d) return; e.preventDefault(); var q = p(e); ctx.beginPath(); ctx.moveTo(FIRMA.x, FIRMA.y); ctx.lineTo(q.x, q.y); ctx.stroke(); FIRMA.x = q.x; FIRMA.y = q.y; FIRMA.n++; });
+  function fin(){ if (!FIRMA.d) return; FIRMA.d = false; var l = cv.parentNode.querySelector('.lin'); if (FIRMA.n > 8 && l) l.style.visibility = 'hidden'; comprobar(); }
+  cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin); cv.addEventListener('pointerleave', fin);
+}
+function comprobar(){ var b = document.getElementById('b-firmar'); if (b) b.disabled = !(FIRMA && FIRMA.n > 8 && document.getElementById('f-ok').checked); }
+function borrar(){ if (!FIRMA) return; FIRMA.ctx.clearRect(0, 0, FIRMA.cv.width, FIRMA.cv.height); FIRMA.n = 0; var l = document.querySelector('.zona .lin'); if (l) l.style.visibility = ''; comprobar(); }
+function png(){
+  var cv = FIRMA.cv, o = document.createElement('canvas'); o.width = cv.width; o.height = cv.height;
+  var c = o.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, o.width, o.height); c.drawImage(cv, 0, 0);
+  if (o.width > 1000) { var k = 1000 / o.width, q = document.createElement('canvas'); q.width = 1000; q.height = Math.round(o.height * k); q.getContext('2d').drawImage(o, 0, 0, q.width, q.height); o = q; }
+  return o.toDataURL('image/png');
+}
+function firmar(){
+  var b = document.getElementById('b-firmar'), err = document.getElementById('err');
+  var nombre = document.getElementById('f-nombre').value.trim(); if (!nombre) { err.textContent = 'Escribe tu nombre'; return; }
+  b.disabled = true; b.textContent = 'Firmando…'; err.textContent = '';
+  fetch('/api/publico/firma/' + encodeURIComponent(TOKEN), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre: nombre, dni: document.getElementById('f-dni').value.trim(), acepto: document.getElementById('f-ok').checked, firma: png() }) })
+    .then(function(r){ return r.json().then(function(d){ if (!r.ok) throw new Error(d.error || 'Error'); return d; }); })
+    .then(function(r){ return fetch('/api/publico/firma/' + encodeURIComponent(TOKEN)).then(function(x){ return x.json(); }).then(function(d){ D = d; pintar(); window.scrollTo(0, document.body.scrollHeight);
+      if (r.enviado && r.enviado.length) { var p = document.createElement('p'); p.style.cssText = 'text-align:center;color:#9a9086;font-size:13px;margin-top:8px'; p.textContent = 'Te hemos enviado una copia a ' + r.enviado.join(', '); document.querySelector('.ok').appendChild(p); } }); })
+    .catch(function(e){ b.disabled = false; b.textContent = 'Firmar'; err.textContent = e.message; });
+}
+</script>
+</body>
+</html>

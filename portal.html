@@ -93,6 +93,36 @@ a{color:inherit}
 @keyframes latido{0%,100%{opacity:1}50%{opacity:.25}}
 @media(min-width:700px){.cuadros{grid-template-columns:repeat(3,1fr);max-width:720px}}
 
+.tabs-c{display:flex;gap:6px;overflow-x:auto;padding:10px 14px 2px;max-width:820px;width:100%;margin:0 auto;scrollbar-width:none}
+.tabs-c::-webkit-scrollbar{display:none}
+.tabs-c button{flex:none;padding:8px 14px;border-radius:20px;border:1.5px solid #d6cfc4;background:#fff;font-size:13px;color:#555;cursor:pointer;white-space:nowrap;font-family:inherit}
+.tabs-c button.on{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.vis{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0ede8;cursor:pointer}
+.vis:last-child{border-bottom:none}
+.vis .o{width:28px;height:28px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;background:#f0ede8;color:#aaa}
+.vis .o.si{background:var(--verde-bg);color:var(--verde)}
+.vis .o.med{background:var(--ambar-bg);color:#8a5d00}
+.vis .tx{flex:1;min-width:0}.vis .tx b{display:block;font-size:14px;font-weight:500}.vis .tx small{display:block;font-size:12px;color:var(--gris);margin-top:1px}
+.vis .der{font-size:13px;text-align:right;white-space:nowrap}
+.hr{padding:5px 0;font-size:13.5px;border-bottom:1px solid #f5f2ee}.hr b{font-weight:500}
+.nota{padding:6px 0 8px 12px;border-left:2px solid var(--oro);margin:0 0 10px 4px}
+.nota.sis{border-left-color:#e2ddd5;padding:2px 0 2px 12px;color:#8a8278;font-size:12px;margin-bottom:6px}
+.nota .cab{font-size:12px;color:var(--gris);margin-bottom:3px}.nota .cab b{color:var(--tinta);font-weight:500}
+.nota .tx{white-space:pre-wrap;font-size:14px;line-height:1.5}
+.dia-n{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--oro-osc);margin:12px 0 8px}
+.dia-n:first-child{margin-top:0}
+.lnk{background:none;border:none;color:var(--oro-osc);text-decoration:underline;cursor:pointer;font-size:12px;font-family:inherit;padding:0 2px}
+.lin-doc{background:#faf8f5;border-radius:10px;padding:8px;margin-bottom:8px}
+.lin-doc .fila{margin-top:6px}
+.mini-l{font-size:11px;color:#777;display:block}.mini-l .in{margin-top:2px;padding:8px}
+.tot-doc{text-align:right;font-size:13px;line-height:1.7;margin-top:8px;color:#555}
+.tot-doc b{font-size:17px;color:var(--tinta)}
+.arch{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0ede8}
+.arch:last-child{border-bottom:none}
+.arch a{flex:1;min-width:0;text-decoration:none}
+.arch a b{display:block;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arch small{color:var(--gris);font-size:12px}
+details.card summary{list-style:none}
 /* Listas */
 .item{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer}
 .item .tx{flex:1;min-width:0}
@@ -829,6 +859,8 @@ function campo(etq, k, tipo, extra){
 }
 function vCelebracion(app, id, tipo, fecha){
   var nueva = id === 'nueva';
+  // Fichas ya creadas: se abren como carpeta (Resumen, Hoja interna, Historial, documentos…); «datos» es este formulario
+  if (!nueva && tipo !== 'datos') return vCarpeta(app, id, tipo || 'resumen');
   app.innerHTML = '<div class="vista">' + cabecera('Cargando…', '', '#/eventos') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
   var cargar = nueva ? Promise.resolve({ tipo: TXT[tipo] ? tipo : 'boda', fecha: fecha || '', estado: 'bloqueada', pagos: [], adultos: 0, ninos: 0, fianza_pagada: false, lugar: 'Don Fadrique' })
     : api('GET', '/api/portal/celebraciones/' + id);
@@ -840,7 +872,7 @@ function vCelebracion(app, id, tipo, fecha){
     var persona = function(n, etq){
       return '<div class="card"><h3>' + etq + '</h3>' + campo('Nombre', 'nombre' + n) + campo('Apellidos', 'apellidos' + n) + campo('DNI / NIE', 'dni' + n, '', ' autocapitalize="characters"') + '</div>';
     };
-    var h = '<div class="vista">' + cabecera(nueva ? TXT[CE.tipo].nueva : nombreCeleb(CE), TXT[CE.tipo].uno.charAt(0).toUpperCase() + TXT[CE.tipo].uno.slice(1), atras, '<button class="acc" onclick="guardarCeleb()">Guardar</button>') + '<div class="content">';
+    var h = '<div class="vista">' + cabecera(nueva ? TXT[CE.tipo].nueva : nombreCeleb(CE), TXT[CE.tipo].uno.charAt(0).toUpperCase() + TXT[CE.tipo].uno.slice(1), atras, '<button class="acc" onclick="guardarCeleb()">Guardar</button>') + (nueva ? '' : tabsCarpeta(id, 'datos')) + '<div class="content">';
     if (!nueva) h += '<div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1">' + badgeEstado(CE) + '<div class="muted" style="margin-top:6px">' +
       (CE.estado === 'confirmada' ? 'Fianza pagada el ' + esc(fechaCorta(CE.fianza_fecha)) : CE.estado === 'cancelada' ? 'No ocupa la fecha en el calendario' : 'La fecha queda bloqueada en ámbar hasta que se pague la fianza') + '</div></div></div>';
     h += '<div class="card"><h3>Fecha y lugar</h3><div class="fila">' + campo('Fecha', 'fecha', 'date') + campo('Hora', 'hora', 'time') + '</div>' +
@@ -921,19 +953,420 @@ function guardarCeleb(){
     return api(nueva ? 'POST' : 'PUT', '/api/portal/celebraciones' + (nueva ? '' : '/' + CE.id), CE).then(function(c){
       SUCIO = false; toast(c.estado === 'confirmada' ? 'Guardada · confirmada' : 'Guardada · fecha bloqueada');
       CAL[c.tipo] = c.fecha.slice(0, 7); DIA_SEL = c.fecha;
-      if (nueva) ir('#/celebracion/' + c.id); else vCelebracion($('app'), c.id);
+      if (nueva) ir('#/celebracion/' + c.id); else vCelebracion($('app'), c.id, 'datos');
     });
   }).catch(fallo);
 }
 function cancelarCeleb(si){
   if (si && !confirm('¿Cancelar? La fecha quedará libre en el calendario.')) return;
   CE.estado = si ? 'cancelada' : 'bloqueada';
-  api('PUT', '/api/portal/celebraciones/' + CE.id, CE).then(function(c){ SUCIO = false; toast(si ? 'Cancelada' : 'Reactivada'); vCelebracion($('app'), c.id); }).catch(fallo);
+  api('PUT', '/api/portal/celebraciones/' + CE.id, CE).then(function(c){ SUCIO = false; toast(si ? 'Cancelada' : 'Reactivada'); vCelebracion($('app'), c.id, 'datos'); }).catch(fallo);
 }
 function borrarCeleb(){
   if (!confirm('¿Eliminar la ficha por completo? No se puede deshacer.')) return;
   api('DELETE', '/api/portal/celebraciones/' + CE.id).then(function(){ SUCIO = false; ir(rutaTipo(CE.tipo)); }).catch(fallo);
 }
+
+// ════════════════════════════════════════════════════════════════════════
+//  CARPETA DEL EVENTO: resumen, hoja interna, historial, presupuesto, fianza, factura y archivos
+// ════════════════════════════════════════════════════════════════════════
+var CAR = null, FI = null, DOCED = null;
+var TABS_CARPETA = [['resumen', 'Resumen'], ['datos', 'Datos'], ['hoja', 'Hoja interna'], ['historial', 'Historial'], ['presupuesto', 'Presupuesto'], ['fianza', 'Reserva y fianza'], ['factura', 'Factura'], ['archivos', 'Archivos']];
+function tabsCarpeta(id, tab){
+  return '<div class="tabs-c">' + TABS_CARPETA.map(function(t){ return '<button class="' + (t[0] === tab ? 'on' : '') + '" onclick="volverA(\'#/celebracion/' + id + '/' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
+}
+function cap1(t){ t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); }
+function fechaHoraSql(s){ if (!s) return ''; var d = new Date(String(s).replace(' ', 'T') + 'Z'); return d.toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function fechaSql(s){ if (!s) return ''; return new Date(String(s).replace(' ', 'T') + 'Z').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }); }
+function tamTxt(n){ n = Number(n) || 0; return n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+
+function vCarpeta(app, id, tab){
+  if (!CAR || String(CAR.id) !== String(id)) app.innerHTML = '<div class="vista">' + cabecera('Cargando…', '', '#/eventos') + '<div class="content"><div class="cargando">Cargando…</div></div></div>';
+  Promise.all([api('GET', '/api/portal/celebraciones/' + id), api('GET', '/api/portal/eventos/' + id + '/carpeta')]).then(function(r){
+    CAR = { id: id, tab: tab, c: r[0], d: r[1] };
+    var c = CAR.c, y = window.scrollY;
+    var vistas = { resumen: carResumen, hoja: carHoja, historial: carHistorial, presupuesto: function(){ return carDoc('presupuesto'); }, fianza: function(){ return carDoc('fianza'); }, factura: function(){ return carDoc('factura'); }, archivos: carArchivos };
+    var f = vistas[tab] || carResumen;
+    app.innerHTML = '<div class="vista">' + cabecera(nombreCeleb(c), cap1(TXT[c.tipo].uno) + ' · ' + fechaCorta(c.fecha), rutaTipo(c.tipo)) + tabsCarpeta(id, tab) + '<div class="content">' + f() + '<div style="height:30px"></div></div></div>';
+    if (tab === 'presupuesto' || tab === 'factura' || tab === 'fianza') totDoc();
+    var on = app.querySelector('.tabs-c .on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center' });
+    window.scrollTo(0, y);
+  }).catch(fallo);
+}
+function recargarCarpeta(){ SUCIO = false; vCarpeta($('app'), CAR.id, CAR.tab); }
+// Al volver de firmar en otra pestaña, se actualiza solo
+window.addEventListener('focus', function(){ if (CAR && CAR.esperando && !SUCIO && /^#\/celebracion\//.test(location.hash)) { CAR.esperando = false; recargarCarpeta(); } });
+
+function docsDe(tipo){ return CAR.d.docs.filter(function(d){ return d.tipo === tipo; }).sort(function(a, b){ return b.id - a.id; }); }
+function docActual(tipo){ return docsDe(tipo).filter(function(d){ return !d.sustituido; })[0] || null; }
+function docFirmado(tipo){ return docsDe(tipo).filter(function(d){ return d.estado === 'firmado'; })[0] || null; }
+var EST_DOC = { borrador: ['Borrador', 'b-gris'], enviado: ['Pendiente de firma', 'b-ambar'], firmado: ['Firmado', 'b-verde'], emitida: ['Emitida', 'b-verde'] };
+function badgeDoc(d){ var e = EST_DOC[d.estado] || ['', 'b-gris']; return '<span class="badge ' + e[1] + '">' + e[0] + '</span>'; }
+function cobradoCeleb(c){ return (c.fianza_pagada ? n2(c.fianza_importe) : 0) + (c.pagos || []).reduce(function(a, p){ return a + n2(p.importe); }, 0); }
+
+// ── Resumen: todo de un vistazo ──
+function filaVis(estado, titulo, detalle, tab, der){
+  var o = estado === 2 ? '<div class="o si">&#10003;</div>' : estado === 1 ? '<div class="o med">&#8230;</div>' : '<div class="o">&#9675;</div>';
+  return '<div class="vis" onclick="ir(\'#/celebracion/' + CAR.id + '/' + tab + '\')">' + o + '<div class="tx"><b>' + titulo + '</b><small>' + detalle + '</small></div>' + (der ? '<div class="der">' + der + '</div>' : '') + '<span class="muted">&#8250;</span></div>';
+}
+function carResumen(){
+  var c = CAR.c, d = CAR.d, f = d.ficha || {};
+  var pres = docActual('presupuesto'), presF = docFirmado('presupuesto'), fz = docActual('fianza'), fzF = docFirmado('fianza'), fac = docActual('factura');
+  var h = '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div>' + badgeEstado(c) +
+    '<div style="font-size:17px;margin-top:8px">' + esc(cap1(fechaLarga(c.fecha))) + (c.hora ? ' · ' + esc(c.hora) + ' h' : '') + '</div>' +
+    '<div class="muted" style="margin-top:3px">' + esc(c.lugar || '') + ((c.adultos || c.ninos) ? ' · ' + (c.adultos || 0) + ' adultos' + (n2(c.ninos) ? ' y ' + c.ninos + ' niños' : '') : '') + (c.menu_nombre ? ' · ' + esc(c.menu_nombre) : '') + '</div></div>' +
+    '<button class="btn btn-s btn-sm" onclick="ir(\'#/celebracion/' + CAR.id + '/datos\')">Editar datos</button></div>' +
+    (c.tel || c.email ? '<div class="btns" style="margin-top:10px">' + (c.tel ? '<a class="btn btn-s btn-sm" href="tel:' + attr(c.tel) + '">&#128222; ' + esc(c.tel) + '</a><a class="btn btn-s btn-sm" target="_blank" rel="noopener" href="https://wa.me/' + attr(telWa(c.tel)) + '">&#128172; WhatsApp</a>' : '') + (c.email ? '<a class="btn btn-s btn-sm" href="mailto:' + attr(c.email) + '">&#9993; Email</a>' : '') + '</div>' : '') + '</div>';
+  // Estado de los papeles y del dinero
+  var total = fac ? fac.total : presF ? presF.total : pres ? pres.total : 0, cob = cobradoCeleb(c);
+  h += '<div class="card"><h3>De un vistazo</h3>';
+  h += filaVis(presF ? 2 : pres ? 1 : 0, 'Presupuesto', presF ? 'Firmado por ' + esc(presF.firmado_nombre) + ' el ' + esc(fechaSql(presF.firmado_at)) + (pres && pres.id !== presF.id ? ' · hay una versión nueva en ' + (EST_DOC[pres.estado] || [''])[0].toLowerCase() : '') :
+    pres ? (pres.estado === 'enviado' ? 'Enviado, pendiente de firma' : 'En borrador') : 'Sin hacer', 'presupuesto', (presF || pres) ? euros((presF || pres).total) : '');
+  h += filaVis(fzF ? 2 : fz ? 1 : 0, 'Reserva de fecha', fzF ? 'Firmada por ' + esc(fzF.firmado_nombre) + ' el ' + esc(fechaSql(fzF.firmado_at)) : fz ? (fz.estado === 'enviado' ? 'Enviada, pendiente de firma' : 'En borrador') : 'Sin hacer', 'fianza');
+  h += filaVis(c.fianza_pagada ? 2 : 0, 'Fianza', c.fianza_pagada ? 'Pagada el ' + esc(fechaCorta(c.fianza_fecha)) + (c.fianza_forma ? ' · ' + esc(c.fianza_forma) : '') : n2(c.fianza_importe) ? 'Sin pagar todavía' : 'Sin importe anotado', 'fianza', n2(c.fianza_importe) ? euros(c.fianza_importe) : '');
+  h += filaVis(fac && fac.estado === 'emitida' ? 2 : fac ? 1 : 0, 'Factura', fac ? (fac.estado === 'emitida' ? esc(fac.numero) + ' · ' + esc(fechaCorta(fac.fecha_emision)) : 'Borrador (se rellena con el presupuesto firmado)') : 'Sin hacer', 'factura', fac ? euros(fac.total) : '');
+  h += filaVis(total && cob >= total - 0.01 ? 2 : cob ? 1 : 0, 'Cobrado', euros(cob) + (total ? ' de ' + euros(total) + ' · pendiente ' + euros(Math.max(0, total - cob)) : ''), 'datos');
+  h += '</div>';
+  // Hoja interna resumida
+  var hr = resumenHoja(f);
+  h += '<div class="card"><h3>Hoja interna</h3>' + (hr || '<div class="muted" style="margin-bottom:8px">Todavía no se ha rellenado: espacios, ceremonia, cóctel, banquete, barra libre, DJ…</div>') +
+    '<button class="btn btn-s btn-sm" style="margin-top:6px" onclick="ir(\'#/celebracion/' + CAR.id + '/hoja\')">' + (hr ? 'Ver / editar' : 'Rellenar') + '</button></div>';
+  // Historial
+  var ns = d.notas.filter(function(n){ return n.tipo !== 'sistema'; });
+  h += '<div class="card"><h3>Lo hablado con ' + (c.tipo === 'boda' ? 'los novios' : 'los clientes') + '</h3>' +
+    (ns.length ? ns.slice(0, 4).map(pintarNota).join('') + (ns.length > 4 ? '<div class="muted">y ' + (ns.length - 4) + ' anotaciones más…</div>' : '') : '<div class="muted" style="margin-bottom:8px">Aún no hay reuniones anotadas</div>') +
+    '<div class="btns" style="margin-top:8px"><button class="btn btn-p btn-sm" onclick="ir(\'#/celebracion/' + CAR.id + '/historial\')">+ Anotar reunión o llamada</button>' + (d.notas.length ? '<button class="btn btn-s btn-sm" onclick="ir(\'#/celebracion/' + CAR.id + '/historial\')">Ver historial completo</button>' : '') + '</div></div>';
+  h += '<div class="card"><h3>Archivos</h3><div class="muted" style="margin-bottom:8px">' + d.archivos.length + ' archivo' + (d.archivos.length === 1 ? '' : 's') + ' · ' + d.docs.length + ' documento' + (d.docs.length === 1 ? '' : 's') + ' de la app</div>' +
+    '<button class="btn btn-s btn-sm" onclick="ir(\'#/celebracion/' + CAR.id + '/archivos\')">Abrir la carpeta</button></div>';
+  return h;
+}
+
+// ── Hoja interna ──
+var HOJA = [
+  { k: 'general', t: 'Espacios y horario', c: [['espacios', 'Espacios que se usan', 'area', 'Ej.: ceremonia en el jardín, cóctel en el patio, banquete en el salón…'], ['horario', 'Horario general', 'area', 'Llegada de invitados, ceremonia, cóctel, banquete, baile, fin…']] },
+  { k: 'ceremonia', t: 'Ceremonia', si: '¿Hay ceremonia aquí?', c: [['tipo', 'Tipo', 'sel', ['', 'Civil', 'Religiosa', 'Simbólica']], ['lugar', 'Dónde', 'lugar'], ['hora', 'Hora', 'time'], ['oficiante', 'Quién la oficia', 'text'], ['montaje', 'Montaje', 'area', 'Sillas, altar o mesa, pasillo, flores, megafonía, música…']] },
+  { k: 'coctel', t: 'Cóctel de bienvenida', si: '¿Hay cóctel?', c: [['lugar', 'Dónde', 'lugar'], ['hora', 'Hora', 'time'], ['duracion', 'Duración', 'text'], ['montaje', 'Montaje y lo que se sirve', 'area']] },
+  { k: 'banquete', t: 'Menú sentados', c: [['lugar', 'Dónde', 'lugar'], ['hora', 'Hora', 'time'], ['mesas', 'Mesas', 'text', 'Redondas de 10, imperial…'], ['presidencial', 'Mesa presidencial', 'text'], ['montaje', 'Montaje', 'area', 'Mantelería, centros de mesa, minutas, seating…'], ['alergias', 'Alergias e intolerancias', 'area']] },
+  { k: 'barra', t: 'Barra libre', si: '¿Hay barra libre?', c: [['lugar', 'Dónde', 'lugar'], ['hora', 'Desde las', 'time'], ['horas', 'Horas', 'text'], ['bebidas', 'Bebidas y marcas', 'area']] },
+  { k: 'musica', t: 'Música y DJ', c: [['dj', 'DJ', 'sel', [['', 'Sin decidir'], ['nosotros', 'Lo ponemos nosotros'], ['ellos', 'Lo contratan ellos aparte'], ['no', 'Sin DJ']]], ['proveedor', 'Empresa y contacto', 'text'], ['montaje', 'Qué necesita (espacio, enchufes, horario)', 'area']] },
+  { k: 'otros', t: 'Otros detalles', c: [['fotografo', 'Fotógrafo / vídeo', 'text'], ['flores', 'Flores y decoración', 'area'], ['tarta', 'Tarta', 'text'], ['ninos', 'Niños (animación, menú, monitores)', 'text'], ['proveedores', 'Otros proveedores externos', 'area'], ['notas', 'Otras cosas importantes', 'area']] }
+];
+function valHoja(sec, k){ return ((FI || {})[sec] || {})[k]; }
+function textoCampo(sec, campo){
+  var v = valHoja(sec.k, campo[0]); if (v == null || v === '') return '';
+  if (campo[2] === 'sel' && Array.isArray(campo[3][0])) { var o = campo[3].filter(function(x){ return x[0] === v; })[0]; v = o ? o[1] : v; }
+  return v;
+}
+function resumenHoja(f){
+  FI = clon(f || {});
+  return HOJA.map(function(s){
+    var d = FI[s.k] || {};
+    if (s.si && !d.si) return d.si === false ? '<div class="hr"><b>' + s.t + ':</b> no</div>' : '';
+    var partes = s.c.filter(function(x){ return x[2] !== 'area'; }).map(function(x){ var v = textoCampo(s, x); return v ? (x[2] === 'time' ? v + ' h' : x[0] === 'horas' ? v + ' h de barra' : v) : ''; }).filter(Boolean);
+    var largos = s.c.filter(function(x){ return x[2] === 'area' && textoCampo(s, x); }).map(function(x){ return textoCampo(s, x); });
+    if (!partes.length && !largos.length && !d.si) return '';
+    return '<div class="hr"><b>' + s.t + (s.si ? ': sí' : '') + '</b>' + (partes.length ? (s.si ? ' · ' : ': ') + esc(partes.join(' · ')) : '') + (largos.length ? '<div class="muted">' + esc(largos.join(' — ')).slice(0, 260) + '</div>' : '') + '</div>';
+  }).join('');
+}
+function carHoja(){
+  FI = clon(CAR.d.ficha || {});
+  var h = '<p class="muted" style="margin:0 2px 10px">Para el equipo: no se enseña a los clientes. Lo que marques aquí (ceremonia, cóctel, barra libre, DJ nuestro) se propone como líneas al hacer el presupuesto.</p>';
+  h += HOJA.map(function(s){
+    var d = FI[s.k] || {};
+    var cuerpo = s.c.map(function(x){ return campoHoja(s.k, x); }).join('');
+    // Los campos cortos van de dos en dos
+    return '<div class="card"><h3>' + s.t + '</h3>' + (s.si ? '<div class="chips">' + [[true, 'Sí'], [false, 'No']].map(function(o){ return '<button class="chip' + (d.si === o[0] ? ' on' : '') + '" onclick="siHoja(\'' + s.k + '\',' + o[0] + ',this)">' + o[1] + '</button>'; }).join('') + '<span class="muted" style="align-self:center">' + s.si + '</span></div>' : '') +
+      '<div id="hs-' + s.k + '" style="' + (s.si && !d.si ? 'display:none' : '') + '">' + cuerpo + '</div></div>';
+  }).join('');
+  h += '<div class="btns"><button class="btn btn-p" onclick="guardarHoja()">Guardar hoja interna</button><button class="btn btn-s" onclick="imprimirHoja()">&#128424; Imprimir para el equipo</button></div>';
+  return h;
+}
+function campoHoja(sec, x){
+  var v = valHoja(sec, x[0]); v = v == null ? '' : v;
+  var on = ' oninput="setHoja(\'' + sec + '\',\'' + x[0] + '\',this.value)"';
+  var inp;
+  if (x[2] === 'area') inp = '<textarea rows="3"' + (x[3] ? ' placeholder="' + attr(x[3]) + '"' : '') + on + '>' + esc(v) + '</textarea>';
+  else if (x[2] === 'sel') inp = '<select onchange="setHoja(\'' + sec + '\',\'' + x[0] + '\',this.value)">' + x[3].map(function(o){ var k = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return '<option value="' + attr(k) + '"' + (v === k ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>';
+  else if (x[2] === 'lugar') inp = '<input list="lugares-h" value="' + attr(v) + '"' + on + '><datalist id="lugares-h">' + LUGARES.concat(['Jardín', 'Patio', 'Salón', 'Terraza', 'Bodega', 'Cristalera', 'Iglesia']).map(function(l){ return '<option value="' + attr(l) + '">'; }).join('') + '</datalist>';
+  else inp = '<input' + (x[2] === 'time' ? ' type="time"' : '') + ' value="' + attr(v) + '"' + (x[3] ? ' placeholder="' + attr(x[3]) + '"' : '') + on + '>';
+  return '<div class="field"><label>' + x[1] + '</label>' + inp + '</div>';
+}
+function setHoja(sec, k, v){ FI[sec] = FI[sec] || {}; FI[sec][k] = v; marcar(); }
+function siHoja(sec, v, b){
+  FI[sec] = FI[sec] || {}; FI[sec].si = v; marcar();
+  b.parentNode.querySelectorAll('.chip').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on');
+  $('hs-' + sec).style.display = v ? '' : 'none';
+}
+function guardarHoja(){
+  api('PUT', '/api/portal/eventos/' + CAR.id + '/ficha', { ficha: FI }).then(function(){ SUCIO = false; toast('Hoja interna guardada'); CAR.d.ficha = clon(FI); }).catch(fallo);
+}
+function imprimirHoja(){
+  var c = CAR.c;
+  var cuerpo = HOJA.map(function(s){
+    var d = FI[s.k] || {};
+    if (s.si && !d.si) return '<h2>' + s.t + '</h2><p>' + (d.si === false ? 'No' : 'Sin decidir') + '</p>';
+    var filas = s.c.map(function(x){ var v = textoCampo(s, x); return v ? '<tr><th>' + x[1] + '</th><td>' + esc(v).replace(/\n/g, '<br>') + '</td></tr>' : ''; }).join('');
+    return '<h2>' + s.t + (s.si ? ': sí' : '') + '</h2>' + (filas ? '<table>' + filas + '</table>' : '<p class="v">—</p>');
+  }).join('');
+  var w = window.open('', '_blank'); if (!w) return toast('Permite las ventanas emergentes');
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Hoja interna · ' + esc(nombreCeleb(c)) + '</title><link rel="stylesheet" href="' + location.origin + '/fonts/jost.css"><style>' +
+    '@page{size:A4;margin:14mm}body{font-family:Jost,Helvetica Neue,Arial,sans-serif;color:#1a1a1a;font-size:10.5pt;max-width:190mm;margin:0 auto;padding:10px}' +
+    '.cab{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #b8965a;padding-bottom:6px;margin-bottom:10px}.cab b{letter-spacing:.3em;font-weight:400;font-size:15pt}.cab span{font-size:9pt;color:#8a8278;text-align:right}' +
+    'h1{font-size:14pt;font-weight:500;margin:4px 0 2px}.sub{color:#555;margin-bottom:8px}h2{font-size:8.5pt;letter-spacing:.16em;text-transform:uppercase;color:#8b6a2e;margin:14px 0 4px;border-bottom:1px solid #eee;padding-bottom:2px}' +
+    'table{width:100%;border-collapse:collapse}th{width:34%;text-align:left;font-weight:500;color:#666;vertical-align:top;padding:3px 8px 3px 0;font-size:9.5pt}td{padding:3px 0;vertical-align:top}p{margin:2px 0}.v{color:#aaa}' +
+    '.bar{text-align:center;margin-bottom:12px}.bar button{background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px}@media print{.bar{display:none}}</style></head><body>' +
+    '<div class="bar"><button onclick="window.print()">Imprimir</button></div>' +
+    '<div class="cab"><b>DON FADRIQUE</b><span>HOJA INTERNA · USO DEL EQUIPO<br>' + new Date().toLocaleDateString('es-ES') + '</span></div>' +
+    '<h1>' + esc(cap1(TXT[c.tipo].uno)) + ' · ' + esc(nombreCeleb(c)) + '</h1><div class="sub">' + esc(cap1(fechaLarga(c.fecha))) + (c.hora ? ' · ' + esc(c.hora) + ' h' : '') + ' · ' + esc(c.lugar || '') + ' · ' + (c.adultos || 0) + ' adultos' + (n2(c.ninos) ? ', ' + c.ninos + ' niños' : '') + (c.menu_nombre ? ' · ' + esc(c.menu_nombre) : '') + (c.tel ? ' · Tel. ' + esc(c.tel) : '') + '</div>' +
+    cuerpo + '</body></html>');
+  w.document.close();
+}
+
+// ── Historial de reuniones y llamadas ──
+var TIPOS_NOTA = { reunion: ['&#129309;', 'Reunión'], llamada: ['&#128222;', 'Llamada'], visita: ['&#128694;', 'Visita'], email: ['&#9993;', 'Email / WhatsApp'], nota: ['&#128221;', 'Nota'], sistema: ['&#9881;', 'Automático'] };
+var NOTA_TIPO = 'reunion';
+function pintarNota(n){
+  var t = TIPOS_NOTA[n.tipo] || TIPOS_NOTA.nota;
+  if (n.tipo === 'sistema') return '<div class="nota sis">' + t[0] + ' ' + esc(n.texto) + ' <span>· ' + esc(fechaCorta(n.fecha)) + (n.autor ? ' · ' + esc(n.autor) : '') + '</span></div>';
+  return '<div class="nota" id="nota-' + n.id + '"><div class="cab">' + t[0] + ' <b>' + t[1] + '</b> · ' + esc(fechaCorta(n.fecha)) + (n.autor ? ' · ' + esc(n.autor) : '') +
+    (CAR.tab === 'historial' ? ' <button class="lnk" onclick="editarNota(' + n.id + ')">editar</button>' : '') + '</div><div class="tx">' + esc(n.texto) + '</div></div>';
+}
+function carHistorial(){
+  var h = '<div class="card"><h3>Anotar</h3><div class="chips">' + ['reunion', 'llamada', 'visita', 'email', 'nota'].map(function(k){ return '<button class="chip' + (NOTA_TIPO === k ? ' on' : '') + '" onclick="NOTA_TIPO=\'' + k + '\';this.parentNode.querySelectorAll(\'.chip\').forEach(function(x){x.classList.remove(\'on\')});this.classList.add(\'on\')">' + TIPOS_NOTA[k][0] + ' ' + TIPOS_NOTA[k][1] + '</button>'; }).join('') + '</div>' +
+    '<div class="field"><label>Fecha</label><input type="date" id="n-fecha" value="' + hoyISO() + '"></div>' +
+    '<div class="field"><label>Qué se habló, qué se decidió, qué queda pendiente</label><textarea id="n-texto" rows="5" oninput="marcar()"></textarea></div>' +
+    '<button class="btn btn-p" onclick="guardarNota()">Guardar en el historial</button></div>';
+  var solo = CAR.soloHablado;
+  var ns = CAR.d.notas.filter(function(n){ return !solo || n.tipo !== 'sistema'; });
+  h += '<div class="sw-row" style="padding:2px 4px 8px"><span class="muted">Mostrar también lo automático (firmas, envíos, archivos)</span><label class="sw"><input type="checkbox"' + (solo ? '' : ' checked') + ' onchange="CAR.soloHablado=!this.checked;recargarCarpeta()"><span class="sw-sl"></span></label></div>';
+  if (!ns.length) return h + '<div class="vacio">Sin anotaciones todavía</div>';
+  var dia = '';
+  h += '<div class="card">' + ns.map(function(n){
+    var cab = n.fecha !== dia ? '<div class="dia-n">' + esc(cap1(fechaCorta(n.fecha))) + '</div>' : ''; dia = n.fecha;
+    return cab + pintarNota(n);
+  }).join('') + '</div>';
+  return h;
+}
+function guardarNota(){
+  var t = $('n-texto').value.trim(); if (!t) return toast('Escribe lo que se habló');
+  api('POST', '/api/portal/eventos/' + CAR.id + '/notas', { tipo: NOTA_TIPO, fecha: $('n-fecha').value, texto: t }).then(function(){ toast('Guardado en el historial'); recargarCarpeta(); }).catch(fallo);
+}
+function editarNota(id){
+  var n = CAR.d.notas.filter(function(x){ return x.id === id; })[0]; if (!n) return;
+  $('nota-' + id).innerHTML = '<div class="fila" style="margin-bottom:6px"><input class="in" type="date" id="en-f-' + id + '" value="' + attr(n.fecha) + '"><select class="in" id="en-t-' + id + '">' + ['reunion', 'llamada', 'visita', 'email', 'nota'].map(function(k){ return '<option value="' + k + '"' + (n.tipo === k ? ' selected' : '') + '>' + TIPOS_NOTA[k][1] + '</option>'; }).join('') + '</select></div>' +
+    '<textarea class="in" rows="5" id="en-x-' + id + '">' + esc(n.texto) + '</textarea><div class="btns" style="margin-top:6px"><button class="btn btn-p btn-sm" onclick="guardarEdNota(' + id + ')">Guardar</button><button class="btn btn-s btn-sm" onclick="recargarCarpeta()">Cancelar</button><button class="btn btn-d btn-sm" onclick="borrarNota(' + id + ')">Borrar</button></div>';
+}
+function guardarEdNota(id){ api('PUT', '/api/portal/eventos/notas/' + id, { fecha: $('en-f-' + id).value, tipo: $('en-t-' + id).value, texto: $('en-x-' + id).value }).then(function(){ toast('Guardado'); recargarCarpeta(); }).catch(fallo); }
+function borrarNota(id){ if (!confirm('¿Borrar esta anotación del historial?')) return; api('DELETE', '/api/portal/eventos/notas/' + id).then(recargarCarpeta).catch(fallo); }
+
+// ── Presupuesto, reserva con fianza y factura ──
+var DOC_TXT = {
+  presupuesto: { vacio: 'Todavía no hay presupuesto. Se prepara con el menú, los invitados y lo marcado en la hoja interna; luego ajustas precios y líneas.', crear: '+ Hacer el presupuesto' },
+  fianza: { vacio: 'Documento de reserva de la fecha con la fianza. Se firma con el dedo (aquí o en el móvil de los clientes) y se les envía en PDF.', crear: '+ Hacer el documento de reserva' },
+  factura: { vacio: 'La factura se crea sola cuando los clientes firman el presupuesto, y se actualiza si firman una versión nueva. También puedes crearla ahora.', crear: '+ Crear la factura' }
+};
+function carDoc(tipo){
+  var act = docActual(tipo), todos = docsDe(tipo), h = '';
+  DOCED = null;
+  if (!act) {
+    h += '<div class="card"><p style="margin-bottom:12px">' + DOC_TXT[tipo].vacio + '</p><button class="btn btn-p" onclick="crearDoc(\'' + tipo + '\')">' + DOC_TXT[tipo].crear + '</button></div>';
+  } else {
+    var editable = act.estado === 'borrador' || act.estado === 'enviado';
+    h += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><b style="font-size:15px">' + esc(act.numero || (tipo === 'factura' ? 'Factura (sin número todavía)' : '')) + (act.version > 1 ? ' · v' + act.version : '') + '</b>' + badgeDoc(act) + '</div>' +
+      '<div class="muted">' + (act.estado === 'firmado' ? 'Firmado por <b>' + esc(act.firmado_nombre) + '</b>' + (act.firmado_dni ? ' (DNI ' + esc(act.firmado_dni) + ')' : '') + ' el ' + esc(fechaHoraSql(act.firmado_at)) :
+        act.estado === 'emitida' ? 'Emitida el ' + esc(fechaCorta(act.fecha_emision)) + '. Ya no se puede cambiar.' :
+        act.estado === 'enviado' ? 'Preparado para firmar desde el ' + esc(fechaHoraSql(act.enviado_at)) + '. Si lo cambias, vuelve a mandar el enlace.' :
+        'Creado el ' + esc(fechaSql(act.created_at)) + (act.creado_por ? ' por ' + esc(act.creado_por) : '')) + '</div></div>';
+    if (editable) { DOCED = clon(act); h += editorDoc(tipo); }
+    else h += vistaDoc(act);
+    h += accionesDoc(act);
+  }
+  // Versiones anteriores
+  var viejos = todos.filter(function(d){ return !act || d.id !== act.id; });
+  if (viejos.length) h += '<div class="card"><h3>Versiones anteriores</h3>' + viejos.map(function(d){
+    return '<div class="arch"><a href="/api/portal/eventos/docs/' + d.id + '/pdf" target="_blank"><b>&#128196; ' + esc((d.numero || 'Borrador') + (d.version > 1 ? ' · v' + d.version : '')) + '</b><small>' + (EST_DOC[d.estado] || [''])[0] + (d.firmado_nombre ? ' por ' + esc(d.firmado_nombre) + ' · ' + esc(fechaSql(d.firmado_at)) : '') + (d.total ? ' · ' + euros(d.total) : '') + '</small></a></div>';
+  }).join('') + '</div>';
+  if (tipo === 'fianza') h += tarjetaPagoFianza();
+  if (ST.admin) h += '<details class="card"><summary class="muted" style="cursor:pointer">Texto por defecto de ' + (tipo === 'factura' ? 'observaciones de la factura' : 'condiciones') + ' (para documentos nuevos)</summary><textarea class="in" id="txt-def" rows="7" style="margin-top:10px">' + esc(CAR.d.textos[tipo] || '') + '</textarea>' +
+    '<button class="btn btn-s btn-sm" style="margin-top:8px" onclick="guardarTextoDef(\'' + tipo + '\')">Guardar texto por defecto</button></details>';
+  return h;
+}
+function tarjetaPagoFianza(){
+  var c = CAR.c;
+  return '<div class="card"><h3>Pago de la fianza</h3>' + (c.fianza_pagada ? '<div><span class="badge b-verde">Pagada</span> ' + euros(c.fianza_importe) + ' el ' + esc(fechaCorta(c.fianza_fecha)) + (c.fianza_forma ? ' · ' + esc(c.fianza_forma) : '') + '</div>' :
+    '<div class="muted" style="margin-bottom:10px">Aún no está marcada como pagada' + (n2(c.fianza_importe) ? ' (' + euros(c.fianza_importe) + ')' : '') + '. Al marcarla, ' + TXT[c.tipo].la + ' pasa a confirmada (verde).</div><button class="btn btn-p btn-sm" onclick="fianzaPagada()">&#10003; Marcar fianza como pagada hoy</button>') + '</div>';
+}
+function fianzaPagada(){
+  var c = clon(CAR.c), fz = docActual('fianza');
+  if (!n2(c.fianza_importe) && fz && fz.datos) c.fianza_importe = fz.datos.importe_fianza;
+  if (!n2(c.fianza_importe)) { var v = prompt('Importe de la fianza (€)'); if (!v) return; c.fianza_importe = n2(v); }
+  if (!c.fianza_forma && fz && fz.datos) c.fianza_forma = fz.datos.forma_pago;
+  c.fianza_pagada = true; c.fianza_fecha = hoyISO();
+  api('PUT', '/api/portal/celebraciones/' + c.id, c).then(function(){ return api('POST', '/api/portal/eventos/' + c.id + '/notas', { tipo: 'nota', texto: 'Fianza de ' + euros(c.fianza_importe) + ' pagada' + (c.fianza_forma ? ' (' + c.fianza_forma + ')' : '') }); })
+    .then(function(){ toast('Fianza pagada · confirmada'); recargarCarpeta(); }).catch(fallo);
+}
+function guardarTextoDef(tipo){ var o = {}; o[tipo] = $('txt-def').value; api('PUT', '/api/portal/eventos/textos', o).then(function(t){ CAR.d.textos = t; toast('Texto guardado para los próximos documentos'); }).catch(fallo); }
+function crearDoc(tipo){
+  api('POST', '/api/portal/eventos/' + CAR.id + '/docs', { tipo: tipo }).then(function(){ toast('Creado'); recargarCarpeta(); }).catch(fallo);
+}
+function editorDoc(tipo){
+  var d = DOCED.datos, h = '';
+  if (tipo === 'fianza') {
+    h += '<div class="card"><h3>Reserva y fianza</h3><div class="fila"><div class="field"><label>Importe de la fianza (€)</label><input inputmode="decimal" value="' + attr(d.importe_fianza || '') + '" oninput="DOCED.datos.importe_fianza=n2(this.value);marcar()"></div>' +
+      '<div class="field"><label>Forma de pago</label><select onchange="DOCED.datos.forma_pago=this.value;marcar()">' + ['Transferencia', 'Tarjeta', 'Efectivo', 'Bizum'].map(function(f){ return '<option' + (d.forma_pago === f ? ' selected' : '') + '>' + f + '</option>'; }).join('') + '</select></div></div>' +
+      (d.presupuesto && d.presupuesto.numero ? '<div class="muted">Hace referencia al presupuesto ' + esc(d.presupuesto.numero) + '</div>' : '') +
+      '<div class="muted" style="margin-top:6px">Los nombres, DNI, fecha y lugar se toman de la pestaña Datos (' + esc(d.cliente && d.cliente.nombre || 'sin nombres') + ' · ' + esc(fechaCorta(d.evento && d.evento.fecha)) + '). <button class="lnk" onclick="refrescarDatosDoc()">Actualizar con los datos actuales</button></div></div>';
+  } else {
+    h += '<div class="card"><h3>' + (tipo === 'factura' ? 'Líneas de la factura' : 'Líneas del presupuesto') + '</h3><div id="doc-lineas">' + lineasDocHtml() + '</div>' +
+      '<button class="btn btn-s btn-sm" onclick="DOCED.datos.lineas.push({concepto:\'\',cantidad:1,precio:0,iva:10});marcar();pintarLineasDoc()">+ Añadir línea</button>' +
+      '<div class="tot-doc" id="doc-tot"></div>' +
+      '<div class="muted" style="margin-top:6px">Precio 0 se imprime como «Incluido». Cliente y datos del evento: ' + esc(d.cliente && d.cliente.nombre || 'sin nombres') + ' · ' + esc(fechaCorta(d.evento && d.evento.fecha)) + ' · ' + ((d.evento && d.evento.adultos) || 0) + ' adultos. <button class="lnk" onclick="refrescarDatosDoc()">Actualizar con los datos actuales</button></div></div>';
+  }
+  h += '<div class="card"><h3>' + (tipo === 'factura' ? 'Observaciones' : 'Condiciones') + '</h3><textarea class="in" rows="7" oninput="DOCED.datos.condiciones=this.value;marcar()">' + esc(d.condiciones || '') + '</textarea>' +
+    '<div class="field" style="margin-top:10px"><label>Nota adicional (opcional, sale en el documento)</label><textarea rows="2" oninput="DOCED.datos.notas=this.value;marcar()">' + esc(d.notas || '') + '</textarea></div></div>';
+  return h;
+}
+function lineasDocHtml(){
+  var ls = DOCED.datos.lineas = DOCED.datos.lineas || [];
+  if (!ls.length) return '<div class="muted" style="margin-bottom:8px">Sin líneas</div>';
+  return ls.map(function(l, i){
+    return '<div class="lin-doc"><div style="display:flex;gap:6px"><input class="in" placeholder="Concepto" value="' + attr(l.concepto) + '" oninput="DOCED.datos.lineas[' + i + '].concepto=this.value;marcar()"><button class="mini" title="Quitar" onclick="DOCED.datos.lineas.splice(' + i + ',1);marcar();pintarLineasDoc()">&#10005;</button></div>' +
+      '<div class="fila"><label class="mini-l">Cantidad<input class="in" inputmode="decimal" value="' + attr(l.cantidad) + '" oninput="DOCED.datos.lineas[' + i + '].cantidad=n2(this.value);marcar();totDoc()"></label>' +
+      '<label class="mini-l">Precio (€ sin IVA)<input class="in" inputmode="decimal" value="' + attr(l.precio || '') + '" placeholder="Incluido" oninput="DOCED.datos.lineas[' + i + '].precio=n2(this.value);marcar();totDoc()"></label>' +
+      '<label class="mini-l">IVA<select class="in" onchange="DOCED.datos.lineas[' + i + '].iva=parseInt(this.value);marcar();totDoc()">' + [10, 21, 4].map(function(t){ return '<option value="' + t + '"' + (Number(l.iva || 10) === t ? ' selected' : '') + '>' + t + '%</option>'; }).join('') + '</select></label></div></div>';
+  }).join('');
+}
+function pintarLineasDoc(){ $('doc-lineas').innerHTML = lineasDocHtml(); totDoc(); }
+function calcTotDoc(datos){
+  var base = 0, iva = 0;
+  (datos.lineas || []).forEach(function(l){ var imp = n2(l.cantidad) * n2(l.precio); base += imp; iva += imp * (Number(l.iva) || 10) / 100; });
+  return { base: base, iva: iva, total: base + iva };
+}
+function totDoc(){
+  var e = $('doc-tot'); if (!e || !DOCED) return;
+  var t = calcTotDoc(DOCED.datos);
+  e.innerHTML = 'Base ' + euros(t.base) + ' · IVA ' + euros(t.iva) + '<br>Total <b>' + euros(t.total) + '</b>';
+}
+function refrescarDatosDoc(){
+  var c = CAR.c, p1 = [c.nombre1, c.apellidos1].filter(Boolean).join(' '), p2 = [c.nombre2, c.apellidos2].filter(Boolean).join(' ');
+  DOCED.datos.cliente = { nombre: c.tipo === 'evento' && c.empresa ? c.empresa : [p1, p2].filter(Boolean).join(' y '), persona1: p1, dni1: c.dni1 || '', persona2: p2, dni2: c.dni2 || '', empresa: c.empresa || '', cif: c.cif || '', direccion: c.direccion || '', email: c.email || '', tel: c.tel || '' };
+  DOCED.datos.evento = { tipo: c.tipo, nombre: nombreCeleb(c), fecha: c.fecha, hora: c.hora || '', lugar: c.lugar || '', adultos: c.adultos || 0, ninos: c.ninos || 0, menu: c.menu_nombre || '', protagonista: c.protagonista || '' };
+  if (DOCED.tipo === 'fianza' && !n2(DOCED.datos.importe_fianza) && n2(c.fianza_importe)) DOCED.datos.importe_fianza = c.fianza_importe;
+  guardarDocEv().then(function(){ toast('Datos actualizados'); recargarCarpeta(); }).catch(fallo);
+}
+function guardarDocEv(){
+  if (!DOCED) return Promise.resolve();
+  return api('PUT', '/api/portal/eventos/docs/' + DOCED.id, { datos: DOCED.datos }).then(function(d){ SUCIO = false; return d; });
+}
+function guardarSiHace(){ return SUCIO ? guardarDocEv() : Promise.resolve(); }
+function vistaDoc(d){
+  var x = d.datos || {}, h = '<div class="card">';
+  if (d.tipo === 'fianza') h += '<div>Fianza: <b>' + euros(x.importe_fianza) + '</b> · ' + esc(x.forma_pago || '') + '</div>';
+  else {
+    h += '<table class="tabla">' + (x.lineas || []).map(function(l){ var imp = n2(l.cantidad) * n2(l.precio); return '<tr><td>' + esc(l.concepto) + '<div class="muted">' + esc(l.cantidad) + (n2(l.precio) ? ' × ' + euros(l.precio) : '') + '</div></td><td class="r">' + (n2(l.precio) ? euros(imp) : 'Incluido') + '</td></tr>'; }).join('') + '</table>';
+    h += '<div class="tot-doc">Base ' + euros(d.base) + ' · IVA ' + euros(d.iva) + '<br>Total <b>' + euros(d.total) + '</b>';
+    if (d.tipo === 'factura' && x.a_cuenta && x.a_cuenta.length) { var ac = x.a_cuenta.reduce(function(a, p){ return a + n2(p.importe); }, 0); h += '<br>A cuenta − ' + euros(ac) + '<br>Pendiente <b>' + euros(d.total - ac) + '</b>'; }
+    h += '</div>';
+  }
+  return h + '</div>';
+}
+function accionesDoc(d){
+  var id = d.id, pdf = '/api/portal/eventos/docs/' + id + '/pdf', h = '<div class="card"><div class="btns">';
+  var editable = d.estado === 'borrador' || d.estado === 'enviado';
+  if (editable) h += '<button class="btn btn-p" onclick="guardarDocEv().then(function(){toast(\'Guardado\');recargarCarpeta()}).catch(fallo)">Guardar cambios</button>';
+  h += '<button class="btn btn-s" onclick="verPdfDoc(' + id + ')">&#128196; Ver PDF</button>';
+  if (editable && d.tipo !== 'factura') {
+    h += '</div><h3 style="margin-top:16px">Firmar con el dedo</h3><div class="btns">' +
+      '<button class="btn btn-n" onclick="firmarDoc(' + id + ',\'aqui\')">&#9997; Firmar ahora en este móvil o tablet</button></div>' +
+      '<div class="muted" style="margin:10px 0 6px">O mandarles el enlace para que lo firmen en su móvil:</div><div class="btns">' +
+      '<button class="btn btn-s btn-sm" onclick="firmarDoc(' + id + ',\'email\')">&#9993; Por email' + (CAR.c.email ? '' : ' (falta email)') + '</button>' +
+      '<button class="btn btn-s btn-sm" onclick="firmarDoc(' + id + ',\'wa\')">&#128172; Por WhatsApp</button>' +
+      '<button class="btn btn-s btn-sm" onclick="firmarDoc(' + id + ',\'copiar\')">&#128279; Copiar enlace</button>';
+  }
+  if (d.tipo === 'factura' && d.estado === 'borrador') h += '<button class="btn btn-n" onclick="emitirFactura(' + id + ')">Emitir factura</button>';
+  if (!editable) h += '<button class="btn btn-s" onclick="enviarDoc(' + id + ')">&#9993; Enviar PDF por email</button>';
+  if (d.estado === 'firmado' && d.token) h += '<button class="btn btn-s" onclick="waDoc(\'' + d.token + '\',\'firmado\')">&#128172; Enviar por WhatsApp</button>';
+  h += '</div>';
+  if (d.estado === 'firmado') h += '<button class="btn btn-s btn-sm" style="margin-top:12px" onclick="nuevaVersion(' + id + ')">Hacer una nueva versión (la firmada se guarda)</button>';
+  if (editable) h += '<button class="lnk" style="margin-top:14px;color:var(--rojo)" onclick="borrarDocEv(' + id + ')">Eliminar este borrador</button>';
+  return h + '</div>';
+}
+function verPdfDoc(id){
+  var w = window.open('about:blank', '_blank');
+  guardarSiHace().then(function(){ var u = '/api/portal/eventos/docs/' + id + '/pdf?t=' + Date.now(); if (w) w.location = u; else location.href = u; }).catch(function(e){ if (w) w.close(); fallo(e); });
+}
+function textoWa(tipo, url, firmado){
+  var c = CAR.c, quien = c.nombre1 ? ' ' + c.nombre1 : '';
+  var doc = tipo === 'fianza' ? 'el documento de reserva de fecha y fianza' : 'el presupuesto';
+  return firmado ? 'Hola' + quien + ', aquí tenéis ' + doc + ' firmado: ' + url + ' · Don Fadrique'
+    : 'Hola' + quien + ', os enviamos ' + doc + ' de ' + nombreCeleb(c) + '. Podéis revisarlo y firmarlo con el dedo desde el móvil aquí: ' + url + ' · Don Fadrique';
+}
+function waDoc(token, firmado){ var url = location.origin + '/firma/' + token; window.open('https://wa.me/' + telWa(CAR.c.tel) + '?text=' + encodeURIComponent(textoWa(docsDe('presupuesto').concat(docsDe('fianza')).filter(function(d){ return d.token === token; })[0].tipo, url, firmado)), '_blank'); }
+function firmarDoc(id, modo){
+  if (modo === 'email' && !CAR.c.email) return toast('Añade el email de los clientes en la pestaña Datos');
+  if (modo === 'email' && !confirm('¿Enviar por email a ' + CAR.c.email + ' el enlace para firmar y el PDF?')) return;
+  var w = modo === 'aqui' ? window.open('about:blank', '_blank') : null;
+  var d = docsDe('presupuesto').concat(docsDe('fianza')).filter(function(x){ return x.id === id; })[0];
+  guardarSiHace().then(function(){ return api('POST', '/api/portal/eventos/docs/' + id + '/firmar', { email: modo === 'email' }); }).then(function(r){
+    if (modo === 'aqui') { CAR.esperando = true; if (w) w.location = r.url; else location.href = r.url; return; }
+    if (modo === 'email') { toast(r.email ? 'Enviado a ' + r.email.join(', ') : (r.aviso || 'Enlace creado')); if (r.aviso) alert(r.aviso); }
+    if (modo === 'wa') window.open('https://wa.me/' + telWa(CAR.c.tel) + '?text=' + encodeURIComponent(textoWa(d.tipo, r.url)), '_blank');
+    if (modo === 'copiar') { (navigator.clipboard ? navigator.clipboard.writeText(r.url) : Promise.reject()).then(function(){ toast('Enlace copiado'); }, function(){ prompt('Copia el enlace:', r.url); }); }
+    recargarCarpeta();
+  }).catch(function(e){ if (w) w.close(); fallo(e); });
+}
+function enviarDoc(id){
+  if (!CAR.c.email) return toast('Añade el email de los clientes en la pestaña Datos');
+  if (!confirm('¿Enviar el PDF por email a ' + CAR.c.email + '?')) return;
+  api('POST', '/api/portal/eventos/docs/' + id + '/enviar', {}).then(function(r){ toast('Enviado a ' + r.para.join(', ')); recargarCarpeta(); }).catch(fallo);
+}
+function nuevaVersion(id){
+  if (!confirm('Se crea una copia en borrador para cambiarla y volver a firmarla. La versión firmada queda guardada en la carpeta. ¿Seguir?')) return;
+  api('POST', '/api/portal/eventos/docs/' + id + '/version', {}).then(function(){ toast('Nueva versión en borrador'); recargarCarpeta(); }).catch(fallo);
+}
+function emitirFactura(id){
+  guardarSiHace().then(function(){
+    if (!confirm('Al emitirla recibe número y fecha de hoy y ya no se puede cambiar. Se descuentan la fianza y los pagos anotados. ¿Emitir la factura?')) return;
+    return api('POST', '/api/portal/eventos/docs/' + id + '/emitir', {}).then(function(d){ toast('Factura ' + d.numero + ' emitida'); recargarCarpeta(); });
+  }).catch(fallo);
+}
+function borrarDocEv(id){
+  if (!confirm('¿Eliminar este borrador?')) return;
+  api('DELETE', '/api/portal/eventos/docs/' + id).then(function(){ SUCIO = false; toast('Eliminado'); recargarCarpeta(); }).catch(fallo);
+}
+
+// ── Archivos ──
+var CAT_ARCH = { presupuesto: 'Presupuestos', fianza: 'Fianza y reserva', factura: 'Facturas', contrato: 'Contratos', proveedor: 'Proveedores', foto: 'Fotos', otro: 'Otros' };
+function carArchivos(){
+  var d = CAR.d, h = '<div class="card"><h3>Subir archivos</h3><div class="fila" style="align-items:center"><select class="in" id="ar-cat">' + Object.keys(CAT_ARCH).map(function(k){ return '<option value="' + k + '"' + (k === 'otro' ? ' selected' : '') + '>' + CAT_ARCH[k] + '</option>'; }).join('') + '</select>' +
+    '<label class="btn btn-p" style="margin:0">&#128206; Elegir archivos<input type="file" multiple style="display:none" onchange="subirArchivos(this.files)"></label></div><div class="muted" id="ar-prog" style="margin-top:6px">Fotos, PDF, Word, Excel… (hasta 30 MB cada uno)</div></div>';
+  // Documentos hechos con la app
+  if (d.docs.length) h += '<div class="card"><h3>Documentos de la app</h3>' + d.docs.slice().sort(function(a, b){ return a.tipo === b.tipo ? b.id - a.id : a.tipo < b.tipo ? -1 : 1; }).map(function(x){
+    var tit = { presupuesto: 'Presupuesto', fianza: 'Reserva y fianza', factura: 'Factura' }[x.tipo];
+    return '<div class="arch"><a href="/api/portal/eventos/docs/' + x.id + '/pdf" target="_blank"><b>&#128196; ' + tit + ' ' + esc(x.numero || '') + (x.version > 1 ? ' · v' + x.version : '') + '</b><small>' + (EST_DOC[x.estado] || [''])[0] + (x.sustituido ? ' · versión anterior' : '') + (x.firmado_at ? ' · ' + esc(fechaSql(x.firmado_at)) : '') + (x.total ? ' · ' + euros(x.total) : '') + '</small></a></div>';
+  }).join('') + '</div>';
+  if (!d.archivos.length) return h + '<div class="vacio">Todavía no hay archivos subidos</div>';
+  Object.keys(CAT_ARCH).forEach(function(k){
+    var l = d.archivos.filter(function(a){ return (a.categoria || 'otro') === k; }); if (!l.length) return;
+    h += '<div class="card"><h3>' + CAT_ARCH[k] + '</h3>' + l.map(function(a){
+      var ic = /^image\//.test(a.mime) ? '&#128247;' : /pdf/.test(a.mime) ? '&#128196;' : '&#128206;';
+      return '<div class="arch"><a href="/api/portal/eventos/archivos/' + a.id + '" target="_blank"><b>' + ic + ' ' + esc(a.nombre) + '</b><small>' + esc(fechaSql(a.created_at)) + ' · ' + tamTxt(a.tamano) + (a.subido_por ? ' · ' + esc(a.subido_por) : '') + '</small></a><button class="mini" onclick="borrarArchivo(' + a.id + ')">&#10005;</button></div>';
+    }).join('') + '</div>';
+  });
+  return h;
+}
+function subirArchivos(files){
+  files = Array.prototype.slice.call(files || []); if (!files.length) return;
+  var cat = $('ar-cat').value, p = $('ar-prog'), i = 0;
+  (function sig(){
+    if (i >= files.length) { toast(files.length === 1 ? 'Archivo subido' : files.length + ' archivos subidos'); return recargarCarpeta(); }
+    var f = files[i++]; p.textContent = 'Subiendo ' + i + ' de ' + files.length + ': ' + f.name + '…';
+    if (f.size > 30 * 1048576) { toast(f.name + ' pasa de 30 MB'); return sig(); }
+    fetch('/api/portal/eventos/' + CAR.id + '/archivos', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': f.type || 'application/octet-stream', 'x-nombre': encodeURIComponent(f.name), 'x-categoria': cat }, body: f })
+      .then(function(r){ return r.json().then(function(d){ if (!r.ok) throw new Error(d.error || 'Error'); }); }).then(sig).catch(function(e){ p.textContent = 'Error con ' + f.name + ': ' + e.message; });
+  })();
+}
+function borrarArchivo(id){ if (!confirm('¿Quitar este archivo de la carpeta?')) return; api('DELETE', '/api/portal/eventos/archivos/' + id).then(recargarCarpeta).catch(fallo); }
 
 // Documento con nombres y DNI. FORMATO PROVISIONAL: se sustituirá por el formato exacto que indique Manuel.
 function documentoCeleb(){

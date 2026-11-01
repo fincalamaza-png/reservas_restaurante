@@ -443,7 +443,7 @@ try {
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
 const jsonNormal = express.json();
 const jsonGrande = express.json({ limit: '60mb' });
-app.use((req, res, next) => (req.path === '/api/estudio-email' ? jsonGrande : jsonNormal)(req, res, next));
+app.use((req, res, next) => (req.path === '/api/estudio-email' || req.path.startsWith('/api/publico/firma/') ? jsonGrande : jsonNormal)(req, res, next));
 
 // ─── ACCESO CON PIN (panel de administración) ─────────────────────
 db.exec(`CREATE TABLE IF NOT EXISTS sesiones (

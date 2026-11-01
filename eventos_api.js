@@ -1,0 +1,533 @@
+// ─── CARPETA DE CADA EVENTO (bodas, comuniones y eventos) ────────────────────
+// Todo lo de un evento en un mismo sitio:
+//   · Historial: reuniones, llamadas y notas con su fecha (y lo que pasa solo: firmas, envíos…)
+//   · Hoja interna: espacios y horarios, ceremonia, cóctel, banquete, barra libre, DJ… (para el equipo)
+//   · Presupuesto y reserva con fianza: se firman con el dedo en el móvil (aquí o por enlace)
+//     y queda un PDF firmado que se envía por email a los clientes.
+//   · Factura: se rellena sola con el presupuesto firmado; al emitirla recibe número y no se toca.
+//   · Archivos: fotos, PDF y lo que haga falta.
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const PDFDocument = require('./pdf-fuentes');
+
+const TEXTOS_DEFECTO = {
+  presupuesto: 'Precios por persona salvo indicación. IVA (10%) no incluido en los precios unitarios; se suma al final.\n' +
+    'El número definitivo de invitados se confirmará como máximo 10 días antes del evento; se facturará ese número como mínimo.\n' +
+    'La fecha queda reservada con la firma del documento de reserva y el pago de la fianza.\n' +
+    'Forma de pago: fianza a la reserva, 50% un mes antes y el resto en los 7 días siguientes al evento.\n' +
+    'Validez del presupuesto: 30 días.',
+  fianza: 'Con la firma de este documento y el pago de la fianza, Don Fadrique reserva en exclusiva la fecha indicada para la celebración.\n' +
+    'La fianza se descontará del importe final del evento.\n' +
+    'En caso de anulación por parte del cliente, la fianza no será devuelta, salvo causa de fuerza mayor debidamente justificada.\n' +
+    'Si Don Fadrique no pudiera prestar el servicio por causas propias, devolverá íntegramente la fianza.\n' +
+    'Los datos personales se tratarán para gestionar la celebración y el cumplimiento de obligaciones legales (NIMANSANMON S.L.).',
+  factura: 'Gracias por celebrarlo con nosotros.'
+};
+const TITULO = { presupuesto: 'Presupuesto', fianza: 'Reserva de fecha y fianza', factura: 'Factura' };
+const PREFIJO = { presupuesto: 'EP', fianza: 'RF', factura: 'EF' };
+const TIPO_TXT = { boda: 'Boda', comunion: 'Primera Comunión', evento: 'Evento' };
+const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+const eur = n => { const v = r2(n).toFixed(2).split('.'); return v[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + v[1] + ' €'; };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fechaLarga = iso => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
+
+module.exports = function montarEventos(app, db, h) {
+  const { puedeTipo } = h;
+  const BASE_DIR = path.join(path.dirname(process.env.DB_PATH || '/data/reservas.db'), 'eventos');
+  try { fs.mkdirSync(BASE_DIR, { recursive: true }); } catch (e) {}
+  const carpeta = id => { const d = path.join(BASE_DIR, String(parseInt(id, 10))); try { fs.mkdirSync(d, { recursive: true }); } catch (e) {} return d; };
+
+  // ── Tablas ──
+  try { db.exec("ALTER TABLE celebraciones ADD COLUMN ficha TEXT DEFAULT '{}'"); } catch (e) {}
+  db.exec(`CREATE TABLE IF NOT EXISTS evento_notas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, celebracion_id INTEGER NOT NULL,
+    fecha TEXT NOT NULL, tipo TEXT DEFAULT 'reunion', texto TEXT, autor TEXT,
+    created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS evento_archivos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, celebracion_id INTEGER NOT NULL,
+    nombre TEXT, archivo TEXT NOT NULL, mime TEXT, tamano INTEGER, categoria TEXT DEFAULT 'otro',
+    subido_por TEXT, created_at TEXT DEFAULT (datetime('now')))`);
+  db.exec(`CREATE TABLE IF NOT EXISTS evento_docs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, celebracion_id INTEGER NOT NULL,
+    tipo TEXT NOT NULL, numero TEXT, version INTEGER DEFAULT 1, estado TEXT DEFAULT 'borrador',
+    datos TEXT DEFAULT '{}', base REAL DEFAULT 0, iva REAL DEFAULT 0, total REAL DEFAULT 0,
+    token TEXT UNIQUE, enviado_at TEXT, fecha_emision TEXT,
+    firma TEXT, firmado_nombre TEXT, firmado_dni TEXT, firmado_at TEXT, firmado_ip TEXT, firmado_ua TEXT, huella TEXT,
+    pdf TEXT, sustituido INTEGER DEFAULT 0, creado_por TEXT,
+    created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')))`);
+  try { db.exec('CREATE INDEX IF NOT EXISTS ix_evnotas ON evento_notas(celebracion_id)'); db.exec('CREATE INDEX IF NOT EXISTS ix_evdocs ON evento_docs(celebracion_id)'); db.exec('CREATE INDEX IF NOT EXISTS ix_evarch ON evento_archivos(celebracion_id)'); } catch (e) {}
+
+  const json = (s, d) => { try { return JSON.parse(s || '') || d; } catch (e) { return d; } };
+  const cfg = () => { const o = {}; db.prepare('SELECT clave, valor FROM config').all().forEach(r => { o[r.clave] = r.valor; }); return o; };
+  const textos = () => { const c = cfg(); const t = json(c.eventos_textos, {}); return Object.assign({}, TEXTOS_DEFECTO, t); };
+  const celeb = id => { const c = db.prepare('SELECT * FROM celebraciones WHERE id = ?').get(id); if (c) { c.pagos = json(c.pagos, []); c.ficha = json(c.ficha, {}); } return c; };
+  const nombreCeleb = c => {
+    const a = [c.nombre1, c.apellidos1].filter(Boolean).join(' '), b = [c.nombre2, c.apellidos2].filter(Boolean).join(' ');
+    if (c.tipo === 'boda') return [a, b].filter(Boolean).join(' y ') || 'Sin nombres';
+    if (c.tipo === 'evento') return c.nombre_evento || c.empresa || a || 'Evento';
+    return c.protagonista || a || 'Sin nombre';
+  };
+  const nota = (cid, tipo, texto, autor) => db.prepare("INSERT INTO evento_notas (celebracion_id, fecha, tipo, texto, autor) VALUES (?, date('now','localtime'), ?, ?, ?)").run(cid, tipo, texto, autor || '');
+  // Permiso: el del tipo del evento (bodas / comuniones / eventos)
+  const conPermiso = (req, res, cid) => {
+    const c = celeb(cid);
+    if (!c) { res.status(404).json({ error: 'No encontrado' }); return null; }
+    if (!puedeTipo(req, c.tipo)) { res.status(403).json({ error: 'No tienes permiso para esta sección' }); return null; }
+    return c;
+  };
+  const docDe = id => { const d = db.prepare('SELECT * FROM evento_docs WHERE id = ?').get(id); if (d) d.datos = json(d.datos, {}); return d; };
+  const sinFirma = d => { const o = Object.assign({}, d); o.tiene_firma = !!o.firma; delete o.firma; return o; };
+
+  // ── Importes ──
+  function totales(datos) {
+    let base = 0; const porIva = {};
+    (datos.lineas || []).forEach(l => {
+      const imp = r2(Number(l.cantidad || 0) * Number(l.precio || 0)); const t = [4, 10, 21].includes(Number(l.iva)) ? Number(l.iva) : 10;
+      base += imp; porIva[t] = (porIva[t] || 0) + imp;
+    });
+    const iva = Object.keys(porIva).reduce((s, t) => s + porIva[t] * t / 100, 0);
+    return { base: r2(base), iva: r2(iva), total: r2(base + iva), porIva };
+  }
+  function clienteDe(c) {
+    const p1 = [c.nombre1, c.apellidos1].filter(Boolean).join(' '), p2 = [c.nombre2, c.apellidos2].filter(Boolean).join(' ');
+    return { nombre: c.tipo === 'evento' && c.empresa ? c.empresa : [p1, p2].filter(Boolean).join(' y '), persona1: p1, dni1: c.dni1 || '', persona2: p2, dni2: c.dni2 || '',
+      empresa: c.empresa || '', cif: c.cif || '', direccion: c.direccion || '', email: c.email || '', tel: c.tel || '' };
+  }
+  function eventoDe(c) {
+    return { tipo: c.tipo, nombre: nombreCeleb(c), fecha: c.fecha, hora: c.hora || '', lugar: c.lugar || '', adultos: c.adultos || 0, ninos: c.ninos || 0, menu: c.menu_nombre || '', protagonista: c.protagonista || '' };
+  }
+  // Líneas propuestas para un presupuesto nuevo: menú + lo marcado en la hoja interna
+  function lineasPropuestas(c) {
+    const f = c.ficha || {}, l = [];
+    if (c.adultos) l.push({ concepto: (/^men[uú]/i.test(c.menu_nombre || '') ? c.menu_nombre : 'Menú ' + (c.menu_nombre || '')).trim() + ' · adultos', cantidad: c.adultos, precio: c.precio_adulto || 0, iva: 10 });
+    if (c.ninos) l.push({ concepto: 'Menú infantil', cantidad: c.ninos, precio: c.precio_nino || 0, iva: 10 });
+    if (f.ceremonia && f.ceremonia.si) l.push({ concepto: 'Montaje de ceremonia' + (f.ceremonia.lugar ? ' en ' + f.ceremonia.lugar : ''), cantidad: 1, precio: 0, iva: 10 });
+    if (f.coctel && f.coctel.si) l.push({ concepto: 'Cóctel de bienvenida' + (f.coctel.lugar ? ' en ' + f.coctel.lugar : ''), cantidad: 1, precio: 0, iva: 10 });
+    if (f.barra && f.barra.si) l.push({ concepto: 'Barra libre' + (f.barra.horas ? ' (' + f.barra.horas + ' h)' : ''), cantidad: c.adultos || 1, precio: 0, iva: 10 });
+    if (f.musica && f.musica.dj === 'nosotros') l.push({ concepto: 'Servicio de DJ', cantidad: 1, precio: 0, iva: 10 });
+    return l;
+  }
+  function siguienteNumero(tipo) {
+    const anio = new Date().getFullYear(), pre = PREFIJO[tipo] + '-' + anio + '-';
+    const u = db.prepare("SELECT numero FROM evento_docs WHERE numero LIKE ? ORDER BY id DESC LIMIT 1").get(pre + '%');
+    const n = u ? parseInt(u.numero.slice(pre.length), 10) + 1 : 1;
+    return pre + String(n).padStart(tipo === 'factura' ? 4 : 3, '0');
+  }
+  function guardarDatos(id, datos) {
+    const t = totales(datos);
+    db.prepare("UPDATE evento_docs SET datos = ?, base = ?, iva = ?, total = ?, updated_at = datetime('now') WHERE id = ?").run(JSON.stringify(datos), t.base, t.iva, t.total, id);
+  }
+  // Factura en borrador a partir del presupuesto firmado (se actualiza sola mientras no se emita)
+  function facturaDesdePresupuesto(c, pres, autor) {
+    const emitida = db.prepare("SELECT id FROM evento_docs WHERE celebracion_id = ? AND tipo = 'factura' AND estado = 'emitida'").get(c.id);
+    if (emitida) return null;
+    let f = db.prepare("SELECT * FROM evento_docs WHERE celebracion_id = ? AND tipo = 'factura' AND estado = 'borrador' ORDER BY id DESC LIMIT 1").get(c.id);
+    const datos = { cliente: Object.assign({}, pres.datos.cliente || clienteDe(c)), evento: eventoDe(c), lineas: (pres.datos.lineas || []).map(x => Object.assign({}, x)),
+      condiciones: textos().factura, presupuesto: pres.numero };
+    if (!f) { const r = db.prepare("INSERT INTO evento_docs (celebracion_id, tipo, estado, datos, creado_por) VALUES (?, 'factura', 'borrador', '{}', ?)").run(c.id, autor || 'automático'); f = { id: r.lastInsertRowid }; }
+    guardarDatos(f.id, datos);
+    return f.id;
+  }
+  function crearDoc(c, tipo, autor) {
+    const t = textos();
+    let datos;
+    if (tipo === 'presupuesto') datos = { cliente: clienteDe(c), evento: eventoDe(c), lineas: lineasPropuestas(c), condiciones: t.presupuesto };
+    else if (tipo === 'fianza') datos = { cliente: clienteDe(c), evento: eventoDe(c), importe_fianza: c.fianza_importe || 0, forma_pago: c.fianza_forma || 'Transferencia', condiciones: t.fianza,
+      presupuesto: (db.prepare("SELECT numero, total FROM evento_docs WHERE celebracion_id = ? AND tipo = 'presupuesto' AND estado = 'firmado' AND sustituido = 0 ORDER BY id DESC LIMIT 1").get(c.id) || null) };
+    else {
+      const pres = db.prepare("SELECT * FROM evento_docs WHERE celebracion_id = ? AND tipo = 'presupuesto' AND estado = 'firmado' AND sustituido = 0 ORDER BY id DESC LIMIT 1").get(c.id);
+      datos = { cliente: clienteDe(c), evento: eventoDe(c), lineas: pres ? json(pres.datos, {}).lineas || [] : lineasPropuestas(c), condiciones: t.factura, presupuesto: pres ? pres.numero : '' };
+    }
+    const numero = tipo === 'factura' ? null : siguienteNumero(tipo);
+    const r = db.prepare("INSERT INTO evento_docs (celebracion_id, tipo, numero, estado, datos, creado_por) VALUES (?, ?, ?, 'borrador', '{}', ?)").run(c.id, tipo, numero, autor || '');
+    guardarDatos(r.lastInsertRowid, datos);
+    return r.lastInsertRowid;
+  }
+
+  // ── PDF ──
+  const PREMIOS = ['michelin.png', 'repsol.png', 'tierra.png'].map(f => path.join(__dirname, 'marca', 'premios', f)).filter(f => fs.existsSync(f));
+  function pdfDoc(d, c) {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', bufferPages: true, margins: { top: 46, bottom: 60, left: 52, right: 52 }, info: { Title: (TITULO[d.tipo] + ' ' + (d.numero || '')).trim(), Author: 'NIMANSANMON S.L. · Don Fadrique' } });
+      const bufs = []; doc.on('data', b => bufs.push(b)); doc.on('end', () => resolve(Buffer.concat(bufs))); doc.on('error', reject);
+      const W = doc.page.width, L = 52, R = W - 52, ORO = '#b8965a', GRIS = '#8a8278', TINTA = '#1a1a1a';
+      const datos = d.datos || {}, cli = datos.cliente || {}, ev = datos.evento || {};
+      const firmado = d.estado === 'firmado' || d.estado === 'emitida';
+      // Cabecera
+      doc.font('Helvetica').fontSize(20).fillColor(TINTA).text('D O N   F A D R I Q U E', L, 42, { width: R - L, align: 'center', characterSpacing: 1 });
+      doc.font('Helvetica-Bold').fontSize(7).fillColor(ORO).text('NIMANSANMON S.L. · CIF B37297223 · ALBA DE TORMES (SALAMANCA) · 920 37 00 51', L, 70, { width: R - L, align: 'center', characterSpacing: .6 });
+      doc.moveTo(L + 120, 86).lineTo(R - 120, 86).lineWidth(.6).strokeColor(ORO).stroke();
+      // Título
+      let y = 104;
+      doc.font('Helvetica').fontSize(15).fillColor(TINTA).text(TITULO[d.tipo].toUpperCase(), L, y, { characterSpacing: 2 });
+      doc.font('Helvetica').fontSize(10).fillColor(GRIS).text([d.numero || (d.tipo === 'factura' ? 'Borrador (sin número)' : ''), d.tipo === 'factura' && d.fecha_emision ? 'Fecha: ' + new Date(d.fecha_emision + 'T12:00:00').toLocaleDateString('es-ES') : 'Fecha: ' + new Date(d.created_at.replace(' ', 'T') + 'Z').toLocaleDateString('es-ES')].filter(Boolean).join('   ·   '), L, y + 4, { width: R - L, align: 'right' });
+      y += 30;
+      // Cliente y evento
+      const caja = (x, w, tit, lineas) => {
+        doc.font('Helvetica-Bold').fontSize(7).fillColor(ORO).text(tit, x, y, { characterSpacing: 1.2 });
+        let yy = y + 12;
+        lineas.filter(Boolean).forEach((t, i) => { doc.font(i === 0 ? 'Helvetica-Bold' : 'Helvetica').fontSize(i === 0 ? 10.5 : 9).fillColor(i === 0 ? TINTA : '#4a4540').text(t, x, yy, { width: w }); yy = doc.y + 1; });
+        return yy;
+      };
+      const yc = caja(L, 230, 'CLIENTE', [cli.nombre, cli.persona1 ? cli.persona1 + (cli.dni1 ? ' · DNI ' + cli.dni1 : '') : '', cli.persona2 ? cli.persona2 + (cli.dni2 ? ' · DNI ' + cli.dni2 : '') : '',
+        cli.cif ? 'CIF ' + cli.cif : '', cli.direccion, [cli.tel, cli.email].filter(Boolean).join(' · ')]);
+      const ye = caja(L + 260, R - L - 260, 'CELEBRACIÓN', [(TIPO_TXT[ev.tipo] || 'Evento') + (ev.tipo === 'comunion' && ev.protagonista ? ' de ' + ev.protagonista : ''), fechaLarga(ev.fecha) + (ev.hora ? ' · ' + ev.hora + ' h' : ''), ev.lugar,
+        (ev.adultos || ev.ninos) ? (ev.adultos || 0) + ' adultos' + (ev.ninos ? ' y ' + ev.ninos + ' niños' : '') : '', ev.menu ? 'Menú: ' + ev.menu : '']);
+      y = Math.max(yc, ye) + 14;
+      doc.moveTo(L, y).lineTo(R, y).lineWidth(.4).strokeColor('#e6dfd3').stroke(); y += 12;
+      const nuevaPagina = alto => { if (y + alto > doc.page.height - 80) { doc.addPage(); y = 50; } };
+      // Líneas (presupuesto y factura)
+      if (d.tipo !== 'fianza') {
+        const t = totales(datos);
+        const col = [L, L + 285, L + 340, L + 410];
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(GRIS);
+        doc.text('CONCEPTO', col[0], y); doc.text('CANT.', col[1], y, { width: 45, align: 'right' }); doc.text('PRECIO', col[2], y, { width: 60, align: 'right' }); doc.text('IMPORTE', col[3], y, { width: R - col[3], align: 'right' });
+        y += 13;
+        (datos.lineas || []).forEach(l => {
+          const imp = r2(Number(l.cantidad || 0) * Number(l.precio || 0));
+          const hgt = doc.font('Helvetica').fontSize(9.5).heightOfString(l.concepto || '', { width: 280 });
+          nuevaPagina(hgt + 8);
+          doc.fillColor(TINTA).text(l.concepto || '', col[0], y, { width: 280 });
+          doc.text(String(l.cantidad ?? ''), col[1], y, { width: 45, align: 'right' });
+          doc.text(Number(l.precio) ? eur(l.precio) : '', col[2], y, { width: 60, align: 'right' });
+          doc.text(Number(l.precio) ? eur(imp) : 'Incluido', col[3], y, { width: R - col[3], align: 'right' });
+          y += hgt + 6; doc.moveTo(L, y - 3).lineTo(R, y - 3).lineWidth(.3).strokeColor('#f0ebe2').stroke();
+        });
+        y += 6; nuevaPagina(90);
+        const fila = (k, v, fuerte) => {
+          doc.font(fuerte ? 'Helvetica-Bold' : 'Helvetica').fontSize(fuerte ? 12 : 9.5).fillColor(TINTA);
+          const hk = doc.heightOfString(k, { width: 215 });
+          doc.text(k, L + 190, y, { width: 215 }); doc.text(v, L + 410, y, { width: R - L - 410, align: 'right' });
+          y += Math.max(hk, fuerte ? 14 : 11) + (fuerte ? 5 : 3);
+        };
+        fila('Base imponible', eur(t.base));
+        Object.keys(t.porIva).sort().forEach(k => fila('IVA ' + k + '%', eur(t.porIva[k] * k / 100)));
+        doc.moveTo(L + 190, y - 2).lineTo(R, y - 2).lineWidth(.6).strokeColor(ORO).stroke(); y += 3;
+        fila('TOTAL', eur(t.total), true);
+        if (d.tipo === 'factura' && datos.a_cuenta && datos.a_cuenta.length) {
+          const ac = datos.a_cuenta.reduce((s, p) => s + Number(p.importe || 0), 0);
+          datos.a_cuenta.forEach(p => fila('A cuenta: ' + (p.concepto || 'pago') + (p.fecha ? ' (' + p.fecha.split('-').reverse().join('/') + ')' : ''), '− ' + eur(p.importe)));
+          fila('PENDIENTE DE PAGO', eur(t.total - ac), true);
+        }
+        y += 8;
+      } else {
+        // Reserva de fecha y fianza
+        nuevaPagina(120);
+        const quien = [cli.persona1 && (cli.persona1 + (cli.dni1 ? ', con DNI ' + cli.dni1 : '')), cli.persona2 && (cli.persona2 + (cli.dni2 ? ', con DNI ' + cli.dni2 : ''))].filter(Boolean).join(', y ');
+        const texto = 'En Alba de Tormes, a ' + new Date(d.created_at.replace(' ', 'T') + 'Z').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) + '.\n\n' +
+          'De una parte, NIMANSANMON S.L. (CIF B37297223), titular de Don Fadrique. De otra parte, ' + (quien || cli.nombre || '________________') + (cli.empresa ? ', en representación de ' + cli.empresa + (cli.cif ? ' (CIF ' + cli.cif + ')' : '') : '') + '.\n\n' +
+          'Ambas partes acuerdan la reserva de la fecha del ' + fechaLarga(ev.fecha) + (ev.hora ? ', a las ' + ev.hora + ' h' : '') + ', en ' + (ev.lugar || 'Don Fadrique') + ', para la celebración de ' +
+          (ev.tipo === 'boda' ? 'su boda' : ev.tipo === 'comunion' ? 'la Primera Comunión' + (ev.protagonista ? ' de ' + ev.protagonista : '') : 'el evento «' + (ev.nombre || '') + '»') +
+          ((ev.adultos || ev.ninos) ? ', con una previsión de ' + (ev.adultos || 0) + ' adultos' + (ev.ninos ? ' y ' + ev.ninos + ' niños' : '') : '') + '.\n\n' +
+          'Para ello se entrega una fianza de ' + eur(datos.importe_fianza) + ' mediante ' + (datos.forma_pago || '________') + '.' +
+          (datos.presupuesto && datos.presupuesto.numero ? ' El servicio se prestará según el presupuesto ' + datos.presupuesto.numero + '.' : '');
+        doc.font('Helvetica').fontSize(10.5).fillColor(TINTA).text(texto, L, y, { width: R - L, align: 'justify', lineGap: 2 });
+        y = doc.y + 14;
+      }
+      // Condiciones
+      if (datos.condiciones) {
+        nuevaPagina(60);
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(ORO).text(d.tipo === 'factura' ? 'OBSERVACIONES' : 'CONDICIONES', L, y, { characterSpacing: 1.2 }); y += 12;
+        doc.font('Helvetica').fontSize(8.8).fillColor('#3a3632').text(datos.condiciones, L, y, { width: R - L, lineGap: 1.5 }); y = doc.y + 14;
+      }
+      if (datos.notas) { nuevaPagina(40); doc.font('Helvetica').fontSize(9).fillColor('#3a3632').text(datos.notas, L, y, { width: R - L }); y = doc.y + 12; }
+      // Firmas (presupuesto y fianza)
+      if (d.tipo !== 'factura') {
+        nuevaPagina(150);
+        const fw = (R - L - 30) / 2;
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(GRIS).text('CONFORME, EL CLIENTE', L, y, { width: fw, align: 'center' });
+        doc.text('POR DON FADRIQUE', L + fw + 30, y, { width: fw, align: 'center' });
+        const yf = y + 14;
+        doc.roundedRect(L, yf, fw, 82, 6).lineWidth(.5).strokeColor('#e6dfd3').stroke();
+        doc.roundedRect(L + fw + 30, yf, fw, 82, 6).stroke();
+        if (d.firma) { try { doc.image(Buffer.from(d.firma.split(',')[1], 'base64'), L + 8, yf + 6, { fit: [fw - 16, 70], align: 'center', valign: 'center' }); } catch (e) {} }
+        else doc.font('Helvetica').fontSize(8).fillColor('#c8c0b4').text('Pendiente de firma', L, yf + 36, { width: fw, align: 'center' });
+        doc.font('Helvetica').fontSize(9).fillColor(TINTA).text('NIMANSANMON S.L.', L + fw + 30, yf + 32, { width: fw, align: 'center' });
+        doc.fontSize(7.5).fillColor(GRIS).text('Don Fadrique · Alba de Tormes', L + fw + 30, yf + 46, { width: fw, align: 'center' });
+        y = yf + 88;
+        if (d.firma) {
+          doc.font('Helvetica').fontSize(8).fillColor('#4a4540').text((d.firmado_nombre || '') + (d.firmado_dni ? ' · DNI ' + d.firmado_dni : ''), L, y, { width: fw, align: 'center' });
+          y = doc.y + 2;
+        }
+      }
+      // Huella de la firma electrónica
+      if (d.firma && d.firmado_at) {
+        y += 6; nuevaPagina(30);
+        doc.font('Helvetica').fontSize(6.8).fillColor(GRIS).text('Firmado electrónicamente con firma manuscrita en pantalla el ' + new Date(d.firmado_at.replace(' ', 'T') + 'Z').toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }) +
+          (d.firmado_ip ? ' desde ' + d.firmado_ip : '') + '. Huella del documento (SHA-256): ' + (d.huella || ''), L, y, { width: R - L });
+      }
+      if (!firmado) doc.save().rotate(-30, { origin: [W / 2, 420] }).font('Helvetica-Bold').fontSize(70).fillColor('#b8965a').opacity(.08).text('BORRADOR', 60, 380, { width: W - 120, align: 'center' }).restore();
+      // Pie con distintivos en todas las páginas
+      const rango = doc.bufferedPageRange();
+      for (let i = rango.start; i < rango.start + rango.count; i++) {
+        doc.switchToPage(i); doc.page.margins.bottom = 0;
+        const yb = doc.page.height - 50; let x = W / 2 - (PREMIOS.length * 34 + (PREMIOS.length - 1) * 12) / 2;
+        PREMIOS.forEach(f => { try { doc.image(f, x, yb, { height: 24 }); } catch (e) {} x += 46; });
+        doc.font('Helvetica').fontSize(6.5).fillColor(GRIS).text('Página ' + (i + 1) + ' de ' + rango.count, L, yb + 30, { width: R - L, align: 'right', lineBreak: false });
+      }
+      doc.end();
+    });
+  }
+  async function pdfDe(d) {
+    if (d.pdf) { const f = path.join(carpeta(d.celebracion_id), d.pdf); if (fs.existsSync(f)) return fs.readFileSync(f); }
+    return pdfDoc(d, celeb(d.celebracion_id));
+  }
+  async function congelarPdf(d) {
+    const nombre = (d.numero || ('doc' + d.id)) + (d.tipo === 'factura' ? '' : '_firmado') + '.pdf';
+    const buf = await pdfDoc(d, celeb(d.celebracion_id));
+    fs.writeFileSync(path.join(carpeta(d.celebracion_id), nombre), buf);
+    db.prepare('UPDATE evento_docs SET pdf = ? WHERE id = ?').run(nombre, d.id);
+    return buf;
+  }
+
+  // ── Email ──
+  async function enviarEmail(d, asunto, html, pdf) {
+    const c = cfg();
+    if (!c.email_smtp || !c.email_pass) throw new Error('No hay correo configurado en la app (email de envío)');
+    const cl = celeb(d.celebracion_id), para = [cl.email].filter(Boolean);
+    if (!para.length) throw new Error('Esta ficha no tiene email de los clientes');
+    const t = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 587, secure: false, auth: { user: c.email_smtp, pass: c.email_pass } });
+    await t.sendMail({ from: `"Don Fadrique" <${c.email_smtp}>`, to: para.join(', '), bcc: c.email_smtp, subject: asunto, html,
+      attachments: pdf ? [{ filename: (TITULO[d.tipo] + ' ' + (d.numero || '')).trim().replace(/\s+/g, '_') + '.pdf', content: pdf, contentType: 'application/pdf' }] : [] });
+    return para;
+  }
+  const marcoEmail = (titulo, cuerpo) => `<!DOCTYPE html><html><body style="margin:0;padding:24px;background:#f7f4ee;font-family:Jost,'Helvetica Neue',Arial,sans-serif;color:#1a1a1a">
+<div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e6dfd3;border-radius:14px;overflow:hidden">
+<div style="padding:28px 24px 18px;text-align:center"><div style="font-size:22px;font-weight:300;letter-spacing:.34em">DON FADRIQUE</div><div style="font-size:9px;letter-spacing:.4em;color:#b8965a;margin-top:8px">${esc(titulo).toUpperCase()}</div></div>
+<div style="padding:4px 28px 26px;font-size:14px;line-height:1.6">${cuerpo}</div>
+<div style="padding:14px;text-align:center;font-size:11px;color:#9a9086;border-top:1px solid #f0ebe2">Don Fadrique · NIMANSANMON S.L. · Alba de Tormes (Salamanca) · 920 37 00 51</div></div></body></html>`;
+  const urlFirma = (req, d) => (req.headers['x-forwarded-proto'] || req.protocol) + '://' + req.get('host') + '/firma/' + d.token;
+
+  // ══ API (con sesión) ══
+  app.get('/api/portal/eventos/textos', (req, res) => res.json(textos()));
+  app.put('/api/portal/eventos/textos', (req, res) => {
+    const t = {}; ['presupuesto', 'fianza', 'factura'].forEach(k => { if (typeof (req.body || {})[k] === 'string') t[k] = req.body[k].slice(0, 8000); });
+    db.prepare("INSERT OR REPLACE INTO config (clave, valor) VALUES ('eventos_textos', ?)").run(JSON.stringify(Object.assign(json(cfg().eventos_textos, {}), t)));
+    res.json(textos());
+  });
+
+  // Todo lo de la carpeta de un evento, de una vez
+  app.get('/api/portal/eventos/:cid/carpeta', (req, res) => {
+    const c = conPermiso(req, res, req.params.cid); if (!c) return;
+    const notas = db.prepare('SELECT * FROM evento_notas WHERE celebracion_id = ? ORDER BY fecha DESC, id DESC').all(c.id);
+    const archivos = db.prepare('SELECT * FROM evento_archivos WHERE celebracion_id = ? ORDER BY id DESC').all(c.id);
+    const docs = db.prepare('SELECT * FROM evento_docs WHERE celebracion_id = ? ORDER BY tipo, id DESC').all(c.id).map(d => { d.datos = json(d.datos, {}); return sinFirma(d); });
+    res.json({ ficha: c.ficha, notas, archivos, docs, textos: textos() });
+  });
+  app.put('/api/portal/eventos/:cid/ficha', (req, res) => {
+    const c = conPermiso(req, res, req.params.cid); if (!c) return;
+    const ficha = (req.body || {}).ficha || {};
+    db.prepare("UPDATE celebraciones SET ficha = ?, updated_at = datetime('now') WHERE id = ?").run(JSON.stringify(ficha).slice(0, 60000), c.id);
+    // Se anota en el historial (como mucho una vez cada hora)
+    const ult = db.prepare("SELECT created_at FROM evento_notas WHERE celebracion_id = ? AND tipo = 'sistema' AND texto LIKE 'Hoja interna%' ORDER BY id DESC LIMIT 1").get(c.id);
+    if (!ult || Date.now() - new Date(ult.created_at.replace(' ', 'T') + 'Z').getTime() > 3600e3) nota(c.id, 'sistema', 'Hoja interna actualizada', req.usuario);
+    res.json({ ok: true });
+  });
+  // Historial: reuniones, llamadas y notas
+  app.post('/api/portal/eventos/:cid/notas', (req, res) => {
+    const c = conPermiso(req, res, req.params.cid); if (!c) return;
+    const d = req.body || {};
+    if (!String(d.texto || '').trim()) return res.status(400).json({ error: 'Escribe lo que se habló' });
+    const tipo = ['reunion', 'llamada', 'nota', 'visita', 'email'].includes(d.tipo) ? d.tipo : 'nota';
+    const fecha = /^\d{4}-\d{2}-\d{2}$/.test(d.fecha || '') ? d.fecha : new Date().toISOString().slice(0, 10);
+    const r = db.prepare('INSERT INTO evento_notas (celebracion_id, fecha, tipo, texto, autor) VALUES (?,?,?,?,?)').run(c.id, fecha, tipo, String(d.texto).slice(0, 20000), req.usuario || '');
+    res.json(db.prepare('SELECT * FROM evento_notas WHERE id = ?').get(r.lastInsertRowid));
+  });
+  app.put('/api/portal/eventos/notas/:id', (req, res) => {
+    const n = db.prepare('SELECT * FROM evento_notas WHERE id = ?').get(req.params.id); if (!n) return res.status(404).json({ error: 'No existe' });
+    if (!conPermiso(req, res, n.celebracion_id)) return;
+    if (n.tipo === 'sistema') return res.status(400).json({ error: 'Las anotaciones automáticas no se cambian' });
+    const d = req.body || {};
+    db.prepare("UPDATE evento_notas SET texto = ?, fecha = ?, tipo = ?, updated_at = datetime('now') WHERE id = ?").run(String(d.texto || n.texto).slice(0, 20000), /^\d{4}-\d{2}-\d{2}$/.test(d.fecha || '') ? d.fecha : n.fecha, d.tipo || n.tipo, n.id);
+    res.json({ ok: true });
+  });
+  app.delete('/api/portal/eventos/notas/:id', (req, res) => {
+    const n = db.prepare('SELECT * FROM evento_notas WHERE id = ?').get(req.params.id); if (!n) return res.status(404).json({ error: 'No existe' });
+    if (!conPermiso(req, res, n.celebracion_id)) return;
+    if (n.tipo === 'sistema') return res.status(400).json({ error: 'Las anotaciones automáticas no se borran' });
+    db.prepare('DELETE FROM evento_notas WHERE id = ?').run(n.id); res.json({ ok: true });
+  });
+  // Archivos de la carpeta
+  const EXT = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/heic': '.heic', 'application/msword': '.doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx', 'application/vnd.ms-excel': '.xls', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx', 'text/plain': '.txt' };
+  app.post('/api/portal/eventos/:cid/archivos', require('express').raw({ type: () => true, limit: '30mb' }), (req, res) => {
+    const c = conPermiso(req, res, req.params.cid); if (!c) return;
+    const mime = String(req.headers['content-type'] || '').split(';')[0];
+    if (!req.body || !req.body.length) return res.status(400).json({ error: 'Archivo vacío' });
+    const original = decodeURIComponent(String(req.headers['x-nombre'] || '')).replace(/[\\/]/g, ' ').slice(0, 180) || 'archivo';
+    const ext = EXT[mime] || (path.extname(original).toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 6) || '.bin');
+    const archivo = 'arch_' + Date.now().toString(36) + '_' + crypto.randomBytes(4).toString('hex') + ext;
+    fs.writeFileSync(path.join(carpeta(c.id), archivo), req.body);
+    const cat = ['presupuesto', 'fianza', 'factura', 'contrato', 'proveedor', 'foto', 'otro'].includes(req.headers['x-categoria']) ? req.headers['x-categoria'] : 'otro';
+    const r = db.prepare('INSERT INTO evento_archivos (celebracion_id, nombre, archivo, mime, tamano, categoria, subido_por) VALUES (?,?,?,?,?,?,?)').run(c.id, original, archivo, mime, req.body.length, cat, req.usuario || '');
+    nota(c.id, 'sistema', 'Archivo añadido: ' + original, req.usuario);
+    res.json(db.prepare('SELECT * FROM evento_archivos WHERE id = ?').get(r.lastInsertRowid));
+  });
+  app.get('/api/portal/eventos/archivos/:id', (req, res) => {
+    const a = db.prepare('SELECT * FROM evento_archivos WHERE id = ?').get(req.params.id); if (!a) return res.status(404).send('No existe');
+    if (!conPermiso(req, res, a.celebracion_id)) return;
+    const f = path.join(carpeta(a.celebracion_id), a.archivo); if (!fs.existsSync(f)) return res.status(404).send('Archivo no encontrado');
+    res.setHeader('Content-Type', a.mime || 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(a.nombre) + '"');
+    res.sendFile(f);
+  });
+  app.delete('/api/portal/eventos/archivos/:id', (req, res) => {
+    const a = db.prepare('SELECT * FROM evento_archivos WHERE id = ?').get(req.params.id); if (!a) return res.status(404).json({ error: 'No existe' });
+    if (!conPermiso(req, res, a.celebracion_id)) return;
+    try { fs.renameSync(path.join(carpeta(a.celebracion_id), a.archivo), path.join(carpeta(a.celebracion_id), 'borrado_' + a.archivo)); } catch (e) {}
+    db.prepare('DELETE FROM evento_archivos WHERE id = ?').run(a.id);
+    nota(a.celebracion_id, 'sistema', 'Archivo quitado: ' + a.nombre, req.usuario);
+    res.json({ ok: true });
+  });
+
+  // Presupuesto, reserva con fianza y factura
+  app.post('/api/portal/eventos/:cid/docs', (req, res) => {
+    const c = conPermiso(req, res, req.params.cid); if (!c) return;
+    const tipo = (req.body || {}).tipo;
+    if (!TITULO[tipo]) return res.status(400).json({ error: 'Tipo de documento no válido' });
+    if (tipo === 'factura' && db.prepare("SELECT id FROM evento_docs WHERE celebracion_id = ? AND tipo = 'factura' AND estado IN ('borrador','emitida')").get(c.id)) return res.status(400).json({ error: 'Ya hay una factura para este evento' });
+    const id = crearDoc(c, tipo, req.usuario);
+    nota(c.id, 'sistema', TITULO[tipo] + ' ' + (docDe(id).numero || '') + ' creado (borrador)', req.usuario);
+    res.json(sinFirma(docDe(id)));
+  });
+  app.get('/api/portal/eventos/docs/:id', (req, res) => {
+    const d = docDe(req.params.id); if (!d) return res.status(404).json({ error: 'No existe' });
+    if (!conPermiso(req, res, d.celebracion_id)) return;
+    res.json(sinFirma(d));
+  });
+  app.put('/api/portal/eventos/docs/:id', (req, res) => {
+    const d = docDe(req.params.id); if (!d) return res.status(404).json({ error: 'No existe' });
+    if (!conPermiso(req, res, d.celebracion_id)) return;
+    if (!['borrador', 'enviado'].includes(d.estado)) return res.status(400).json({ error: d.estado === 'firmado' ? 'Ya está firmado: haz una nueva versión para cambiarlo' : 'Este documento ya no se puede cambiar' });
+    const datos = (req.body || {}).datos || {};
+    datos.lineas = (Array.isArray(datos.lineas) ? datos.lineas : []).filter(l => String(l.concepto || '').trim()).map(l => ({ concepto: String(l.concepto).slice(0, 300), cantidad: Number(String(l.cantidad).replace(',', '.')) || 0, precio: Number(String(l.precio).replace(',', '.')) || 0, iva: [4, 10, 21].includes(Number(l.iva)) ? Number(l.iva) : 10 }));
+    guardarDatos(d.id, Object.assign({}, d.datos, datos));
+    if (d.estado === 'enviado') db.prepare("UPDATE evento_docs SET estado = 'borrador' WHERE id = ?").run(d.id); // cambió: hay que volver a mandarlo
+    res.json(sinFirma(docDe(d.id)));
+  });
+  app.delete('/api/portal/eventos/docs/:id', (req, res) => {
+    const d = docDe(req.params.id); if (!d) return res.status(404).json({ error: 'No existe' });
+    if (!conPermiso(req, res, d.celebracion_id)) return;
+    if (!['borrador', 'enviado'].includes(d.estado)) return res.status(400).json({ error: 'Los documentos firmados o emitidos no se borran' });
+    db.prepare('DELETE FROM evento_docs WHERE id = ?').run(d.id);
+    nota(d.celebracion_id, 'sistema', TITULO[d.tipo] + ' ' + (d.numero || '') + ' (borrador) eliminado', req.usuario);
+    res.json({ ok: true });
+  });
+  app.get('/api/portal/eventos/docs/:id/pdf', async (req, res) => {
+    const d = docDe(req.params.id); if (!d) return res.status(404).send('No existe');
+    if (!conPermiso(req, res, d.celebracion_id)) return;
+    try { const buf = await pdfDe(d); res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent((TITULO[d.tipo] + ' ' + (d.numero || 'borrador')).trim()) + '.pdf"'); res.send(buf); }
+    catch (e) { res.status(500).send('No se pudo generar el PDF: ' + e.message); }
+  });
+  // Preparar para firmar: genera el enlace (para firmar aquí o mandarlo por WhatsApp / email)
+  app.post('/api/portal/eventos/docs/:id/firmar', async (req, res) => {
+    const d = docDe(req.params.id); if (!d) return res.status(404).json({ error: 'No existe' });
+    if (!conPermiso(req, res, d.celebracion_id)) return;
+    if (d.tipo === 'factura') return res.status(400).json({ error: 'La factura no se firma' });
+    if (!['borrador', 'enviado'].includes(d.estado)) return res.status(400).json({ error: 'Este documento ya está firmado' });
+    if (d.tipo === 'presupuesto' && !(d.datos.lineas || []).length) return res.status(400).json({ error: 'El presupuesto no tiene líneas' });
+    const token = d.token || crypto.randomBytes(18).toString('base64url');
+    db.prepare("UPDATE evento_docs SET token = ?, estado = 'enviado', enviado_at = datetime('now') WHERE id = ?").run(token, d.id);
+    const d2 = docDe(d.id), url = urlFirma(req, d2), out = { ok: true, url, email: null };
+    if ((req.body || {}).email) {
+      try {
+        const pdf = await pdfDoc(d2, celeb(d2.celebracion_id));
+        const cl = celeb(d2.celebracion_id);
+        out.email = await enviarEmail(d2, TITULO[d2.tipo] + ' ' + d2.numero + ' · Don Fadrique', marcoEmail(TITULO[d2.tipo], `<p>Hola${cl.nombre1 ? ' ' + esc(cl.nombre1) : ''},</p><p>Te enviamos ${d2.tipo === 'fianza' ? 'el documento de <b>reserva de fecha y fianza</b>' : 'el <b>presupuesto ' + esc(d2.numero) + '</b>'} para ${esc(nombreCeleb(cl))} el ${esc(fechaLarga(cl.fecha))}.</p>
+<p>Puedes revisarlo y <b>firmarlo con el dedo desde el móvil</b> en este enlace:</p><p style="text-align:center;margin:22px 0"><a href="${url}" style="background:#1a1a1a;color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;display:inline-block">Revisar y firmar</a></p>
+<p style="font-size:12px;color:#8a8278">Te adjuntamos también el documento en PDF. Para cualquier duda, responde a este correo o llámanos.</p>`), pdf);
+        nota(d2.celebracion_id, 'sistema', TITULO[d2.tipo] + ' ' + d2.numero + ' enviado para firmar a ' + out.email.join(', '), req.usuario);
+      } catch (e) { out.aviso = 'No se pudo enviar el email: ' + e.message; }
+    }
+    res.json(out);
+  });
+  // Nueva versión de un presupuesto o reserva ya firmados (el firmado queda en el historial)
+  app.post('/api/portal/eventos/docs/:id/version', (req, res) => {
+    const d = docDe(req.params.id); if (!d) return res.status(404).json({ error: 'No existe' });
+    if (!conPermiso(req, res, d.celebracion_id)) return;
+    if (d.tipo === 'factura') return res.status(400).json({ error: 'Las facturas no tienen versiones' });
+    const r = db.prepare("INSERT INTO evento_docs (celebracion_id, tipo, numero, version, estado, datos, creado_por) VALUES (?, ?, ?, ?, 'borrador', '{}', ?)").run(d.celebracion_id, d.tipo, d.numero, (d.version || 1) + 1, req.usuario || '');
+    guardarDatos(r.lastInsertRowid, d.datos);
+    db.prepare('UPDATE evento_docs SET sustituido = 1 WHERE id = ?').run(d.id);
+    nota(d.celebracion_id, 'sistema', TITULO[d.tipo] + ' ' + (d.numero || '') + ': nueva versión ' + ((d.version || 1) + 1) + ' (la anterior queda guardada)', req.usuario);
+    res.json(sinFirma(docDe(r.lastInsertRowid)));
+  });
+  // Emitir la factura: recibe número y fecha y ya no se cambia
+  app.post('/api/portal/eventos/docs/:id/emitir', async (req, res) => {
+    const d = docDe(req.params.id); if (!d) return res.status(404).json({ error: 'No existe' });
+    const c = conPermiso(req, res, d.celebracion_id); if (!c) return;
+    if (d.tipo !== 'factura' || d.estado !== 'borrador') return res.status(400).json({ error: 'Solo se emite una factura en borrador' });
+    if (!(d.datos.lineas || []).length) return res.status(400).json({ error: 'La factura no tiene líneas' });
+    // Entregas a cuenta: fianza pagada y pagos anotados en la ficha
+    const ac = [];
+    if (c.fianza_pagada && c.fianza_importe) ac.push({ concepto: 'Fianza', fecha: c.fianza_fecha || '', importe: c.fianza_importe });
+    (c.pagos || []).forEach(p => { if (Number(p.importe)) ac.push({ concepto: p.concepto || 'Pago', fecha: p.fecha || '', importe: Number(p.importe) }); });
+    const datos = Object.assign({}, d.datos, { cliente: Object.assign({}, d.datos.cliente), a_cuenta: ac });
+    guardarDatos(d.id, datos);
+    const numero = siguienteNumero('factura'), hoy = new Date().toISOString().slice(0, 10);
+    const huella = crypto.createHash('sha256').update(JSON.stringify([numero, hoy, datos])).digest('hex');
+    db.prepare("UPDATE evento_docs SET numero = ?, estado = 'emitida', fecha_emision = ?, huella = ? WHERE id = ?").run(numero, hoy, huella, d.id);
+    await congelarPdf(docDe(d.id));
+    nota(c.id, 'sistema', 'Factura ' + numero + ' emitida por ' + eur(docDe(d.id).total), req.usuario);
+    res.json(sinFirma(docDe(d.id)));
+  });
+  app.post('/api/portal/eventos/docs/:id/enviar', async (req, res) => {
+    const d = docDe(req.params.id); if (!d) return res.status(404).json({ error: 'No existe' });
+    if (!conPermiso(req, res, d.celebracion_id)) return;
+    try {
+      const pdf = await pdfDe(d), cl = celeb(d.celebracion_id);
+      const para = await enviarEmail(d, TITULO[d.tipo] + ' ' + (d.numero || '') + ' · Don Fadrique', marcoEmail(TITULO[d.tipo], `<p>Hola${cl.nombre1 ? ' ' + esc(cl.nombre1) : ''},</p><p>Te adjuntamos ${d.tipo === 'factura' ? 'la <b>factura ' + esc(d.numero) + '</b>' : d.tipo === 'fianza' ? 'el documento de <b>reserva de fecha y fianza</b>' + (d.firma ? ' firmado' : '') : 'el <b>presupuesto ' + esc(d.numero) + '</b>' + (d.firma ? ' firmado' : '')} de ${esc(nombreCeleb(cl))} (${esc(fechaLarga(cl.fecha))}).</p><p>Un saludo,<br>Don Fadrique</p>`), pdf);
+      nota(d.celebracion_id, 'sistema', TITULO[d.tipo] + ' ' + (d.numero || '') + ' enviado por email a ' + para.join(', '), req.usuario);
+      res.json({ ok: true, para });
+    } catch (e) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ══ FIRMA PÚBLICA (enlace que se abre en el móvil del cliente o en el nuestro) ══
+  const porToken = t => { const d = db.prepare('SELECT * FROM evento_docs WHERE token = ?').get(String(t || '')); if (d) d.datos = json(d.datos, {}); return d; };
+  app.get('/api/publico/firma/:token', (req, res) => {
+    const d = porToken(req.params.token); if (!d || d.tipo === 'factura') return res.status(404).json({ error: 'Este enlace no existe o ha caducado' });
+    const t = totales(d.datos);
+    res.json({ tipo: d.tipo, titulo: TITULO[d.tipo], numero: d.numero, version: d.version, estado: d.estado, sustituido: !!d.sustituido, datos: d.datos, totales: t,
+      firmado_nombre: d.firmado_nombre, firmado_dni: d.firmado_dni, firmado_at: d.firmado_at, tiene_firma: !!d.firma });
+  });
+  const intentos = {};
+  app.post('/api/publico/firma/:token', require('express').json({ limit: '3mb' }), async (req, res) => {
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    const ahora = Date.now(); intentos[ip] = (intentos[ip] || []).filter(x => ahora - x < 600e3); if (intentos[ip].length > 20) return res.status(429).json({ error: 'Demasiados intentos' }); intentos[ip].push(ahora);
+    const d = porToken(req.params.token); if (!d || d.tipo === 'factura') return res.status(404).json({ error: 'Este enlace no existe o ha caducado' });
+    if (d.estado === 'firmado') return res.status(409).json({ error: 'Este documento ya está firmado' });
+    if (d.sustituido) return res.status(409).json({ error: 'Hay una versión más reciente de este documento: pide el enlace nuevo' });
+    const b = req.body || {}, firma = String(b.firma || '');
+    if (!b.acepto) return res.status(400).json({ error: 'Marca la casilla de conformidad' });
+    if (!String(b.nombre || '').trim()) return res.status(400).json({ error: 'Escribe tu nombre' });
+    if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(firma) || firma.length < 800 || firma.length > 2e6) return res.status(400).json({ error: 'Falta la firma' });
+    const huella = crypto.createHash('sha256').update(JSON.stringify([d.tipo, d.numero, d.version, d.datos])).digest('hex');
+    db.prepare("UPDATE evento_docs SET estado = 'firmado', firma = ?, firmado_nombre = ?, firmado_dni = ?, firmado_at = datetime('now'), firmado_ip = ?, firmado_ua = ?, huella = ? WHERE id = ? AND estado != 'firmado'")
+      .run(firma, String(b.nombre).trim().slice(0, 150), String(b.dni || '').trim().slice(0, 30), ip, String(req.headers['user-agent'] || '').slice(0, 300), huella, d.id);
+    const firmado = docDe(d.id), c = celeb(d.celebracion_id);
+    nota(c.id, 'sistema', TITULO[d.tipo] + ' ' + (d.numero || '') + ' FIRMADO por ' + firmado.firmado_nombre + (firmado.firmado_dni ? ' (DNI ' + firmado.firmado_dni + ')' : ''), 'firma');
+    let pdf = null;
+    try { pdf = await congelarPdf(firmado); } catch (e) { console.error('[eventos] pdf firmado:', e.message); }
+    // Presupuesto firmado → la factura se rellena sola
+    if (d.tipo === 'presupuesto') { try { if (facturaDesdePresupuesto(c, firmado, 'automático')) nota(c.id, 'sistema', 'Factura (borrador) actualizada con el presupuesto ' + d.numero + ' firmado', 'automático'); } catch (e) { console.error('[eventos] factura:', e.message); } }
+    // Copia por email a los clientes
+    let enviado = null;
+    if (pdf && c.email) {
+      try { enviado = await enviarEmail(firmado, TITULO[d.tipo] + ' ' + (d.numero || '') + ' firmado · Don Fadrique', marcoEmail(TITULO[d.tipo] + ' firmado', `<p>Hola ${esc(firmado.firmado_nombre)},</p><p>Gracias por firmar ${d.tipo === 'fianza' ? 'el documento de <b>reserva de fecha y fianza</b>' : 'el <b>presupuesto ' + esc(d.numero) + '</b>'}. Te adjuntamos la copia firmada en PDF.</p><p>Un saludo,<br>Don Fadrique</p>`), pdf);
+        nota(c.id, 'sistema', 'Copia firmada enviada por email a ' + enviado.join(', '), 'automático'); } catch (e) { console.error('[eventos] email firma:', e.message); }
+    }
+    res.json({ ok: true, enviado });
+  });
+  app.get('/firma/:token/pdf', async (req, res) => {
+    const d = porToken(req.params.token); if (!d || d.tipo === 'factura') return res.status(404).send('No existe');
+    try { const buf = await pdfDe(d); res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(TITULO[d.tipo] + ' ' + (d.numero || '')) + '.pdf"'); res.send(buf); }
+    catch (e) { res.status(500).send('Error'); }
+  });
+  app.get('/firma/:token', (req, res) => res.sendFile(path.join(__dirname, 'firma.html')));
+
+  // Para el panel y el archivo
+  return { totales, pdfDoc, carpeta };
+};
