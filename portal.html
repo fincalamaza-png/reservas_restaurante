@@ -210,7 +210,8 @@ details.card summary{list-style:none}
 .cal-d.conf{background:var(--verde-bg)}
 .cal-d .n{font-weight:600}
 .cal-d .pt{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}
-.cal-d .pt i{width:7px;height:7px;border-radius:50%;display:block}
+.cal-d .pt i{width:8px;height:8px;border-radius:50%;display:block;box-sizing:border-box}
+.cal-d.con-ev .n{color:#1a1a1a}
 .pt-a{background:var(--ambar)}.pt-v{background:var(--verde)}
 .leyenda{display:flex;gap:14px;font-size:12px;color:#666;margin-top:10px;flex-wrap:wrap}
 .leyenda i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
@@ -846,14 +847,14 @@ function vCelebraciones(app, tipo, sub){
   var vista = sub === 'lista' ? 'lista' : sub === 'calendario' ? 'cal' : 'carp';
   app.innerHTML = '<div class="vista">' + cabecera(titulo, { lista: 'Listado', cal: 'Calendario', carp: 'Reservas por fecha' }[vista], rutaTipo(tipo), accion) +
     '<div class="content">' + (vista === 'carp' ? '' : pest(vista)) + '<div id="cel-body"><div class="cargando">Cargando…</div></div></div></div>';
-  api('GET', '/api/portal/celebraciones?tipo=' + tipo).then(function(l){
+  api('GET', '/api/portal/celebraciones' + (vista === 'cal' ? '' : '?tipo=' + tipo)).then(function(l){
     CELEBS = l;
     if (vista === 'lista') pintarListaCeleb(tipo); else if (vista === 'cal') pintarCalendario(tipo); else pintarCarpetasCeleb(tipo);
   }).catch(fallo);
 }
 function itemCeleb(c){
   return '<div class="item celeb' + (c.estado === 'confirmada' ? ' conf' : c.estado === 'cancelada' ? ' canc' : '') + '" onclick="ir(\'#/celebracion/' + c.id + '\')">' +
-    '<div class="tx"><b>' + esc(nombreCeleb(c)) + '</b><small>' + esc(fechaCorta(c.fecha)) + (c.hora ? ' · ' + esc(c.hora) : '') + (c.lugar ? ' · ' + esc(c.lugar) : '') + '</small>' +
+    '<div class="tx"><b>' + TXT[c.tipo].ico + esc(nombreCeleb(c)) + '</b><small>' + esc(TXT[c.tipo].uno.charAt(0).toUpperCase() + TXT[c.tipo].uno.slice(1)) + ' · ' + esc(fechaCorta(c.fecha)) + (c.hora ? ' · ' + esc(c.hora) : '') + (c.lugar ? ' · ' + esc(c.lugar) : '') + '</small>' +
     '<small style="margin-top:4px">' + badgeEstado(c) + (c.adultos || c.ninos ? ' &nbsp;' + ((c.adultos || 0) + (c.ninos || 0)) + ' invitados' : '') + '</small></div>' +
     (c.tel ? '<div class="acciones"><a class="btn btn-s btn-sm" href="tel:' + attr(c.tel) + '" onclick="event.stopPropagation()">&#128222;</a></div>' : '') + '</div>';
 }
@@ -865,6 +866,7 @@ function pintarListaCeleb(tipo){
   $('cel-body').innerHTML = h;
 }
 var DIA_SEL = null;
+var COLOR_TIPO = { boda: { bg: '#f6d9de', pt: '#b8334f' }, comunion: { bg: '#d6e6f8', pt: '#2a68b3' }, evento: { bg: '#e6dcf3', pt: '#7348a8' } };
 function pintarCalendario(tipo){
   if (!CAL[tipo]) CAL[tipo] = hoyISO().slice(0, 7);
   var ym = CAL[tipo].split('-').map(Number), y = ym[0], m = ym[1];
@@ -882,15 +884,19 @@ function pintarCalendario(tipo){
     var iso = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     var ev = porDia[iso] || [];
     var cls = 'cal-d' + (d.getMonth() !== m - 1 ? ' otro' : '') + (iso === hoy ? ' hoy' : '') + (iso === DIA_SEL ? ' sel' : '');
-    if (ev.length) cls += ev.some(function(c){ return c.estado === 'confirmada'; }) ? ' conf' : ' bloq';
-    h += '<div class="' + cls + '" onclick="selDia(\'' + tipo + '\',\'' + iso + '\')"><span class="n">' + d.getDate() + '</span><span class="pt">' +
-      ev.map(function(c){ return '<i class="' + (c.estado === 'confirmada' ? 'pt-v' : 'pt-a') + '"></i>'; }).join('') + '</span></div>';
+    // Día con celebraciones: coloreado según el tipo (boda, comunión, evento); si hay varios tipos, a franjas
+    var tiposDia = []; ev.forEach(function(c){ if (tiposDia.indexOf(c.tipo) < 0) tiposDia.push(c.tipo); });
+    var fondo = tiposDia.length ? (tiposDia.length === 1 ? COLOR_TIPO[tiposDia[0]].bg : 'linear-gradient(135deg,' + tiposDia.map(function(t, k){ var a = k * 100 / tiposDia.length, b = (k + 1) * 100 / tiposDia.length; return COLOR_TIPO[t].bg + ' ' + a + '%,' + COLOR_TIPO[t].bg + ' ' + b + '%'; }).join(',') + ')') : '';
+    if (ev.length) cls += ' con-ev';
+    h += '<div class="' + cls + '"' + (fondo ? ' style="background:' + fondo + '"' : '') + ' onclick="selDia(\'' + tipo + '\',\'' + iso + '\')"><span class="n">' + d.getDate() + '</span><span class="pt">' +
+      ev.map(function(c){ var col = COLOR_TIPO[c.tipo].pt; return '<i style="' + (c.estado === 'confirmada' ? 'background:' + col : 'border:1.5px solid ' + col + ';background:#fff') + '" title="' + attr(TXT[c.tipo].uno + ' · ' + nombreCeleb(c)) + '"></i>'; }).join('') + '</span></div>';
   }
-  h += '</div><div class="leyenda"><span><i style="background:var(--ambar)"></i>Bloqueada (sin fianza)</span><span><i style="background:var(--verde)"></i>Confirmada (fianza pagada)</span></div></div>';
+  h += '</div><div class="leyenda">' + ['boda', 'comunion', 'evento'].map(function(t){ return '<span><i style="background:' + COLOR_TIPO[t].pt + '"></i>' + TXT[t].plural + '</span>'; }).join('') +
+    '<span><i style="background:#888"></i>Punto lleno: confirmada</span><span><i style="border:1.5px solid #888;background:#fff;box-sizing:border-box"></i>Punto hueco: bloqueada, sin fianza</span></div></div>';
   h += '<div id="dia-body"></div>';
   // Del mes visible
   var delMes = CELEBS.filter(function(c){ return c.fecha.slice(0, 7) === CAL[tipo]; });
-  h += '<div class="sec-tit">Este mes (' + delMes.filter(function(c){ return c.estado !== 'cancelada'; }).length + ')</div>' + (delMes.map(itemCeleb).join('') || '<div class="vacio">No hay ' + TXT[tipo].plural.toLowerCase() + ' este mes</div>');
+  h += '<div class="sec-tit">Este mes (' + delMes.filter(function(c){ return c.estado !== 'cancelada'; }).length + ')</div>' + (delMes.map(itemCeleb).join('') || '<div class="vacio">No hay bodas, comuniones ni eventos este mes</div>');
   $('cel-body').innerHTML = h;
   if (DIA_SEL) pintarDia(tipo);
 }
