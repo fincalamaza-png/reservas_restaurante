@@ -1259,6 +1259,30 @@
     "paginas": 20,
     "tamano": 9218453,
     "tema": "bodas 2027"
+   },
+   "menusgrupo": {
+    "actualizado": "2026-11-04T21:30:00Z",
+    "archivo": "Menus_grupo_25-50_Don_Fadrique.pdf",
+    "assetId": "3fffb20947b6f90f3b5827593b171595",
+    "envios": [],
+    "foto": "mesa",
+    "nombre": "Menús grupo · 25 a 50 €",
+    "orden": 3,
+    "paginas": 7,
+    "tamano": 617669,
+    "tema": "menús de grupo"
+   },
+   "menusgrupo2": {
+    "actualizado": "2026-11-04T21:30:00Z",
+    "archivo": "Menus_grupo_50-85_Don_Fadrique.pdf",
+    "assetId": "9ec2a57e57599278605187ee794bfc70",
+    "envios": [],
+    "foto": "guiso",
+    "nombre": "Menús grupo · 50 a 85 €",
+    "orden": 4,
+    "paginas": 10,
+    "tamano": 845281,
+    "tema": "menús de grupo"
    }
   },
   "ajustes": {
@@ -1284,6 +1308,20 @@
    "nombre": "Dossier_Bodas_2027_Don_Fadrique.pdf",
    "tipo": "application/pdf",
    "tamano": 9218453
+  },
+  {
+   "id": "3fffb20947b6f90f3b5827593b171595",
+   "file": "3fffb20947b6f90f3b5827593b171595.pdf",
+   "nombre": "Menus_grupo_25-50_Don_Fadrique.pdf",
+   "tipo": "application/pdf",
+   "tamano": 617669
+  },
+  {
+   "id": "9ec2a57e57599278605187ee794bfc70",
+   "file": "9ec2a57e57599278605187ee794bfc70.pdf",
+   "nombre": "Menus_grupo_50-85_Don_Fadrique.pdf",
+   "tipo": "application/pdf",
+   "tamano": 845281
   }
  ]
 }

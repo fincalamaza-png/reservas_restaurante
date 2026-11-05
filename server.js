@@ -2534,6 +2534,36 @@ try { fs.mkdirSync(BLOBS_DIR, { recursive: true }); } catch (e) { console.error(
   } catch (e) { console.error('sembrarEstudio:', e.message); }
 })();
 
+// Dossieres nuevos que se añaden al repositorio (estudio/seed) entran solos al arrancar,
+// una sola vez cada uno: si luego se borran desde la app, no vuelven a aparecer.
+(function dossieresNuevos() {
+  try {
+    const seedFile = path.join(ESTUDIO_DIR, 'seed', 'data.json');
+    if (!fs.existsSync(seedFile)) return;
+    db.exec('CREATE TABLE IF NOT EXISTS estudio_semilla (id TEXT PRIMARY KEY)');
+    const seed = JSON.parse(fs.readFileSync(seedFile, 'utf8'));
+    const ya = db.prepare('SELECT 1 FROM estudio_semilla WHERE id = ?');
+    const marcar = db.prepare('INSERT OR IGNORE INTO estudio_semilla (id) VALUES (?)');
+    const existe = db.prepare("SELECT 1 FROM estudio_docs WHERE col = 'dossieres' AND id = ?");
+    for (const [id, data] of Object.entries((seed.docs || {}).dossieres || {})) {
+      if (ya.get(id)) continue;
+      if (!existe.get(id)) {
+        const b = (seed.blobs || []).find(x => x.id === data.assetId);
+        if (b) {
+          const src = path.join(ESTUDIO_DIR, 'seed', 'blobs', b.file);
+          const dst = path.join(BLOBS_DIR, b.id);
+          if (!fs.existsSync(src)) continue;
+          if (!fs.existsSync(dst)) fs.copyFileSync(src, dst);
+          db.prepare('INSERT OR IGNORE INTO estudio_blobs (id, nombre, tipo, tamano) VALUES (?, ?, ?, ?)').run(b.id, b.nombre, b.tipo, b.tamano);
+        }
+        estudioGuardar('dossieres', id, data, 'sistema');
+        console.log('Estudio: dossier añadido', id);
+      }
+      marcar.run(id);
+    }
+  } catch (e) { console.error('dossieresNuevos:', e.message); }
+})();
+
 function estudioLista(col) {
   return db.prepare('SELECT id, data FROM estudio_docs WHERE col = ?').all(col).map(r => ({ id: r.id, ...JSON.parse(r.data) }));
 }

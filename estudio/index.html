@@ -790,7 +790,7 @@ function viewDossieres() {
   const ds = S.dossieres.slice().sort((a, b) => (a.orden || 0) - (b.orden || 0));
   const ss = S.dosSend;
   return `<div class="row" style="justify-content:space-between;margin-bottom:6px"><h2 style="font-size:32px">Dossieres</h2>${S.assets ? `<label class="btn" for="dosNew">Añadir dossier</label><input type="file" accept="application/pdf" id="dosNew" hidden>` : ''}</div>
-  <p class="muted" style="margin:0 0 12px">Los dossieres completos en PDF, listos para mandar a quien pida información de bodas o comuniones.</p>
+  <p class="muted" style="margin:0 0 12px">Los dossieres completos en PDF, listos para mandar a quien pida información de bodas, comuniones o grupos.</p>
   ${!S.loaded.dossieres && S.db ? '<div class="empty">Cargando dossieres…</div>' : ds.length ? `<div class="tpl-grid">${ds.map(d => `
     <article class="tpl"><div class="im" style="background-image:url('${fotoSrc(d.foto || 'jardin')}');height:150px"></div><div class="bd"><h4>${esc(d.nombre)}</h4>
     <div class="muted" style="font-size:13px">${esc(d.paginas ? d.paginas + ' páginas · ' : '')}${fmtMB(d.tamano)}${d.actualizado ? ' · actualizado ' + fmtShort(d.actualizado.slice(0, 10)) : ''}</div>
