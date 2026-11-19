@@ -1195,8 +1195,124 @@ function carMontaje(){
       '<div id="hs-' + s.k + '" style="' + (s.si && !d.si ? 'display:none' : '') + '">' + s.c.map(function(x){ return campoHoja(s.k, x); }).join('') + '</div></div>';
   }).join('');
   h += '<div class="btns"><button class="btn btn-p" onclick="guardarMontaje()">Guardar montaje</button><button class="btn btn-s" onclick="imprimirHoja()">&#128424; Imprimir para el equipo</button></div>';
+  h += htmlPlanoEv();
+  PLE_SEL = null; setTimeout(iniciarPlanoEv, 0);
   return h;
 }
+// ── PLANO DEL MONTAJE (bodas, comuniones y eventos): mesas, presidencial, pista, barra… colocadas arrastrando ──
+var PLE_TIPOS = {
+  redonda:      { t: 'Mesa redonda',  w: 7.5, h: 12,  p: 10, f: 'c' },
+  imperial:     { t: 'Mesa imperial', w: 16,  h: 6.5, p: 12, f: 'r' },
+  presidencial: { t: 'Presidencial',  w: 20,  h: 6,   p: 6,  f: 'r' },
+  pista:        { t: 'Pista de baile', w: 20, h: 24,  p: 0,  f: 'z' },
+  barra:        { t: 'Barra',         w: 18,  h: 5,   p: 0,  f: 'b' },
+  dj:           { t: 'DJ / Música',   w: 8,   h: 7,   p: 0,  f: 'b' },
+  photocall:    { t: 'Photocall',     w: 10,  h: 4,   p: 0,  f: 'b' },
+  tarta:        { t: 'Tarta',         w: 5,   h: 8,   p: 0,  f: 'c' },
+  ceremonia:    { t: 'Altar / Ceremonia', w: 12, h: 6, p: 0, f: 'b' }
+};
+var PLE_SEL = null;
+function planoEv() { FI.plano = FI.plano || { salon: '', el: [] }; FI.plano.el = FI.plano.el || []; return FI.plano; }
+function htmlPlanoEv() {
+  return '<div class="card" id="ple-card"><h3>&#128506; Plano del montaje</h3>' +
+    '<p class="muted" style="margin:0 0 8px">Añade las mesas y lo demás y colócalo arrastrando con el dedo. Toca un elemento para cambiarle el nombre, las plazas, girarlo o quitarlo.</p>' +
+    '<div class="field"><label>Salón o espacio</label><input id="ple-salon" placeholder="Cristalera, jardín, salón…" oninput="planoEv().salon=this.value;marcar()"></div>' +
+    '<div class="chips" style="margin:6px 0 8px">' + Object.keys(PLE_TIPOS).map(function(k){ return '<button class="chip" onclick="anadirPlanoEv(\'' + k + '\')">+ ' + PLE_TIPOS[k].t + '</button>'; }).join('') + '</div>' +
+    '<div id="ple-cuenta" class="muted" style="margin-bottom:6px"></div>' +
+    '<div id="ple-zona" style="position:relative;width:100%;aspect-ratio:16/10;background:#fbf8f2;border:2px solid #d8cfbf;border-radius:12px;overflow:hidden;touch-action:none;' +
+    'background-image:linear-gradient(rgba(0,0,0,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.04) 1px,transparent 1px);background-size:5% 8%"></div>' +
+    '<div id="ple-edit" style="margin-top:8px"></div>' +
+    '<div class="btns"><button class="btn btn-p" onclick="guardarMontaje()">Guardar plano</button><button class="btn btn-s" onclick="imprimirPlanoEv()">&#128424; Imprimir plano</button></div></div>';
+}
+function iniciarPlanoEv() {
+  var s = document.getElementById('ple-salon'); if (!s) return;
+  s.value = planoEv().salon || '';
+  pintarPlanoEv();
+}
+function figuraPlanoEv(e, i, sel) {
+  var T = PLE_TIPOS[e.t] || PLE_TIPOS.redonda, w = e.w || T.w, h = e.h || T.h;
+  if (e.g) { var x = w; w = h * 10 / 16; h = x * 16 / 10; }
+  var fondo = T.f === 'z' ? '#efe6d2' : T.f === 'b' ? '#3a3532' : '#fff', color = T.f === 'b' ? '#fff' : '#1c1a19';
+  var plz = T.p ? (e.p != null ? e.p : T.p) : 0;
+  return '<div class="ple-e" data-i="' + i + '" style="position:absolute;left:' + e.x + '%;top:' + e.y + '%;width:' + w + '%;height:' + h + '%;transform:translate(-50%,-50%);' +
+    'z-index:' + (T.f === 'z' ? 0 : 1) + ';background:' + fondo + ';color:' + color + ';border:2px ' + (T.f === 'z' ? 'dashed #b8965a' : 'solid ' + (sel ? '#b8965a' : '#7d7468')) + ';border-radius:' + (T.f === 'c' ? '50%' : '8px') + ';' +
+    (sel ? 'box-shadow:0 0 0 3px rgba(184,150,90,.45);' : '') + 'display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:700;line-height:1.1;cursor:grab;user-select:none;touch-action:none;overflow:hidden">' +
+    '<span>' + esc(e.n || T.t) + '</span>' + (plz ? '<span style="font-weight:500;font-size:10px;opacity:.75">' + plz + ' pax</span>' : '') + '</div>';
+}
+function pintarPlanoEv() {
+  var z = document.getElementById('ple-zona'); if (!z) return;
+  var pl = planoEv();
+  z.innerHTML = pl.el.map(function(e, i){ return figuraPlanoEv(e, i, i === PLE_SEL); }).join('') || '<div class="muted" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">Añade mesas con los botones de arriba</div>';
+  z.querySelectorAll('.ple-e').forEach(function(el){ el.addEventListener('pointerdown', function(ev){ moverPlanoEv(ev, el); }); });
+  var plazas = 0, mesas = 0;
+  pl.el.forEach(function(e){ var T = PLE_TIPOS[e.t]; if (T && T.p) { mesas++; plazas += (e.p != null ? e.p : T.p); } });
+  var inv = (Number(CAR.c.adultos) || 0) + (Number(CAR.c.ninos) || 0);
+  document.getElementById('ple-cuenta').innerHTML = '<b>' + mesas + '</b> mesas · <b>' + plazas + '</b> plazas' + (inv ? ' · ' + inv + ' invitados' + (plazas < inv ? ' <span style="color:#a33">(faltan ' + (inv - plazas) + ' plazas)</span>' : '') : '');
+  pintarEditPlanoEv();
+}
+function sigMesaEv() { var m = 0; planoEv().el.forEach(function(e){ var r = /^Mesa (\d+)$/.exec(e.n || ''); if (r) m = Math.max(m, +r[1]); }); return m + 1; }
+function anadirPlanoEv(t) {
+  var pl = planoEv(), T = PLE_TIPOS[t];
+  // Sitio libre: se prueba una cuadrícula y se coge el primer hueco sin nada cerca
+  var tam = function(e){ var X = PLE_TIPOS[e.t] || T, w = e.w || X.w, h = e.h || X.h; return e.g ? { w: h * 10 / 16, h: w * 16 / 10 } : { w: w, h: h }; };
+  var yo = tam({ t: t }), sitio = { x: 50, y: 50 }, hueco = false;
+  // la pista, la presidencial y la ceremonia se prueban primero en el centro / arriba
+  var pref = t === 'pista' ? [[50, 55]] : t === 'presidencial' || t === 'ceremonia' ? [[50, 10]] : [];
+  var cands = pref.slice();
+  for (var yy = 4 + yo.h / 2; yy <= 97 - yo.h / 2; yy += 3) for (var xx = 2 + yo.w / 2; xx <= 98 - yo.w / 2; xx += 2.5) cands.push([xx, yy]);
+  for (var k = 0; k < cands.length && !hueco; k++) {
+    var cx = cands[k][0], cy = cands[k][1];
+    if (!pl.el.some(function(e){ var o = tam(e); return Math.abs(e.x - cx) < (o.w + yo.w) / 2 + 1 && Math.abs(e.y - cy) < (o.h + yo.h) / 2 + 1.5; })) { sitio = { x: cx, y: cy }; hueco = true; }
+  }
+  pl.el.push({ t: t, x: sitio.x, y: sitio.y, n: (t === 'redonda' || t === 'imperial') ? 'Mesa ' + sigMesaEv() : T.t, p: T.p || undefined });
+  PLE_SEL = pl.el.length - 1; marcar(); pintarPlanoEv();
+}
+function moverPlanoEv(ev, el) {
+  ev.preventDefault();
+  var i = +el.getAttribute('data-i'), e = planoEv().el[i], z = document.getElementById('ple-zona'), r = z.getBoundingClientRect(), x0 = ev.clientX, y0 = ev.clientY, mov = false;
+  try { el.setPointerCapture(ev.pointerId); } catch (er) {}
+  function mover(m) {
+    if (Math.abs(m.clientX - x0) + Math.abs(m.clientY - y0) > 5) mov = true;
+    if (!mov) return;
+    e.x = Math.round(Math.max(2, Math.min(98, (m.clientX - r.left) / r.width * 100)) * 10) / 10;
+    e.y = Math.round(Math.max(3, Math.min(97, (m.clientY - r.top) / r.height * 100)) * 10) / 10;
+    el.style.left = e.x + '%'; el.style.top = e.y + '%';
+  }
+  function soltar() {
+    el.removeEventListener('pointermove', mover); el.removeEventListener('pointerup', soltar); el.removeEventListener('pointercancel', soltar);
+    if (mov) marcar();
+    PLE_SEL = i; pintarPlanoEv();
+  }
+  el.addEventListener('pointermove', mover); el.addEventListener('pointerup', soltar); el.addEventListener('pointercancel', soltar);
+}
+function pintarEditPlanoEv() {
+  var c = document.getElementById('ple-edit'); if (!c) return;
+  var e = PLE_SEL != null && planoEv().el[PLE_SEL]; if (!e) { c.innerHTML = ''; return; }
+  var T = PLE_TIPOS[e.t] || {};
+  c.innerHTML = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:#f6f1e7;border-radius:10px;padding:10px">' +
+    '<div class="field" style="flex:1;min-width:140px;margin:0"><label>Nombre</label><input value="' + esc(e.n || '') + '" oninput="planoEv().el[' + PLE_SEL + '].n=this.value;marcar();var d=document.querySelector(\'.ple-e[data-i=&quot;' + PLE_SEL + '&quot;] span\');if(d)d.textContent=this.value"></div>' +
+    (T.p ? '<div class="field" style="width:90px;margin:0"><label>Plazas</label><input type="number" min="1" max="40" value="' + (e.p != null ? e.p : T.p) + '" onchange="planoEv().el[' + PLE_SEL + '].p=parseInt(this.value)||0;marcar();pintarPlanoEv()"></div>' : '') +
+    (T.f !== 'c' ? '<button class="btn btn-s btn-sm" onclick="var x=planoEv().el[' + PLE_SEL + '];x.g=!x.g;marcar();pintarPlanoEv()">&#8635; Girar</button>' : '') +
+    '<button class="btn btn-s btn-sm" onclick="var x=JSON.parse(JSON.stringify(planoEv().el[' + PLE_SEL + ']));x.x=Math.min(95,x.x+6);x.y=Math.min(95,x.y+6);if(/^Mesa \\d+$/.test(x.n||\'\'))x.n=\'Mesa \'+sigMesaEv();planoEv().el.push(x);PLE_SEL=planoEv().el.length-1;marcar();pintarPlanoEv()">&#10697; Duplicar</button>' +
+    '<button class="btn btn-s btn-sm" style="color:#a33" onclick="planoEv().el.splice(' + PLE_SEL + ',1);PLE_SEL=null;marcar();pintarPlanoEv()">&#10005; Quitar</button>' +
+    '<button class="btn btn-s btn-sm" onclick="PLE_SEL=null;pintarPlanoEv()">Listo</button></div>';
+}
+function imprimirPlanoEv() {
+  var pl = planoEv(), c = CAR.c, guarda = PLE_SEL; PLE_SEL = null;
+  var figs = pl.el.map(function(e, i){ return figuraPlanoEv(e, i, false); }).join(''); PLE_SEL = guarda;
+  var lista = pl.el.filter(function(e){ return PLE_TIPOS[e.t] && PLE_TIPOS[e.t].p; }).map(function(e){ return '<tr><td>' + esc(e.n || '') + '</td><td>' + (e.p != null ? e.p : PLE_TIPOS[e.t].p) + '</td></tr>'; }).join('');
+  var html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Plano · ' + esc(nombreCeleb(c)) + '</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Helvetica,Arial,sans-serif;color:#1a1a1a;margin:0}' +
+    '.cab{display:flex;justify-content:space-between;border-bottom:1px solid #b8965a;padding-bottom:4px;margin-bottom:8px}.cab b{letter-spacing:.3em;font-weight:400}' +
+    '.z{position:relative;width:100%;aspect-ratio:16/10;border:1.5px solid #999;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    'table{border-collapse:collapse;margin-top:8px;font-size:10pt}td{border-bottom:1px solid #ddd;padding:2px 10px}</style></head><body>' +
+    '<div class="cab"><b>DON FADRIQUE</b><span>' + esc(nombreCeleb(c)) + (c.fecha ? ' · ' + esc(c.fecha) : '') + (pl.salon ? ' · ' + esc(pl.salon) : '') + '</span></div>' +
+    '<div class="z">' + figs + '</div>' + (lista ? '<table><tr><td><b>Mesa</b></td><td><b>Plazas</b></td></tr>' + lista + '</table>' : '') + '</body></html>';
+  var f = document.getElementById('ple-print'); if (f) f.remove();
+  f = document.createElement('iframe'); f.id = 'ple-print'; f.style.cssText = 'position:fixed;width:1px;height:1px;right:0;bottom:0;border:0;opacity:0';
+  document.body.appendChild(f); f.contentDocument.open(); f.contentDocument.write(html); f.contentDocument.close();
+  setTimeout(function(){ f.contentWindow.focus(); f.contentWindow.print(); }, 300);
+}
+
 // Si hay un presupuesto sin firmar, se le pasan el menú y el montaje nuevos
 function refrescarPresupuesto(){
   var pr = docActual('presupuesto');
